@@ -2,8 +2,8 @@
 Contributors: elemntor, KingYes, ariel.k, maor
 Tags: Activity Log, User Log, Audit Log, Security, Email Log,
 Requires at least: 6.0
-Requires PHP: 7.0
-Tested up to: 6.7
+Requires PHP: 7.4
+Tested up to: 6.8
 Stable tag: 2.11.2
 License: GPLv2 or later
 
@@ -20,7 +20,7 @@ Want to monitor and track your WordPress website activity? Find out exactly who 
 * If a plugin/theme was activated/deactivated
 * Suspicious admin activity
 
-It’s so essential; you’ll wonder how you ever managed your website without it. The plugin is also lightning fast and works behind the scenes, so it doesn\’t affect site and admin performance. For optimal performance, we built the plugin so that it runs on a separate table in the database.
+It’s so essential; you’ll wonder how you ever managed your website without it. The plugin is also lightning fast and works behind the scenes, so it doesn’t affect site and admin performance. For optimal performance, we built the plugin so that it runs on a separate table in the database.
 
 If you have more than a handful of users, keeping track of who did what is virtually impossible. This plugin solves that issue by tracking what actions were initiated by which users, and displaying it in an easy-to-use and easy-to-filter view on the dashboard of your WordPress site.
 
@@ -61,7 +61,7 @@ For each event recorded by the activity log, the following details are also logg
 * Source IP address from which the change originated
 * Affected object where the change occurred
 
-The plugin doesn\’t require any kind of setup; it works right out of the box (just another reason people love it)!
+The plugin doesn’t require any kind of setup; it works right out of the box (just another reason people love it)!
 
 <h3>Data Storage and Performance Optimization</h3>
 
@@ -395,8 +395,8 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Added filter by date - All Time, Today, Yesterday, Week, Month
 * Added Avatar to author
 * Added role for author
-* Added log for activeted theme
-* Re-order Culoumns
+* Added log for activated theme
+* Re-order Columns
 * Compatible up to 3.8.1
 * Settings page is now accessible directly from Activity Log's menu
 * Keep your log for any time your wants

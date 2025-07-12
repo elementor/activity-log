@@ -82,13 +82,6 @@ final class AAL_Main {
 	public $notifications;
 
 	/**
-	 * Load text domain
-	 */
-	public function load_textdomain() {
-		load_plugin_textdomain( 'aryo-activity-log' );
-	}
-
-	/**
 	 * Construct
 	 */
 	protected function __construct() {
@@ -105,8 +98,6 @@ final class AAL_Main {
 
 		// set up our DB name
 		$wpdb->activity_log = $wpdb->prefix . 'aryo_activity_log';
-
-		add_action( 'plugins_loaded', array( &$this, 'load_textdomain' ) );
 	}
 
 	/**
@@ -119,8 +110,11 @@ final class AAL_Main {
 	 * @return void
 	 */
 	public function __clone() {
-		// Cloning instances of the class is forbidden
-		_doing_it_wrong( __FUNCTION__, __( 'Cheatin&#8217; huh?', 'aryo-activity-log' ), '2.0.7' );
+		_doing_it_wrong(
+			__FUNCTION__,
+			sprintf( 'Cloning instances of the singleton "%s" class is forbidden.', get_class( $this ) ),
+			'1.0.0'
+		);
 	}
 
 	/**
@@ -130,8 +124,11 @@ final class AAL_Main {
 	 * @return void
 	 */
 	public function __wakeup() {
-		// Unserializing instances of the class is forbidden
-		_doing_it_wrong( __FUNCTION__, __( 'Cheatin&#8217; huh?', 'aryo-activity-log' ), '2.0.7' );
+		_doing_it_wrong(
+			__FUNCTION__,
+			sprintf( 'Unserializing instances of the singleton "%s" class is forbidden.', get_class( $this ) ),
+			'1.0.0'
+		);
 	}
 
 	/**

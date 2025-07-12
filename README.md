@@ -4,14 +4,14 @@
 **Contributors:** [elemntor](https://profiles.wordpress.org/elemntor), [KingYes](https://profiles.wordpress.org/KingYes), [ariel.k](https://profiles.wordpress.org/ariel.k), [maor](https://profiles.wordpress.org/maor)  
 **Tags:** Activity Log, User Log, Audit Log, Security, Email Log,  
 **Requires at least:** 6.0  
-**Requires PHP:** 7.0  
-**Tested up to:** 6.7  
+**Requires PHP:** 7.4  
+**Tested up to:** 6.8  
 **Stable tag:** 2.11.2  
 **License:** GPLv2 or later  
 
 This top rated Activity Log plugin helps you monitor & log all changes and actions on your WordPress site, so you can remain secure and organized.
 
-## Description ##
+## Description
 
 <strong>AN EASY TO USE & FULLY SUPPORTED WORDPRESS ACTIVITY LOG PLUGIN</strong><br />
 
@@ -89,28 +89,29 @@ We understand the importance of maintaining a clean and efficient database envir
 <h3>Contributions:</h3>
 <strong>Would you like to contribute to this plugin?</strong> You’re more than welcome to submit your pull requests on the [GitHub repo](https://github.com/pojome/activity-log). And, if you have any notes about the code, please open a ticket on the issue tracker.
 
-## Installation ##
+## Installation
 
 1. Upload plugin files to your plugins folder, or install using WordPress' built-in Add New Plugin installer
 1. Activate the plugin
 1. Go to the plugin page (under Dashboard > Activity Log)
 
-## Screenshots ##
+## Screenshots
 
 1. The log viewer page
 2. The settings page
 3. Screen Options
 
-## Frequently Asked Questions ##
+## Frequently Asked Questions
 
-### Requirements ###
-__Requires PHP 7.0__ for list management functionality.
+### Requirements
 
-### What is the plugin license? ###
+__Requires PHP 7.4__ for list management functionality.
+
+### What is the plugin license?
 
 This plugin is released under a GPL license.
 
-### Can I export logs? ###
+### Can I export logs?
 
 You can easily export logs with Activity Log. We also support exporting filtered results. Filter by the time the action took place, roles, users, options, action type, and more.
 
@@ -118,7 +119,7 @@ You can easily export logs with Activity Log. We also support exporting filtered
 
 You can report security bugs through the Patchstack Vulnerability Disclosure Program. The Patchstack team help validate, triage and handle any security vulnerabilities. [Report a security vulnerability](https://patchstack.com/database/vdp/aryo-activity-log).
 
-## Changelog ##
+## Changelog
 
 ### 2.11.2 - 2024-11-12 ###
 * Security Fix: Improved code security enforcement in theme/plugin file editor
