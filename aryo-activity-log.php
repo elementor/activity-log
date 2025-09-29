@@ -34,6 +34,7 @@ include( 'classes/class-aal-activity-log-list-table.php' );
 include( 'classes/class-aal-admin-ui.php' );
 include( 'classes/class-aal-settings.php' );
 include( 'classes/class-aal-api.php' );
+include( 'classes/class-aal-rest-api.php' );
 include( 'classes/class-aal-hooks.php' );
 include( 'classes/class-aal-notifications.php' );
 include( 'classes/class-aal-export.php' );
@@ -82,6 +83,11 @@ final class AAL_Main {
 	public $notifications;
 
 	/**
+	 * @var AAL_REST_API
+	 */
+	public $rest_api;
+
+	/**
 	 * Load text domain
 	 */
 	public function load_textdomain() {
@@ -98,6 +104,7 @@ final class AAL_Main {
 		$this->hooks         = new AAL_Hooks();
 		$this->settings      = new AAL_Settings();
 		$this->api           = new AAL_API();
+		$this->rest_api      = new AAL_REST_API();
 		$this->notifications = new AAL_Notifications();
 
 		new AAL_Export();
