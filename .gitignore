@@ -1,7 +1,9 @@
 .idea/
 node_modules/
+vendor/
 build/
 log/
 npm-debug.log
 .DS_Store
 coverage.xml
+.phpunit.result.cache

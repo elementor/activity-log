@@ -1,0 +1,53 @@
+name: PHP Lint
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: read
+
+jobs:
+  PHP-Code-Standards:
+    name: Lint PHP files
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip PHPCS]') || !contains(github.event.head_commit.message, '[skip CI]')"
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          coverage: none
+          tools: composer, cs2pr, phpcs
+        env:
+          fail-fast: 'true'
+
+      - name: Log debug information
+        run: |
+          export PATH=$HOME/.composer/vendor/bin:$PATH
+          php --version
+          phpcs -i
+          composer --version
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+
+      - name: Add error matcher
+        run: echo "::add-matcher::$(pwd)/.github/checkstyle-problem-matcher.json"
+
+      - name: Run style check (errors block, warnings annotate)
+        run: |
+          export PATH=$HOME/.composer/vendor/bin:$PATH
+          composer run lint -- --report=checkstyle
+          # Also show warnings as PR annotations (non-blocking)
+          vendor/bin/phpcs --standard=./ruleset.xml --extensions=php --error-severity=0 . --report=checkstyle || true

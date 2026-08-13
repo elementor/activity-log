@@ -1,0 +1,91 @@
+name: PHPUnit Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: read
+
+jobs:
+  phpunit:
+    name: PHPUnit Tests (PHP ${{ matrix.php-version }}, WP ${{ matrix.wp-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['7.4', '8.0', '8.1', '8.2', '8.3']
+        wp-version: ['6.0', 'latest']
+
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, mysql
+        env:
+          fail-fast: true
+
+      - name: Install Composer dependencies
+        uses: ramsey/composer-install@v2
+        with:
+          dependency-versions: locked
+
+      - name: Install SVN
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y subversion
+          which svn
+          svn --version
+
+      - name: Set up WordPress test environment
+        run: |
+          bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 ${{ matrix.wp-version }} || {
+            git clone --depth=1 --branch=trunk https://github.com/WordPress/wordpress-develop.git /tmp/wordpress-develop
+            mkdir -p /tmp/wordpress-tests-lib
+            cp -r /tmp/wordpress-develop/tests/phpunit/* /tmp/wordpress-tests-lib/
+
+            if [ "${{ matrix.wp-version }}" = "latest" ]; then
+              wget -O /tmp/wordpress.tar.gz https://wordpress.org/latest.tar.gz
+            else
+              wget -O /tmp/wordpress.tar.gz https://wordpress.org/wordpress-${{ matrix.wp-version }}.tar.gz
+            fi
+            tar -xzf /tmp/wordpress.tar.gz -C /tmp/
+          }
+
+          # Fix PHPMailer compatibility issue for WordPress 6.7+
+          if [ -f "/tmp/wordpress/wp-includes/class-phpmailer.php" ] && [ ! -f "/tmp/wordpress/wp-includes/class-wp-phpmailer.php" ]; then
+            cd /tmp/wordpress/wp-includes
+            ln -s "class-phpmailer.php" "class-wp-phpmailer.php"
+            echo "Created symlink for PHPMailer compatibility"
+          fi
+
+      - name: Run PHPUnit tests
+        run: composer test
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-tests-lib
+          WP_CORE_DIR: /tmp/wordpress
+          DB_NAME: wordpress_test
+          DB_USER: root
+          DB_PASSWORD: root
+          DB_HOST: 127.0.0.1
