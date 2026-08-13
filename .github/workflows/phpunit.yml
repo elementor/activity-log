@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         php-version: ['7.4', '8.0', '8.1', '8.2', '8.3']
-        wp-version: ['6.0', 'latest']
+        wp-version: ['6.8', '6.9', '7.0', '7.1']
 
     services:
       mysql:
