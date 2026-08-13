@@ -91,6 +91,14 @@ class AAL_Export {
 					$row[ $column ] = isset( $user->display_name ) ? $user->display_name : 'unknown';
 					break;
 
+				case 'source':
+					if ( AAL_Maintenance::is_schema_ready( '1.1' ) && ! empty( $item->request_source ) ) {
+						$row[ $column ] = self::format_source_label( $item->request_source );
+					} else {
+						$row[ $column ] = '';
+					}
+					break;
+
 				case 'ip':
 					$row[ $column ] = $item->hist_ip;
 					break;
@@ -174,5 +182,23 @@ class AAL_Export {
 	 */
 	public function increase_throughput( $records_per_page ) {
 		return PHP_INT_MAX;
+	}
+
+	private static function format_source_label( $raw ) {
+		$parsed = AAL_API::parse_request_source( $raw );
+		$parts = array();
+		$channel_labels = AAL_API::get_channel_labels();
+
+		if ( ! empty( $parsed['channel'] ) && isset( $channel_labels[ $parsed['channel'] ] ) ) {
+			$parts[] = $channel_labels[ $parsed['channel'] ];
+		}
+
+		if ( ! empty( $parsed['app_name'] ) ) {
+			$parts[] = 'App Password: ' . $parsed['app_name'];
+		} elseif ( false !== strpos( $raw, 'app:' ) ) {
+			$parts[] = 'App Password';
+		}
+
+		return implode( '; ', $parts );
 	}
 }

@@ -1,0 +1,172 @@
+/* Activity Log – Admin table styles */
+
+/* Menu icon (all admin screens) */
+#adminmenu #toplevel_page_activity-log-page div.wp-menu-image:before {
+	content: "\f321";
+}
+
+/* Page title icon */
+h1.aal-page-title:before {
+	content: "\f321";
+	font: 400 25px/1 dashicons !important;
+	speak: none;
+	color: #030303;
+	display: inline-block;
+	padding-inline-end: .2em;
+	vertical-align: -18%;
+}
+
+/* Export button */
+#record-actions-submit {
+	margin-top: 10px;
+}
+
+/* Post type badge (existing) */
+.aal-pt {
+	color: #ffffff;
+	padding: 1px 4px;
+	margin: 0 5px;
+	font-size: 1em;
+	border-radius: 3px;
+	background: #808080;
+	font-family: inherit;
+}
+
+/* Column widths */
+.toplevel_page_activity-log-page .manage-column {
+	width: auto;
+}
+
+.toplevel_page_activity-log-page .column-description {
+	width: 20%;
+}
+
+/* Reset filter link */
+#aal-reset-filter {
+	display: inline-block;
+	margin-inline-start: 5px;
+	line-height: 30px;
+	text-decoration: none;
+}
+
+#aal-reset-filter .dashicons {
+	font-size: 15px;
+	line-height: 30px;
+	text-decoration: none;
+}
+
+/* Promotion row */
+.aal-table-promotion-row td {
+	padding: 0;
+}
+
+.aal-table-promotion-inner {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 20px;
+	background: white;
+	border: 1px solid #4C43E5;
+	border-inline-start-width: 3px;
+}
+
+.aal-promotion-cta {
+	margin-inline-start: 5px;
+	font-weight: bold;
+	color: #4C43E5;
+}
+
+.aal-promotion-dismiss {
+	display: flex;
+	align-items: center;
+	transition: all .1s ease-in-out;
+	border: none;
+	margin: 0;
+	padding: 0;
+	background: none;
+	cursor: pointer;
+	color: #7c7c7c;
+}
+
+.aal-promotion-dismiss::before {
+	content: '\f335';
+	display: block;
+	font: normal 20px/20px dashicons;
+	height: 20px;
+	width: 20px;
+	text-align: center;
+}
+
+.aal-promotion-dismiss:hover {
+	color: #4C43E5;
+}
+
+/* Source badges in User column */
+.aal-source-badge {
+	display: inline-block;
+	font-size: 11px;
+	line-height: 1.4;
+	padding: 1px 6px;
+	margin-top: 4px;
+	margin-inline-end: 4px;
+	border-radius: 3px;
+	background: #f0f0f1;
+	color: #50575e;
+	text-decoration: none;
+	vertical-align: baseline;
+}
+
+.aal-source-badge:hover {
+	background: #dcdcde;
+	color: #2c3338;
+}
+
+.aal-source-badge--channel {
+	background: #e7f4f9;
+	color: #2271b1;
+}
+
+.aal-source-badge--channel:hover {
+	background: #d4eaf4;
+	color: #135e96;
+}
+
+.aal-source-badge--app {
+	background: #fcf0e6;
+	color: #9a4e0e;
+}
+
+.aal-source-badge--app:hover {
+	background: #f5e1cf;
+	color: #703800;
+}
+
+/* Source column */
+.toplevel_page_activity-log-page .column-source {
+	width: 12%;
+}
+
+/* Responsive */
+@media (max-width: 767px) {
+	.toplevel_page_activity-log-page .manage-column {
+		width: auto;
+	}
+
+	.toplevel_page_activity-log-page .column-date,
+	.toplevel_page_activity-log-page .column-author {
+		display: table-cell;
+		width: auto;
+	}
+
+	.toplevel_page_activity-log-page .column-ip,
+	.toplevel_page_activity-log-page .column-description,
+	.toplevel_page_activity-log-page .column-label,
+	.toplevel_page_activity-log-page .column-source {
+		display: none;
+	}
+
+	.toplevel_page_activity-log-page .column-author .avatar {
+		display: none;
+	}
+}

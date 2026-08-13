@@ -171,6 +171,7 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 			'date'        => __( 'Date', 'aryo-activity-log' ),
 			'author'      => __( 'User', 'aryo-activity-log' ),
 			'ip'          => __( 'IP', 'aryo-activity-log' ),
+			'source'      => __( 'Source', 'aryo-activity-log' ),
 			'type'        => __( 'Topic', 'aryo-activity-log' ),
 			'label'       => __( 'Context', 'aryo-activity-log' ),
 			'description' => __( 'Meta', 'aryo-activity-log' ),
@@ -180,6 +181,10 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
         if ( ! $this->is_store_ip_address() ) {
             unset( $columns['ip'] );
         }
+
+		if ( ! AAL_Maintenance::is_schema_ready( '1.1' ) ) {
+			unset( $columns['source'] );
+		}
 
 		return $columns;
 	}
@@ -373,6 +378,42 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 			'<span class="aal-author-name">%s</span>',
 			__( 'N/A', 'aryo-activity-log' )
 		);
+	}
+
+	public function column_source( $item ) {
+		$raw = isset( $item->request_source ) ? $item->request_source : '';
+		if ( '' === $raw ) {
+			return '';
+		}
+
+		$parsed = AAL_API::parse_request_source( $raw );
+		$badges = '';
+		$channel_labels = AAL_API::get_channel_labels();
+
+		if ( ! empty( $parsed['channel'] ) && isset( $channel_labels[ $parsed['channel'] ] ) ) {
+			$badges .= sprintf(
+				'<a href="%s" class="aal-source-badge aal-source-badge--channel">%s</a>',
+				esc_url( $this->get_filtered_link( 'sourceshow', $parsed['channel'] ) ),
+				esc_html( $channel_labels[ $parsed['channel'] ] )
+			);
+		}
+
+		if ( ! empty( $parsed['app_name'] ) ) {
+			$badges .= sprintf(
+				'<a href="%s" class="aal-source-badge aal-source-badge--app" title="%s">%s</a>',
+				esc_url( $this->get_filtered_link( 'sourceshow', 'app_password' ) ),
+				esc_attr__( 'Application Password', 'aryo-activity-log' ),
+				esc_html( $parsed['app_name'] )
+			);
+		} elseif ( '' === $parsed['app_name'] && false !== strpos( $raw, 'app:' ) ) {
+			$badges .= sprintf(
+				'<a href="%s" class="aal-source-badge aal-source-badge--app">%s</a>',
+				esc_url( $this->get_filtered_link( 'sourceshow', 'app_password' ) ),
+				esc_html__( 'App Password', 'aryo-activity-log' )
+			);
+		}
+
+		return $badges;
 	}
 
 	public function column_type( $item ) {
@@ -677,12 +718,35 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 			echo '</select>';
 		}
 
+		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
+			if ( ! isset( $_REQUEST['sourceshow'] ) ) {
+				$_REQUEST['sourceshow'] = '';
+			}
+
+			$source_options = array(
+				''             => __( 'All Sources', 'aryo-activity-log' ),
+				'abilities'    => __( 'WP Abilities', 'aryo-activity-log' ),
+				'rest'         => __( 'REST API', 'aryo-activity-log' ),
+				'xmlrpc'       => __( 'XML-RPC', 'aryo-activity-log' ),
+				'cli'          => __( 'WP-CLI', 'aryo-activity-log' ),
+				'cron'         => __( 'WP-Cron', 'aryo-activity-log' ),
+				'app_password' => __( 'App Password', 'aryo-activity-log' ),
+			);
+
+			echo '<select name="sourceshow" id="hs-filter-sourceshow">';
+			foreach ( $source_options as $key => $label ) {
+				printf( '<option value="%s"%s>%s</option>', esc_attr( $key ), selected( $_REQUEST['sourceshow'], $key, false ), esc_html( $label ) );
+			}
+			echo '</select>';
+		}
+
 		$filters = array(
 			'dateshow',
 			'capshow',
 			'usershow',
 			'typeshow',
 			'showaction',
+			'sourceshow',
 		);
 
 		foreach ( $filters as $filter ) {
@@ -727,6 +791,19 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 
 		if ( isset( $_REQUEST['capshow'] ) && '' !== $_REQUEST['capshow'] ) {
 			$where .= $wpdb->prepare( ' AND `user_caps` = %s', strtolower( sanitize_text_field( $_REQUEST['capshow'] ) ) );
+		}
+
+		if ( AAL_Maintenance::is_schema_ready( '1.1' ) && ! empty( $_REQUEST['sourceshow'] ) ) {
+			$source_filter = sanitize_key( $_REQUEST['sourceshow'] );
+			if ( 'app_password' === $source_filter ) {
+				$where .= " AND (`request_source` LIKE '%|app:%' OR `request_source` LIKE 'app:%')";
+			} else {
+				$where .= $wpdb->prepare(
+					" AND (`request_source` = %s OR `request_source` LIKE %s)",
+					$source_filter,
+					$wpdb->esc_like( $source_filter ) . '|%'
+				);
+			}
 		}
 
 		if ( isset( $_REQUEST['dateshow'] ) ) {

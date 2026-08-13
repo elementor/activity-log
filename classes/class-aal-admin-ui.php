@@ -31,108 +31,6 @@ class AAL_Admin_Ui {
 			</form>
 		</div>
 
-		<?php // TODO: move to a separate file. ?>
-		<style>
-			#record-actions-submit {
-				margin-top: 10px;
-			}
-			.aal-pt {
-				color: #ffffff;
-				padding: 1px 4px;
-				margin: 0 5px;
-				font-size: 1em;
-				border-radius: 3px;
-				background: #808080;
-				font-family: inherit;
-			}
-			.toplevel_page_activity-log-page .manage-column {
-				width: auto;
-			}
-			.toplevel_page_activity-log-page .column-description {
-				width: 20%;
-			}
-			#adminmenu #toplevel_page_activity-log-page div.wp-menu-image:before {
-				content: "\f321";
-			}
-			h1.aal-page-title:before {
-				content: "\f321";
-				font: 400 25px/1 dashicons !important;
-				speak: none; /* accessibility thing. do not read the contents of this icon */
-				color: #030303;
-				display: inline-block;
-				padding-inline-end: .2em;
-				vertical-align: -18%;
-			}
-			#aal-reset-filter {
-				display: inline-block;
-				margin-inline-start: 5px;
-				line-height: 30px;
-				text-decoration: none;
-			}
-			#aal-reset-filter .dashicons {
-				font-size: 15px;
-				line-height: 30px;
-				text-decoration: none;
-			}
-			.aal-table-promotion-row td {
-				padding: 0;
-			}
-			.aal-table-promotion-inner {
-				position: relative;
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-				padding: 20px;
-				background: white;
-				border: 1px solid #4C43E5;
-				border-inline-start-width: 3px;
-			}
-			.aal-promotion-cta {
-				margin-inline-start: 5px;
-				font-weight: bold;
-				color: #4C43E5;
-			}
-			.aal-promotion-dismiss {
-				display: flex;
-				align-items: center;
-				transition: all .1s ease-in-out;
-				border: none;
-				margin: 0;
-				padding: 0;
-				background: none;
-				cursor: pointer;
-				color: #7c7c7c;
-			}
-			.aal-promotion-dismiss::before {
-				content: '\f335';
-				display: block;
-				font: normal 20px/20px dashicons;
-				height: 20px;
-				width: 20px;
-				text-align: center;
-			}
-			.aal-promotion-dismiss:hover {
-				color: #4C43E5;
-			}
-			@media (max-width: 767px) {
-				.toplevel_page_activity-log-page .manage-column {
-					width: auto;
-				}
-				.toplevel_page_activity-log-page .column-date,
-				.toplevel_page_activity-log-page .column-author {
-					display: table-cell;
-					width: auto;
-				}
-				.toplevel_page_activity-log-page .column-ip,
-				.toplevel_page_activity-log-page .column-description,
-				.toplevel_page_activity-log-page .column-label {
-					display: none;
-				}
-				.toplevel_page_activity-log-page .column-author .avatar {
-					display: none;
-				}
-			}
-		</style>
 		<script>
 			jQuery( document ).ready( ( $ ) => {
 				const aalPromotionWrapSelector = 'tr.aal-table-promotion-row';
@@ -164,19 +62,18 @@ class AAL_Admin_Ui {
 		<?php
 	}
 
-	public function admin_header() {
-		// TODO: move to a separate file.
-		?><style>
-			#adminmenu #toplevel_page_activity-log-page div.wp-menu-image:before {
-				content: "\f321";
-			}
-		</style>
-	<?php
+	public function enqueue_admin_styles() {
+		wp_enqueue_style(
+			'aal-activity-log-table',
+			plugins_url( 'assets/css/activity-log-table.css', ACTIVITY_LOG__FILE__ ),
+			array(),
+			'2.12.0'
+		);
 	}
 
 	public function __construct() {
 		add_action( 'admin_menu', array( &$this, 'create_admin_menu' ), 20 );
-		add_action( 'admin_head', array( &$this, 'admin_header' ) );
+		add_action( 'admin_enqueue_scripts', array( &$this, 'enqueue_admin_styles' ) );
 
 		add_action( 'wp_ajax_aal_promotion_dismiss', [ $this, 'ajax_aal_promotion_dismiss' ] );
 		add_action( 'wp_ajax_aal_promotion_campaign', [ $this, 'ajax_aal_promotion_campaign' ] );
