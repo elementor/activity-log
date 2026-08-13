@@ -2,9 +2,7 @@ name: PHPUnit Tests
 
 on:
   push:
-    branches: [ master ]
   pull_request:
-    branches: [ master ]
 
 concurrency:
   cancel-in-progress: true
