@@ -7,3 +7,5 @@ npm-debug.log
 .DS_Store
 coverage.xml
 .phpunit.result.cache
+aryo-activity-log/
+aryo-activity-log.*.zip
