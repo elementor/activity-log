@@ -101,27 +101,38 @@ class AAL_Maintenance {
 
 		$table = $wpdb->prefix . 'aryo_activity_log';
 
-		$column_exists = $wpdb->get_results(
+		$has_request_source = $wpdb->get_results(
 			$wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", 'request_source' )
 		);
+		$has_meta = $wpdb->get_results(
+			$wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", 'meta' )
+		);
 
-		if ( ! empty( $column_exists ) ) {
+		if ( ! empty( $has_request_source ) && ! empty( $has_meta ) ) {
 			return true;
 		}
 
-		$wpdb->query( "ALTER TABLE `{$table}` ADD `request_source` varchar(191) NOT NULL DEFAULT '' AFTER `hist_time`" );
+		$additions = array();
 
-		$verify = $wpdb->get_results(
-			$wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", 'request_source' )
-		);
-
-		if ( empty( $verify ) ) {
-			return false;
+		if ( empty( $has_request_source ) ) {
+			$additions[] = "ADD `request_source` varchar(191) NOT NULL DEFAULT '' AFTER `hist_time`";
+			$additions[] = "ADD KEY `request_source` (`request_source`)";
 		}
 
-		$wpdb->query( "ALTER TABLE `{$table}` ADD KEY `request_source` (`request_source`)" );
+		if ( empty( $has_meta ) ) {
+			$additions[] = "ADD `meta` TEXT DEFAULT NULL AFTER `request_source`";
+		}
 
-		return true;
+		$wpdb->query( "ALTER TABLE `{$table}` " . implode( ', ', $additions ) );
+
+		$verify_source = $wpdb->get_results(
+			$wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", 'request_source' )
+		);
+		$verify_meta = $wpdb->get_results(
+			$wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", 'meta' )
+		);
+
+		return ! empty( $verify_source ) && ! empty( $verify_meta );
 	}
 
 	/**
@@ -180,6 +191,7 @@ class AAL_Maintenance {
 					  `hist_ip` varchar(55) NOT NULL DEFAULT '127.0.0.1',
 					  `hist_time` int(11) NOT NULL DEFAULT '0',
 					  `request_source` varchar(191) NOT NULL DEFAULT '',
+					  `meta` TEXT DEFAULT NULL,
 					  PRIMARY KEY (`histid`),
 						KEY `user_caps` (`user_caps`),
 						KEY `action` (`action`),
