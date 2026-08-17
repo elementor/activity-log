@@ -19,7 +19,7 @@ class AAL_Test_Base extends WP_UnitTestCase {
 			$wpdb->prepare(
 				'SELECT * FROM `' . $wpdb->activity_log . '`
 					WHERE `action` = \'updated\'
-						AND `object_type` = \'Post\'
+						AND `object_type` = \'Posts\'
 						AND `object_subtype` = %s
 						AND `object_name` = %s
 				',
@@ -46,7 +46,7 @@ class AAL_Test_Base extends WP_UnitTestCase {
 			$wpdb->prepare(
 				'SELECT * FROM `' . $wpdb->activity_log . '`
 					WHERE `action` = \'trashed\'
-						AND `object_type` = \'Post\'
+						AND `object_type` = \'Posts\'
 						AND `object_subtype` = %s
 						AND `object_name` = %s
 				',
@@ -73,7 +73,7 @@ class AAL_Test_Base extends WP_UnitTestCase {
 			$wpdb->prepare(
 				'SELECT * FROM `' . $wpdb->activity_log . '`
 					WHERE `action` = \'deleted\'
-						AND `object_type` = \'Post\'
+						AND `object_type` = \'Posts\'
 						AND `object_subtype` = %s
 						AND `object_name` = %s
 				',
