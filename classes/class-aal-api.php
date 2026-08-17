@@ -7,7 +7,7 @@ class AAL_API {
 
 	private $app_password_authenticated = false;
 	private $app_password_name = '';
-	private $ability_depth = 0;
+	private $ability_stack = array();
 
 	public function __construct() {
 		add_action( 'admin_init', [ $this, 'maybe_add_schedule_delete_old_items' ] );
@@ -26,11 +26,11 @@ class AAL_API {
 	}
 
 	public function on_ability_start( $ability_name, $input ) {
-		$this->ability_depth++;
+		$this->ability_stack[] = $ability_name;
 	}
 
 	public function on_ability_end( $ability_name, $input, $result ) {
-		$this->ability_depth = max( 0, $this->ability_depth - 1 );
+		array_pop( $this->ability_stack );
 	}
 
 	public function maybe_add_schedule_delete_old_items() {
@@ -173,6 +173,13 @@ class AAL_API {
 			$row['request_source'] = $request_source;
 			$formats[] = '%s';
 			$args['request_source'] = $request_source;
+
+			$meta = $this->build_meta();
+			if ( null !== $meta ) {
+				$row['meta'] = wp_json_encode( $meta );
+				$formats[] = '%s';
+				$args['meta'] = $meta;
+			}
 		}
 
 		$wpdb->insert( $wpdb->activity_log, $row, $formats );
@@ -238,7 +245,7 @@ class AAL_API {
 	}
 
 	private function resolve_channel() {
-		if ( $this->ability_depth > 0 ) {
+		if ( ! empty( $this->ability_stack ) ) {
 			return 'abilities';
 		}
 
@@ -289,6 +296,19 @@ class AAL_API {
 		}
 
 		return 'app:' . $name;
+	}
+
+	/**
+	 * @return array|null Meta array or null if nothing to store.
+	 */
+	private function build_meta() {
+		$meta = array();
+
+		if ( ! empty( $this->ability_stack ) ) {
+			$meta['ability'] = end( $this->ability_stack );
+		}
+
+		return empty( $meta ) ? null : $meta;
 	}
 
 	/**
