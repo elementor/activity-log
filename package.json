@@ -5,7 +5,7 @@
 	"description": "Activity Log",
 	"version": "2.11.2",
 	"scripts": {
-		"clean": "rimraf $npm_package_name",
+		"clean": "rimraf $npm_package_name $npm_package_name.*.zip",
 		"package": "npm run clean && rsync -av --exclude-from=.build-rsync-exclude . $npm_package_name",
 		"package:zip": "npm run package && zip -r $npm_package_name.$npm_package_version.zip ./$npm_package_name/*"
 	},

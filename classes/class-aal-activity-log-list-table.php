@@ -170,7 +170,6 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 		$columns = array(
 			'date'        => __( 'Date', 'aryo-activity-log' ),
 			'author'      => __( 'User', 'aryo-activity-log' ),
-			'ip'          => __( 'IP', 'aryo-activity-log' ),
 			'source'      => __( 'Source', 'aryo-activity-log' ),
 			'type'        => __( 'Topic', 'aryo-activity-log' ),
 			'label'       => __( 'Context', 'aryo-activity-log' ),
@@ -178,24 +177,11 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 			'action'      => __( 'Action', 'aryo-activity-log' ),
 		);
 
-        if ( ! $this->is_store_ip_address() ) {
-            unset( $columns['ip'] );
-        }
-
-		if ( ! AAL_Maintenance::is_schema_ready( '1.1' ) ) {
-			unset( $columns['source'] );
-		}
-
 		return $columns;
 	}
 
-    private function is_store_ip_address() {
-        return 'no-collect-ip' !== AAL_Main::instance()->settings->get_option( 'log_visitor_ip_source' );
-    }
-
 	public function get_sortable_columns() {
 		return array(
-			'ip' => array( 'hist_ip', 'desc' ),
 			'date' => array( 'hist_time', true ),
 		);
 	}
@@ -344,10 +330,6 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 				$return .= '<br />' . date_i18n( get_option( 'time_format' ), $item->hist_time );
 				break;
 
-			case 'ip':
-				$return = '<a href="' . $this->get_filtered_link( 'filter_ip', $item->hist_ip ) . '">' . esc_html( $item->hist_ip ) . '</a>';
-				break;
-
 			default:
 				if ( isset( $item->$column_name ) ) {
 					$return = $item->$column_name;
@@ -381,39 +363,46 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 	}
 
 	public function column_source( $item ) {
+		$parts = array();
+
 		$raw = isset( $item->request_source ) ? $item->request_source : '';
-		if ( '' === $raw ) {
-			return '';
+		if ( '' !== $raw ) {
+			$parsed = AAL_API::parse_request_source( $raw );
+			$channel_labels = AAL_API::get_channel_labels();
+
+			if ( ! empty( $parsed['channel'] ) && isset( $channel_labels[ $parsed['channel'] ] ) ) {
+				$parts[] = sprintf(
+					'<a href="%s" class="aal-source-badge aal-source-badge--channel">%s</a>',
+					esc_url( $this->get_filtered_link( 'sourceshow', $parsed['channel'] ) ),
+					esc_html( $channel_labels[ $parsed['channel'] ] )
+				);
+			}
+
+			if ( ! empty( $parsed['app_name'] ) ) {
+				$parts[] = sprintf(
+					'<a href="%s" class="aal-source-badge aal-source-badge--app" title="%s">%s</a>',
+					esc_url( $this->get_filtered_link( 'sourceshow', 'app_password' ) ),
+					esc_attr__( 'Application Password', 'aryo-activity-log' ),
+					esc_html( $parsed['app_name'] )
+				);
+			} elseif ( '' === $parsed['app_name'] && false !== strpos( $raw, 'app:' ) ) {
+				$parts[] = sprintf(
+					'<a href="%s" class="aal-source-badge aal-source-badge--app">%s</a>',
+					esc_url( $this->get_filtered_link( 'sourceshow', 'app_password' ) ),
+					esc_html__( 'App Password', 'aryo-activity-log' )
+				);
+			}
 		}
 
-		$parsed = AAL_API::parse_request_source( $raw );
-		$badges = '';
-		$channel_labels = AAL_API::get_channel_labels();
-
-		if ( ! empty( $parsed['channel'] ) && isset( $channel_labels[ $parsed['channel'] ] ) ) {
-			$badges .= sprintf(
-				'<a href="%s" class="aal-source-badge aal-source-badge--channel">%s</a>',
-				esc_url( $this->get_filtered_link( 'sourceshow', $parsed['channel'] ) ),
-				esc_html( $channel_labels[ $parsed['channel'] ] )
+		if ( ! empty( $item->hist_ip ) && 'no-collect-ip' !== AAL_Main::instance()->settings->get_option( 'log_visitor_ip_source' ) ) {
+			$parts[] = sprintf(
+				'<a href="%s">%s</a>',
+				esc_url( $this->get_filtered_link( 'filter_ip', $item->hist_ip ) ),
+				esc_html( $item->hist_ip )
 			);
 		}
 
-		if ( ! empty( $parsed['app_name'] ) ) {
-			$badges .= sprintf(
-				'<a href="%s" class="aal-source-badge aal-source-badge--app" title="%s">%s</a>',
-				esc_url( $this->get_filtered_link( 'sourceshow', 'app_password' ) ),
-				esc_attr__( 'Application Password', 'aryo-activity-log' ),
-				esc_html( $parsed['app_name'] )
-			);
-		} elseif ( '' === $parsed['app_name'] && false !== strpos( $raw, 'app:' ) ) {
-			$badges .= sprintf(
-				'<a href="%s" class="aal-source-badge aal-source-badge--app">%s</a>',
-				esc_url( $this->get_filtered_link( 'sourceshow', 'app_password' ) ),
-				esc_html__( 'App Password', 'aryo-activity-log' )
-			);
-		}
-
-		return $badges;
+		return implode( '<br>', $parts );
 	}
 
 	public function column_type( $item ) {
@@ -838,7 +827,7 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 
 		if ( isset( $_REQUEST['s'] ) ) {
 			$search_esc_like = '%' . $wpdb->esc_like( $_REQUEST['s'] ) . '%';
-			$where .= $wpdb->prepare( ' AND (`object_name` LIKE %s OR `object_subtype` LIKE %s)', $search_esc_like, $search_esc_like );
+			$where .= $wpdb->prepare( ' AND (`object_name` LIKE %s OR `object_subtype` LIKE %s OR `hist_ip` LIKE %s)', $search_esc_like, $search_esc_like, $search_esc_like );
 		}
 
 		$offset = ( $this->get_pagenum() - 1 ) * $items_per_page;
