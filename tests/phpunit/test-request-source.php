@@ -158,32 +158,31 @@ class AAL_Test_Request_Source extends WP_UnitTestCase {
 		$this->assertSame( '', $row->request_source );
 	}
 
-	public function test_ability_depth_tracking() {
+	public function test_ability_stack_tracking() {
 		$api = AAL_Main::instance()->api;
 
 		$api->on_ability_start( 'test/ability', array() );
 		$api->on_ability_start( 'test/nested', array() );
 		$api->on_ability_end( 'test/nested', array(), 'result' );
 
-		// Still inside first ability
 		$reflection = new ReflectionClass( $api );
-		$prop = $reflection->getProperty( 'ability_depth' );
+		$prop = $reflection->getProperty( 'ability_stack' );
 		$prop->setAccessible( true );
-		$this->assertSame( 1, $prop->getValue( $api ) );
+		$this->assertCount( 1, $prop->getValue( $api ) );
 
 		$api->on_ability_end( 'test/ability', array(), 'result' );
-		$this->assertSame( 0, $prop->getValue( $api ) );
+		$this->assertCount( 0, $prop->getValue( $api ) );
 	}
 
-	public function test_ability_depth_does_not_go_negative() {
+	public function test_ability_stack_does_not_go_negative() {
 		$api = AAL_Main::instance()->api;
 
 		$api->on_ability_end( 'test/extra', array(), 'result' );
 
 		$reflection = new ReflectionClass( $api );
-		$prop = $reflection->getProperty( 'ability_depth' );
+		$prop = $reflection->getProperty( 'ability_stack' );
 		$prop->setAccessible( true );
-		$this->assertSame( 0, $prop->getValue( $api ) );
+		$this->assertCount( 0, $prop->getValue( $api ) );
 	}
 
 	public function test_resolve_channel_cron() {
