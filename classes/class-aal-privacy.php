@@ -82,6 +82,17 @@ class AAL_Privacy {
 				),
 			);
 
+			if ( AAL_Maintenance::is_schema_ready( '1.1' ) && ! empty( $item->request_source ) ) {
+				$parsed = AAL_API::parse_request_source( $item->request_source );
+				$source_value = $this->format_source_for_privacy( $parsed, $item->request_source );
+				if ( '' !== $source_value ) {
+					$data[] = array(
+						'name'  => __( 'Source', 'aryo-activity-log' ),
+						'value' => $source_value,
+					);
+				}
+			}
+
 			$export_items[] = array(
 				'group_id' => $group_id,
 				'group_label' => $group_label,
@@ -113,5 +124,22 @@ class AAL_Privacy {
 
 	public function get_action_label( $action ) {
 		return ucwords( str_replace( '_', ' ', __( $action, 'aryo-activity-log' ) ) );
+	}
+
+	private function format_source_for_privacy( $parsed, $raw ) {
+		$parts = array();
+		$channel_labels = AAL_API::get_channel_labels();
+
+		if ( ! empty( $parsed['channel'] ) && isset( $channel_labels[ $parsed['channel'] ] ) ) {
+			$parts[] = $channel_labels[ $parsed['channel'] ];
+		}
+
+		if ( ! empty( $parsed['app_name'] ) ) {
+			$parts[] = __( 'App Password', 'aryo-activity-log' ) . ': ' . $parsed['app_name'];
+		} elseif ( false !== strpos( $raw, 'app:' ) ) {
+			$parts[] = __( 'App Password', 'aryo-activity-log' );
+		}
+
+		return implode( '; ', $parts );
 	}
 }

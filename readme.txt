@@ -4,31 +4,32 @@ Tags: Activity Log, User Log, Audit Log, Security, Email Log,
 Requires at least: 6.0
 Requires PHP: 7.0
 Tested up to: 7.0
-Stable tag: 2.11.2
+Stable tag: 2.12.0
 License: GPLv2 or later
 
-This top rated Activity Log plugin helps you monitor & log all changes and actions on your WordPress site, so you can remain secure and organized.
+Monitor every change on your WordPress site — who did what, when, and where it came from — for a complete audit trail and stronger security.
 
 == Description ==
 
-<strong>AN EASY TO USE & FULLY SUPPORTED WORDPRESS ACTIVITY LOG PLUGIN</strong><br />
+<strong>An easy to use, fully supported WordPress activity log plugin.</strong><br />
 
-Want to monitor and track your WordPress website activity? Find out exactly who does what on your WordPress website with this plugin. Activity Log is like an airplane’s black box that logs every action in the WordPress admin, and lets you see exactly what users are doing on your WordPress website.
+Want to know exactly who does what on your WordPress site? Activity Log works like an airplane’s black box: it quietly records every action in the WordPress admin — and now every request made through the REST API, WP-CLI, WP-Cron, and more — so you always know:
 
 * If someone is trying to hack your site
 * When a post was published, and who published it
 * If a plugin/theme was activated/deactivated
 * Suspicious admin activity
 
-It’s so essential; you’ll wonder how you ever managed your website without it. The plugin is also lightning fast and works behind the scenes, so it doesn\’t affect site and admin performance. For optimal performance, we built the plugin so that it runs on a separate table in the database.
+The plugin doesn’t require any setup; it works right out of the box, runs on its own database table so it doesn’t slow down your site, and stays out of your way until you need it.
 
-If you have more than a handful of users, keeping track of who did what is virtually impossible. This plugin solves that issue by tracking what actions were initiated by which users, and displaying it in an easy-to-use and easy-to-filter view on the dashboard of your WordPress site.
+<h3>What's New</h3>
 
-<strong>New! Introducing Email Logging</strong> - Capture all emails sent from your WordPress site for streamlined debugging and compliance. Gain better visibility into email communication, aiding both troubleshooting and record-keeping. This is particularly beneficial for WooCommerce stores, allowing you to easily track sent emails alongside other critical site events.
+* <strong>Request Source Tracking</strong> - See exactly where each change came from: the WP Admin, the REST API, WP-CLI, WP-Cron, XML-RPC, or the WP Abilities API, including which Application Password was used. Filter the log by source to quickly spot automated or API-driven changes alongside manual admin activity.
+* <strong>Email Logging</strong> - Capture all emails sent from your WordPress site for streamlined debugging and compliance. Especially useful for WooCommerce stores tracking order emails alongside other site events.
+* <strong>Export to CSV</strong> - Export your Activity Log data to CSV, or build support for your own format with our dedicated Export API.
+* <strong>Data Privacy and GDPR Compliance</strong> - Export or erase log data directly through the WordPress Privacy Tools.
 
-<strong>Export to CSV</strong> - Export your Activity Log data records to CSV. Developers can easily add support for custom data formats with our new dedicated Export API.
-
-<strong>Data Privacy and GDPR Compliance</strong> - We provide the tools to help you adhere to GDPR compliance standards, including Export/Erasure of data via the WordPress Privacy Tools.
+If you have more than a handful of users, keeping track of who did what by hand is virtually impossible. Activity Log solves that by tying every action back to the user who triggered it, in an easy-to-filter view right on your WordPress dashboard.
 
 <h3>With the Activity Log you can record:</h3>
 
@@ -49,6 +50,7 @@ If you have more than a handful of users, keeping track of who did what is virtu
 * <strong>Setting</strong> - General, writing, reading, discussion, media, permalinks
 * <strong>Options</strong> - Extended custom settings for 3rd party plugins
 * <strong>Export</strong> - Exported activity log file
+* <strong>Request Source</strong> - WP Admin, REST API, WP-CLI, WP-Cron, XML-RPC, WP Abilities, and Application Password name when used
 * <strong>WooCommerce</strong> - Track products, orders, customers, and more
 * <strong>bbPress</strong> - Forums, topics, replies, taxonomies, and other actions
 * <strong>Emails sent from WordPress site</strong> - Sending successful, sending failed
@@ -59,19 +61,16 @@ For each event recorded by the activity log, the following details are also logg
 * Date and time of occurrence
 * User and user role responsible for the change
 * Source IP address from which the change originated
+* Request source — WP Admin, REST API, WP-CLI, WP-Cron, XML-RPC, or WP Abilities
 * Affected object where the change occurred
 
-The plugin doesn\’t require any kind of setup; it works right out of the box (just another reason people love it)!
+<h3>Data Storage and Performance</h3>
 
-<h3>Data Storage and Performance Optimization</h3>
-
-In order to ensure optimal performance of your website, all events and logs data are stored in a dedicated custom table within your WordPress database. This approach significantly reduces the impact on your website's performance, ensuring seamless operation even during peak traffic periods.
+All events are stored in a dedicated custom database table, keeping the impact on your site's performance to a minimum — even under heavy traffic.
 
 <h3>Uninstall Clean-up</h3>
 
-We understand the importance of maintaining a clean and efficient database environment. That's why our plugin features an uninstall hook that seamlessly removes all traces of its presence from your website when uninstalling. This meticulous clean-up process ensures that your database remains lean and clutter-free even after our plugin has been removed.
-
-<strong>With our optimized data storage, thorough logging, and meticulous clean-up process, you can trust that our plugin will enhance the functionality and security of your WordPress site without compromising its performance.</strong>
+Uninstalling the plugin removes all of its data from your database automatically, leaving nothing behind.
 
 
 <h3>What users have to say</h3>
@@ -79,9 +78,7 @@ We understand the importance of maintaining a clean and efficient database envir
 * <em>“Its tools, particularly for data privacy and GDPR compliance, make it indispensable for websites operating within European Union boundaries or dealing with EU citizens’ data”</em> - [HubSpot.com](https://blog.hubspot.com/website/8-best-plugins-tracking-user-activity-wordpress)
 * <em>“If you’re after a competent WP security audit log plugin with all the basic features you need, Activity Log is it!”</em> - [WPAstra.com](https://wpastra.com/plugins/wordpress-activity-log-plugins/)
 * <em>“Activity Log features a remarkably straightforward dashboard interface, providing administrators with an at-a-glance understanding of site interactions”</em> - [Malcare.com](https://www.malcare.com/blog/wordpress-activity-log/)
-* <em>“Best 10 Free WordPress Plugins of the Month: Keeping tabs on what your users do with their access to the Dashboard”</em> - [ManageWP.com](https://managewp.com/best-free-wordpress-plugins-july-2014)
 * <em>“Thanks to this step, we’ve discovered that our site was undergoing a brute force attack”</em> - [Artdriver.com](https://artdriver.com/blog/wordpress-site-hacked-solution-time)
-* <em>“Optimized code – The plugin itself is blazing fast and leaves almost no footprint on the server”</em> - [FreshTechTips.com](https://www.freshtechtips.com/2014/01/best-audit-trail-plugins-for-wordpress.html)
 * <em>“Activity Log lets you track a huge range of activities. Overall, very easy to use and setup”</em> - [ElegantThemes.com](https://www.elegantthemes.com/blog/tips-tricks/5-best-ways-to-monitor-wordpress-activity-via-the-dashboard)
 
 <h3>Contributions:</h3>
@@ -108,15 +105,48 @@ __Requires PHP 7.0__ for list management functionality.
 
 This plugin is released under a GPL license.
 
+= Will this slow down my site? =
+
+No. Activity Log stores every event in its own dedicated database table instead of mixing into WordPress' core tables, so logging has minimal impact on your site's performance, even under heavy traffic.
+
 = Can I export logs? =
 
 You can easily export logs with Activity Log. We also support exporting filtered results. Filter by the time the action took place, roles, users, options, action type, and more.
+
+= Can I see where a change came from? =
+
+Yes. Each log entry records its Request Source, so you can tell whether a change was made through the WP Admin, the REST API, WP-CLI, WP-Cron, XML-RPC, or the WP Abilities API. If the request was authenticated with an Application Password, its name is shown as well. Use the Source filter on the log screen to narrow results down to a specific channel.
+
+= How long are logs kept? =
+
+By default, logs are kept for 30 days, but you can set your own retention period from the settings page — from a few days to forever. Failed login attempts and email logs can also be kept or discarded independently.
+
+= Do I have to collect visitor IP addresses? =
+
+No. If you'd rather not store IP addresses for privacy reasons, set the "Visitor IP Detected" option to "Do not collect IP" and the IP column will be hidden going forward.
+
+= Does this work on WordPress Multisite? =
+
+Yes. Activity Log fully supports Multisite, logging activity per site and cleaning up its data correctly when a site is removed from the network.
+
+= Does this work with WooCommerce? =
+
+Yes. Products, orders, and customers are tracked right out of the box, since Activity Log records changes across any post type and taxonomy — no extra setup needed.
+
+= Can I exclude specific events from being logged? =
+
+Yes. Beyond the built-in toggles for failed logins and email logs, developers can hook into the `aal_skip_insert_log` filter to skip logging for any event on demand.
 
 = How can I report security bugs? =
 
 You can report security bugs through the Patchstack Vulnerability Disclosure Program. The Patchstack team help validate, triage and handle any security vulnerabilities. [Report a security vulnerability](https://patchstack.com/database/vdp/aryo-activity-log).
 
 == Changelog ==
+
+= 2.12.0 - 2026-08-19 =
+* New: Request Source Tracking - See where each change came from (REST API, WP-CLI, WP-Cron, XML-RPC, WP Abilities, Application Passwords)
+* New: Added metadata storage for extensible log context
+* Tweak: Large activity log tables no longer auto-run database migrations — an admin notice with a manual upgrade button is shown instead
 
 = 2.11.2 - 2024-11-12 =
 * Security Fix: Improved code security enforcement in theme/plugin file editor
