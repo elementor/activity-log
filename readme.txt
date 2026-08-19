@@ -2,7 +2,7 @@
 Contributors: elemntor, KingYes, ariel.k
 Tags: Activity Log, User Log, Audit Log, Security, Email Log,
 Requires at least: 6.0
-Requires PHP: 7.0
+Requires PHP: 7.4
 Tested up to: 7.1
 Stable tag: 2.12.0
 License: GPLv2 or later
@@ -99,7 +99,7 @@ Uninstalling the plugin removes all of its data from your database automatically
 == Frequently Asked Questions ==
 
 = Requirements =
-__Requires PHP 7.0__ for list management functionality.
+__Requires PHP 7.4__ for list management functionality.
 
 = What is the plugin license? =
 
@@ -425,8 +425,8 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Added filter by date - All Time, Today, Yesterday, Week, Month
 * Added Avatar to author
 * Added role for author
-* Added log for activeted theme
-* Re-order Culoumns
+* Added log for activated theme
+* Re-order Columns
 * Compatible up to 3.8.1
 * Settings page is now accessible directly from Activity Log's menu
 * Keep your log for any time your wants
