@@ -1,0 +1,23 @@
+{
+  "name": "elementor/activity-log",
+  "description": "Activity Log - Monitor & Record User Changes on WordPress",
+  "require-dev": {
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+    "squizlabs/php_codesniffer": "^3.6",
+    "wp-coding-standards/wpcs": "^3.0",
+    "phpunit/phpunit": "^9.0",
+    "yoast/phpunit-polyfills": "^3.0"
+  },
+  "scripts": {
+    "lint": "phpcs --standard=./ruleset.xml --extensions=php --warning-severity=0 .",
+    "test": "phpunit"
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    },
+    "platform": {
+      "php": "7.4.33"
+    }
+  }
+}
