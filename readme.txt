@@ -143,6 +143,9 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
+= 2.13.0 =
+* Removed: Email notifications feature (hidden since 2.5 for sites that never enabled it) has been fully removed
+
 = 2.12.0 - 2026-08-19 =
 * New: Request Source Tracking - See where each change came from (REST API, WP-CLI, WP-Cron, XML-RPC, WP Abilities, Application Passwords)
 * New: Added metadata storage for extensible log context
