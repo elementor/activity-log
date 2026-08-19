@@ -1,9 +1,9 @@
 === Activity Log - Monitor & Record User Changes ===
-Contributors: elemntor, KingYes, ariel.k, maor
+Contributors: elemntor, KingYes, ariel.k
 Tags: Activity Log, User Log, Audit Log, Security, Email Log,
 Requires at least: 6.0
 Requires PHP: 7.0
-Tested up to: 7.0
+Tested up to: 7.1
 Stable tag: 2.12.0
 License: GPLv2 or later
 
