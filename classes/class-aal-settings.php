@@ -60,6 +60,13 @@ class AAL_Settings {
 	 */
 	public function scripts_n_styles() {
 		wp_enqueue_script( 'aal-settings', plugins_url( 'assets/js/settings.js', ACTIVITY_LOG__FILE__ ), array( 'jquery' ) );
+		wp_localize_script(
+			'aal-settings',
+			'aalSettings',
+			array(
+				'nonce' => wp_create_nonce( 'aal_get_properties' ),
+			)
+		);
 		wp_enqueue_style( 'aal-settings', plugins_url( 'assets/css/settings.css', ACTIVITY_LOG__FILE__ ) );
 	}
 
@@ -351,11 +358,13 @@ class AAL_Settings {
 	}
 
 	public function ajax_aal_get_properties() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! check_ajax_referer( 'aal_get_properties', '_nonce', false ) || ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error();
 		}
 
-		$action_category = isset( $_REQUEST['action_category'] ) ? $_REQUEST['action_category'] : false;
+		$action_category = isset( $_REQUEST['action_category'] )
+			? sanitize_key( wp_unslash( $_REQUEST['action_category'] ) )
+			: '';
 
 		$options = AAL_Main::instance()->notifications->get_settings_dropdown_values( $action_category );
 
