@@ -112,10 +112,12 @@ final class AAL_Main {
 	public function __clone() {
 		_doing_it_wrong(
 			__FUNCTION__,
-			sprintf(
-				/* translators: %s: Class name. */
-				__( 'Cloning instances of the singleton "%s" class is forbidden.', 'aryo-activity-log' ),
-				get_class( $this )
+			esc_html(
+				sprintf(
+					/* translators: %s: Class name. */
+					__( 'Cloning instances of the singleton "%s" class is forbidden.', 'aryo-activity-log' ),
+					get_class( $this )
+				)
 			),
 			'2.0.7'
 		);
@@ -130,10 +132,12 @@ final class AAL_Main {
 	public function __wakeup() {
 		_doing_it_wrong(
 			__FUNCTION__,
-			sprintf(
-				/* translators: %s: Class name. */
-				__( 'Unserializing instances of the singleton "%s" class is forbidden.', 'aryo-activity-log' ),
-				get_class( $this )
+			esc_html(
+				sprintf(
+					/* translators: %s: Class name. */
+					__( 'Unserializing instances of the singleton "%s" class is forbidden.', 'aryo-activity-log' ),
+					get_class( $this )
+				)
 			),
 			'2.0.7'
 		);

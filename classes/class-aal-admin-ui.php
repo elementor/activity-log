@@ -23,7 +23,7 @@ class AAL_Admin_Ui {
 		$this->get_list_table()->prepare_items();
 		?>
 		<div class="wrap">
-			<h1 class="aal-page-title"><?php _ex( 'Activity Log', 'Page and Menu Title', 'aryo-activity-log' ); ?></h1>
+			<h1 class="aal-page-title"><?php echo esc_html_x( 'Activity Log', 'Page and Menu Title', 'aryo-activity-log' ); ?></h1>
 
 			<form id="activity-filter" method="get">
 				<input type="hidden" name="page" value="<?php echo esc_attr( $_REQUEST['page'] ); ?>" />

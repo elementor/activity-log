@@ -222,9 +222,9 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 		printf(
 			'<tr class="aal-table-promotion-row" data-promotion-id="%s" data-nonce="%s"><td colspan="' . count( $this->get_columns() ) . '"><div class="aal-table-promotion-inner">%s%s</div></td></tr>',
 			esc_attr( $object_type ),
-			wp_create_nonce( 'aal_promotion' ),
-			$promotion_html,
-			$dismiss_button
+			esc_attr( wp_create_nonce( 'aal_promotion' ) ),
+			$promotion_html, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in get_promotion_html_by_object_type().
+			$dismiss_button // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- label escaped with esc_html__().
 		);
 	}
 
@@ -558,9 +558,21 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 				<?php
 				// Is result filtering enabled?
 				if ( array_key_exists( 'aal-filter', $_GET ) ) {
-					echo sprintf( esc_html__( 'Export filtered records as %s', 'aryo-activity-log' ), $action_title );
+					echo esc_html(
+						sprintf(
+							/* translators: %s: export format title. */
+							__( 'Export filtered records as %s', 'aryo-activity-log' ),
+							$action_title
+						)
+					);
 				} else {
-					echo sprintf( esc_html__( 'Export as %s', 'aryo-activity-log' ), $action_title );
+					echo esc_html(
+						sprintf(
+							/* translators: %s: export format title. */
+							__( 'Export as %s', 'aryo-activity-log' ),
+							$action_title
+						)
+					);
 				}
 				?>
 			</button>
@@ -614,7 +626,7 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 			);
 			echo '<select name="dateshow" id="hs-filter-date">';
 			foreach ( $date_options as $key => $value )
-				printf( '<option value="%s"%s>%s</option>', $key, selected( $_REQUEST['dateshow'], $key, false ), $value );
+				printf( '<option value="%s"%s>%s</option>', esc_attr( $key ), selected( $_REQUEST['dateshow'], $key, false ), esc_html( $value ) );
 			echo '</select>';
 
 			submit_button( __( 'Filter', 'aryo-activity-log' ), 'button', 'aal-filter', false, array( 'id' => 'activity-query-submit' ) );
@@ -631,9 +643,9 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 
 			if ( ! empty( $output ) ) {
 				echo '<select name="capshow" id="hs-filter-capshow">';
-				printf( '<option value="">%s</option>', __( 'All Roles', 'aryo-activity-log' ) );
+				printf( '<option value="">%s</option>', esc_html__( 'All Roles', 'aryo-activity-log' ) );
 				foreach ( $output as $key => $value ) {
-					printf( '<option value="%s"%s>%s</option>', $key, selected( $_REQUEST['capshow'], $key, false ), $value );
+					printf( '<option value="%s"%s>%s</option>', esc_attr( $key ), selected( $_REQUEST['capshow'], $key, false ), esc_html( $value ) );
 				}
 				echo '</select>';
 			}
@@ -655,9 +667,9 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 
 			if ( ! empty( $output ) ) {
 				echo '<select name="usershow" id="hs-filter-usershow">';
-				printf( '<option value="">%s</option>', __( 'All Users', 'aryo-activity-log' ) );
+				printf( '<option value="">%s</option>', esc_html__( 'All Users', 'aryo-activity-log' ) );
 				foreach ( $output as $key => $value ) {
-					printf( '<option value="%s"%s>%s</option>', $key, selected( $_REQUEST['usershow'], $key, false ), $value );
+					printf( '<option value="%s"%s>%s</option>', esc_attr( $key ), selected( $_REQUEST['usershow'], $key, false ), esc_html( $value ) );
 				}
 				echo '</select>';
 			}
@@ -668,19 +680,16 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 				$_REQUEST['typeshow'] = '';
 			}
 
-			$output = array();
+			echo '<select name="typeshow" id="hs-filter-typeshow">';
+			printf( '<option value="">%s</option>', esc_html__( 'All Topics', 'aryo-activity-log' ) );
 			foreach ( $this->data_types as $object_type ) {
-				$output[] = sprintf(
+				printf(
 					'<option value="%s"%s>%s</option>',
-					$object_type,
+					esc_attr( $object_type ),
 					selected( $_REQUEST['typeshow'], $object_type, false ),
-					__( $object_type, 'aryo-activity-log' )
+					esc_html( $object_type )
 				);
 			}
-
-			echo '<select name="typeshow" id="hs-filter-typeshow">';
-			printf( '<option value="">%s</option>', __( 'All Topics', 'aryo-activity-log' ) );
-			echo implode( '', $output );
 			echo '</select>';
 		}
 
@@ -697,13 +706,16 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 			if ( ! isset( $_REQUEST['showaction'] ) )
 				$_REQUEST['showaction'] = '';
 
-			$output = array();
-			foreach ( $actions as $action )
-				$output[] = sprintf( '<option value="%s"%s>%s</option>', $action->action, selected( $_REQUEST['showaction'], $action->action, false ), $this->get_action_label( $action->action ) );
-
 			echo '<select name="showaction" id="hs-filter-showaction">';
-			printf( '<option value="">%s</option>', __( 'All Actions', 'aryo-activity-log' ) );
-			echo implode( '', $output );
+			printf( '<option value="">%s</option>', esc_html__( 'All Actions', 'aryo-activity-log' ) );
+			foreach ( $actions as $action ) {
+				printf(
+					'<option value="%s"%s>%s</option>',
+					esc_attr( $action->action ),
+					selected( $_REQUEST['showaction'], $action->action, false ),
+					esc_html( $this->get_action_label( $action->action ) )
+				);
+			}
 			echo '</select>';
 		}
 
@@ -740,7 +752,7 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 
 		foreach ( $filters as $filter ) {
 			if ( ! empty( $_REQUEST[ $filter ] ) ) {
-				echo '<a href="' . $this->get_filtered_link() . '" id="aal-reset-filter"><span class="dashicons dashicons-dismiss"></span>' . __( 'Reset Filters', 'aryo-activity-log' ) . '</a>';
+				echo '<a href="' . esc_url( $this->get_filtered_link() ) . '" id="aal-reset-filter"><span class="dashicons dashicons-dismiss"></span>' . esc_html__( 'Reset Filters', 'aryo-activity-log' ) . '</a>';
 				break;
 			}
 		}
@@ -881,8 +893,8 @@ class AAL_Activity_Log_List_Table extends WP_List_Table {
 		$input_id = $input_id . '-search-input';
 		?>
 		<p class="search-box">
-			<label class="screen-reader-text" for="<?php echo $input_id ?>"><?php echo $text; ?>:</label>
-			<input type="search" id="<?php echo $input_id ?>" name="s" value="<?php echo esc_attr( $search_data ); ?>" />
+			<label class="screen-reader-text" for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $text ); ?>:</label>
+			<input type="search" id="<?php echo esc_attr( $input_id ); ?>" name="s" value="<?php echo esc_attr( $search_data ); ?>" />
 			<?php submit_button( $text, 'button', false, false, array('id' => 'search-submit') ); ?>
 		</p>
 	<?php

@@ -296,7 +296,7 @@ class AAL_Notifications {
 	 */
 	public function register_handler( $classname ) {
 		if ( ! class_exists( $classname ) ) {
-			trigger_error( __( 'The AAL notification handler you are trying to register does not exist.', 'aryo-activity-log' ) );
+			trigger_error( esc_html__( 'The AAL notification handler you are trying to register does not exist.', 'aryo-activity-log' ) );
 			return false;
 		}
 

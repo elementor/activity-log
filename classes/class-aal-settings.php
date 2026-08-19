@@ -276,7 +276,7 @@ class AAL_Settings {
 		foreach ( $sections as $section_key => $section_caption ) {
 			$active = $current_section === $section_key ? 'nav-tab-active' : '';
 			$url = add_query_arg( 'aal_section', $section_key );
-			echo '<a class="nav-tab ' . $active . '" href="' . esc_url( $url ) . '">' . esc_html( $section_caption ) . '</a>';
+			echo '<a class="nav-tab ' . esc_attr( $active ) . '" href="' . esc_url( $url ) . '">' . esc_html( $section_caption ) . '</a>';
 		}
 	}
 
@@ -297,7 +297,7 @@ class AAL_Settings {
 		<!-- Create a header in the default WordPress 'wrap' container -->
 		<div class="wrap">
 
-			<h1 class="aal-page-title"><?php _e( 'Activity Log Settings', 'aryo-activity-log' ); ?></h1>
+			<h1 class="aal-page-title"><?php esc_html_e( 'Activity Log Settings', 'aryo-activity-log' ); ?></h1>
 			<?php settings_errors(); ?>
 			<h2 class="nav-tab-wrapper"><?php $this->menu_print_tabs(); ?></h2>
 
@@ -316,7 +316,7 @@ class AAL_Settings {
 	public function admin_notices() {
 		switch ( filter_input( INPUT_GET, 'message' ) ) {
 			case 'data_erased':
-				printf( '<div class="updated"><p>%s</p></div>', __( 'All activities have been successfully deleted.', 'aryo-activity-log' ) );
+				printf( '<div class="updated"><p>%s</p></div>', esc_html__( 'All activities have been successfully deleted.', 'aryo-activity-log' ) );
 				break;
 		}
 	}
@@ -327,7 +327,7 @@ class AAL_Settings {
 		<script type="text/javascript">
 			jQuery( document ).ready( function( $ ) {
 				$( '#aal-delete-log-activities' ).on( 'click', function( e ) {
-					if ( ! confirm( '<?php echo __( 'Attention: We are going to DELETE ALL ACTIVITIES from the database. Are you sure you want to do that?', 'aryo-activity-log' ); ?>' ) ) {
+					if ( ! confirm( '<?php echo esc_js( __( 'Attention: We are going to DELETE ALL ACTIVITIES from the database. Are you sure you want to do that?', 'aryo-activity-log' ) ); ?>' ) ) {
 						e.preventDefault();
 					}
 				} );
@@ -338,7 +338,7 @@ class AAL_Settings {
 
 	public function ajax_aal_reset_items() {
 		if ( ! check_ajax_referer( 'aal_reset_items', '_nonce', false ) || ! current_user_can( 'manage_options' ) ) {
-			wp_die( __( 'You do not have sufficient permissions to access this page.', 'aryo-activity-log' ) );
+			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'aryo-activity-log' ) );
 		}
 
 		AAL_Main::instance()->api->erase_all_items();
@@ -395,13 +395,13 @@ final class AAL_Settings_Fields {
 
 	public static function general_settings_section_header() {
 		?>
-		<p><?php _e( 'These are some basic settings for Activity Log.', 'aryo-activity-log' ); ?></p>
+		<p><?php esc_html_e( 'These are some basic settings for Activity Log.', 'aryo-activity-log' ); ?></p>
 		<?php
 	}
 
 	public static function email_notifications_section_header() {
 		?>
-		<p><?php _e( 'Serve yourself with custom-tailored notifications. First, define your conditions. Then, choose how the notifications will be sent.', 'aryo-activity-log' ); ?></p>
+		<p><?php esc_html_e( 'Serve yourself with custom-tailored notifications. First, define your conditions. Then, choose how the notifications will be sent.', 'aryo-activity-log' ); ?></p>
 		<?php
 	}
 
@@ -426,7 +426,7 @@ final class AAL_Settings_Fields {
 			return;
 
 		?>
-		<input type="text" id="<?php echo esc_attr( $args['id'] ); ?>" name="<?php echo esc_attr( $name ); ?>" value="<?php echo esc_attr( $value ); ?>" class="<?php echo implode( ' ', $args['classes'] ); ?>" />
+		<input type="text" id="<?php echo esc_attr( $args['id'] ); ?>" name="<?php echo esc_attr( $name ); ?>" value="<?php echo esc_attr( $value ); ?>" class="<?php echo esc_attr( implode( ' ', $args['classes'] ) ); ?>" />
 		<?php if ( ! empty( $desc ) ) : ?>
 		<p class="description"><?php echo wp_kses_post( $desc ); ?></p>
 		<?php endif;
@@ -446,7 +446,7 @@ final class AAL_Settings_Fields {
 			return;
 
 		?>
-		<textarea id="<?php echo esc_attr( $args['id'] ); ?>" name="<?php echo esc_attr( $name ); ?>" class="<?php echo implode( ' ', $args['classes'] ); ?>" rows="<?php echo absint( $args['rows'] ); ?>" cols="<?php echo absint( $args['cols'] ); ?>"><?php echo esc_textarea( $value ); ?></textarea>
+		<textarea id="<?php echo esc_attr( $args['id'] ); ?>" name="<?php echo esc_attr( $name ); ?>" class="<?php echo esc_attr( implode( ' ', $args['classes'] ) ); ?>" rows="<?php echo absint( $args['rows'] ); ?>" cols="<?php echo absint( $args['cols'] ); ?>"><?php echo esc_textarea( $value ); ?></textarea>
 
 		<?php if ( ! empty( $desc ) ) : ?>
 			<p class="description"><?php echo wp_kses_post( $desc ); ?></p>
@@ -467,7 +467,7 @@ final class AAL_Settings_Fields {
 			return;
 
 		?>
-		<input type="number" id="<?php echo esc_attr( $args['id'] ); ?>" name="<?php echo esc_attr( $name ); ?>" value="<?php echo esc_attr( $value ); ?>" class="<?php echo implode( ' ', $args['classes'] ); ?>" min="<?php echo esc_attr( $args['min'] ); ?>" step="<?php echo esc_attr( $args['step'] ); ?>" />
+		<input type="number" id="<?php echo esc_attr( $args['id'] ); ?>" name="<?php echo esc_attr( $name ); ?>" value="<?php echo esc_attr( $value ); ?>" class="<?php echo esc_attr( implode( ' ', $args['classes'] ) ); ?>" min="<?php echo esc_attr( $args['min'] ); ?>" step="<?php echo esc_attr( $args['step'] ); ?>" />
 		<?php if ( ! empty( $args['sub_desc'] ) ) echo wp_kses_post( $args['sub_desc'] ); ?>
 		<?php if ( ! empty( $args['desc'] ) ) : ?>
 			<p class="description"><?php echo wp_kses_post( $args['desc'] ); ?></p>
@@ -500,8 +500,8 @@ final class AAL_Settings_Fields {
 		extract( $args, EXTR_SKIP );
 
 		?>
-		<label class="tix-yes-no description"><input type="radio" name="<?php echo esc_attr( $name ); ?>" value="1" <?php checked( $value, true ); ?>> <?php _e( 'Yes', 'aryo-activity-log' ); ?></label>
-		<label class="tix-yes-no description"><input type="radio" name="<?php echo esc_attr( $name ); ?>" value="0" <?php checked( $value, false ); ?>> <?php _e( 'No', 'aryo-activity-log' ); ?></label>
+		<label class="tix-yes-no description"><input type="radio" name="<?php echo esc_attr( $name ); ?>" value="1" <?php checked( $value, true ); ?>> <?php esc_html_e( 'Yes', 'aryo-activity-log' ); ?></label>
+		<label class="tix-yes-no description"><input type="radio" name="<?php echo esc_attr( $name ); ?>" value="0" <?php checked( $value, false ); ?>> <?php esc_html_e( 'No', 'aryo-activity-log' ); ?></label>
 
 		<?php if ( isset( $args['description'] ) ) : ?>
 		<p class="description"><?php echo wp_kses_post( $args['description'] ); ?></p>
@@ -535,7 +535,7 @@ final class AAL_Settings_Fields {
 		// if empty, reset to one element with the key of 1
 		$rows = empty( $rows ) ? array( array( 'key' => 1 ) ) : $rows;
 		?>
-		<p class="description"><?php _e( 'A notification will be sent upon a successful match with the following conditions:', 'aryo-activity-log' ); ?></p>
+		<p class="description"><?php esc_html_e( 'A notification will be sent upon a successful match with the following conditions:', 'aryo-activity-log' ); ?></p>
 		<div class="aal-notifier-settings">
 			<ul>
 			<?php foreach ( $rows as $rid => $row ) :
@@ -560,7 +560,7 @@ final class AAL_Settings_Fields {
 						<option value="<?php echo esc_attr( $option_key ); ?>" <?php selected( $option_key, $row_value ); ?>><?php echo esc_html( $option_value ); ?></option>
 						<?php endforeach; ?>
 					</select>
-					<a href="#" class="aal-new-rule button"><small>+</small> <?php _e( 'and', 'aryo-activity-log' ); ?></a>
+					<a href="#" class="aal-new-rule button"><small>+</small> <?php esc_html_e( 'and', 'aryo-activity-log' ); ?></a>
 					<a href="#" class="aal-delete-rule button">&times;</a>
 				</li>
 			<?php endforeach; ?>
