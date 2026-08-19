@@ -205,7 +205,7 @@ class AAL_Maintenance {
 		if ( 'success' === $upgrade_result ) {
 			printf(
 				'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
-				esc_html__( 'Activity Log: Database upgrade completed successfully.', 'aryo-activity-log' )
+				esc_html__( 'The database update process is now complete. Thank you for updating to the latest version!', 'aryo-activity-log' )
 			);
 			return;
 		}
@@ -213,7 +213,7 @@ class AAL_Maintenance {
 		if ( 'failed' === $upgrade_result ) {
 			printf(
 				'<div class="notice notice-error is-dismissible"><p>%s</p></div>',
-				esc_html__( 'Activity Log: Database upgrade failed. Please try again or contact support.', 'aryo-activity-log' )
+				esc_html__( 'Activity Log: Database upgrade failed. Please try again.', 'aryo-activity-log' )
 			);
 			return;
 		}
@@ -231,8 +231,9 @@ class AAL_Maintenance {
 		);
 
 		printf(
-			'<div class="notice notice-warning"><p>%s</p><p><a href="%s" class="button button-primary" onclick="return confirm(\'%s\');">%s</a></p></div>',
-			esc_html__( 'Activity Log: Your activity log table is large and requires a manual database upgrade. Some features are unavailable until the upgrade completes. We recommend running this during a low-traffic period.', 'aryo-activity-log' ),
+			'<div class="notice notice-warning"><p><strong>%s</strong></p><p>%s</p><p><a href="%s" class="button button-primary" onclick="return confirm(\'%s\');">%s</a></p></div>',
+			esc_html__( 'Activity Log: Database Update Required', 'aryo-activity-log' ),
+			esc_html__( 'We\'ve updated Activity Log with new features and database optimizations. Because your activity log table is large, please run the manual upgrade to complete the update.', 'aryo-activity-log' ),
 			esc_url( $url ),
 			esc_js( __( 'This operation may take a while on large tables. Continue?', 'aryo-activity-log' ) ),
 			esc_html__( 'Run Database Upgrade', 'aryo-activity-log' )
