@@ -55,9 +55,6 @@ class AAL_Maintenance {
 		restore_current_blog();
 	}
 
-	/**
-	 * Run pending upgrade steps on admin_init only.
-	 */
 	public static function maybe_upgrade() {
 		$installed_version = get_option( 'activity_log_db_version', '1.0' );
 
@@ -65,10 +62,29 @@ class AAL_Maintenance {
 			return;
 		}
 
+		if ( wp_doing_ajax() ) {
+			return;
+		}
+
+		if ( get_option( 'aal_manual_db_upgrade' ) ) {
+			return;
+		}
+
 		$last_failure = get_transient( 'aal_upgrade_failed' );
 		if ( $last_failure ) {
 			return;
 		}
+
+		if ( self::is_table_above_threshold() ) {
+			update_option( 'aal_manual_db_upgrade', true, false );
+			return;
+		}
+
+		self::run_upgrade_steps();
+	}
+
+	public static function run_upgrade_steps() {
+		$installed_version = get_option( 'activity_log_db_version', '1.0' );
 
 		$steps = array(
 			'1.1' => 'upgrade_to_1_1',
@@ -83,14 +99,34 @@ class AAL_Maintenance {
 
 			if ( ! $success ) {
 				set_transient( 'aal_upgrade_failed', $version, HOUR_IN_SECONDS );
-				return;
+				return false;
 			}
 
 			update_option( 'activity_log_db_version', $version );
 			$installed_version = $version;
 		}
 
+		delete_option( 'aal_manual_db_upgrade' );
 		delete_transient( 'aal_upgrade_failed' );
+		self::$schema_ready_cache = array();
+
+		return true;
+	}
+
+	private static function is_table_above_threshold() {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'aryo_activity_log';
+
+		$max_rows = (int) apply_filters( 'aal_auto_upgrade_max_rows', 50000 );
+
+		$row = $wpdb->get_row( $wpdb->prepare( "SHOW TABLE STATUS LIKE %s", $table ) );
+
+		if ( ! $row || ! isset( $row->Rows ) ) {
+			return false;
+		}
+
+		return (int) $row->Rows >= $max_rows;
 	}
 
 	/**
@@ -154,24 +190,78 @@ class AAL_Maintenance {
 		return $ready;
 	}
 
-	/**
-	 * Admin notice when upgrade is stuck.
-	 */
 	public static function upgrade_notice() {
-		$failed_version = get_transient( 'aal_upgrade_failed' );
-		if ( ! $failed_version ) {
+		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
 
 		$screen = get_current_screen();
-		if ( ! $screen || false === strpos( $screen->id, 'activity-log' ) ) {
+		if ( ! $screen || ( 'dashboard' !== $screen->id && false === strpos( $screen->id, 'activity-log' ) ) ) {
 			return;
 		}
 
-		printf(
-			'<div class="notice notice-warning"><p>%s</p></div>',
-			esc_html__( 'Activity Log: Database upgrade pending. Some features may be unavailable until the upgrade completes. It will retry automatically.', 'aryo-activity-log' )
+		$upgrade_result = isset( $_GET['aal_upgrade'] ) ? sanitize_key( $_GET['aal_upgrade'] ) : '';
+
+		if ( 'success' === $upgrade_result ) {
+			printf(
+				'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
+				esc_html__( 'Activity Log: Database upgrade completed successfully.', 'aryo-activity-log' )
+			);
+			return;
+		}
+
+		if ( 'failed' === $upgrade_result ) {
+			printf(
+				'<div class="notice notice-error is-dismissible"><p>%s</p></div>',
+				esc_html__( 'Activity Log: Database upgrade failed. Please try again or contact support.', 'aryo-activity-log' )
+			);
+			return;
+		}
+
+		$needs_manual = get_option( 'aal_manual_db_upgrade' );
+		$failed_version = get_transient( 'aal_upgrade_failed' );
+
+		if ( ! $needs_manual && ! $failed_version ) {
+			return;
+		}
+
+		$url = wp_nonce_url(
+			admin_url( 'admin-post.php?action=aal_run_db_upgrade' ),
+			'aal_run_db_upgrade'
 		);
+
+		printf(
+			'<div class="notice notice-warning"><p>%s</p><p><a href="%s" class="button button-primary" onclick="return confirm(\'%s\');">%s</a></p></div>',
+			esc_html__( 'Activity Log: Your activity log table is large and requires a manual database upgrade. Some features are unavailable until the upgrade completes. We recommend running this during a low-traffic period.', 'aryo-activity-log' ),
+			esc_url( $url ),
+			esc_js( __( 'This operation may take a while on large tables. Continue?', 'aryo-activity-log' ) ),
+			esc_html__( 'Run Database Upgrade', 'aryo-activity-log' )
+		);
+	}
+
+	public static function handle_manual_upgrade() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( __( 'You do not have sufficient permissions to access this page.', 'aryo-activity-log' ) );
+		}
+
+		check_admin_referer( 'aal_run_db_upgrade' );
+
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		}
+
+		$success = self::run_upgrade_steps();
+
+		$redirect = add_query_arg(
+			array(
+				'page'        => 'activity-log-page',
+				'aal_upgrade' => $success ? 'success' : 'failed',
+			),
+			admin_url( 'admin.php' )
+		);
+
+		wp_safe_redirect( $redirect );
+		exit;
 	}
 
 	protected static function _create_tables() {
@@ -235,6 +325,7 @@ add_action( 'wpmu_new_blog', array( 'AAL_Maintenance', 'mu_new_blog_installer' )
 // MU Uninstall for delete blog.
 add_action( 'delete_blog', array( 'AAL_Maintenance', 'mu_delete_blog' ), 10, 2 );
 
-// Runtime upgrade (admin only) + notice.
+// Runtime upgrade (admin only) + notice + manual handler.
 add_action( 'admin_init', array( 'AAL_Maintenance', 'maybe_upgrade' ) );
 add_action( 'admin_notices', array( 'AAL_Maintenance', 'upgrade_notice' ) );
+add_action( 'admin_post_aal_run_db_upgrade', array( 'AAL_Maintenance', 'handle_manual_upgrade' ) );
