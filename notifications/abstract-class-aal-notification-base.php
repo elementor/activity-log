@@ -40,7 +40,7 @@ abstract class AAL_Notification_Base {
 	public function trigger( $args ) {}
 	
 	public function _settings_section_callback() {
-		echo '<p>' . $this->description . '</p>';
+		echo '<p>' . esc_html( $this->description ) . '</p>';
 	}
 	
 	public function _settings_enabled_field_callback( $args = array() ) {

@@ -47,5 +47,5 @@ jobs:
         run: |
           export PATH=$HOME/.composer/vendor/bin:$PATH
           composer run lint -- --report=checkstyle
-          # Also show warnings as PR annotations (non-blocking)
+          # Errors (including EscapeOutput) fail the job; remaining Security sniffs stay warnings
           vendor/bin/phpcs --standard=./ruleset.xml --extensions=php --error-severity=0 . --report=checkstyle || true
