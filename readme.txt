@@ -144,6 +144,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 == Changelog ==
 
 = 2.12.1 - 2026-08-20 =
+* Tweak: Removed text domain loading method in favor of WordPress standard loading
 * Fix: Re-release for WordPress.org after a failed deploy
 
 = 2.12.0 - 2026-08-19 =
