@@ -143,6 +143,9 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
+= 2.12.1 - 2026-08-20 =
+* Fix: Re-release for WordPress.org after a failed deploy
+
 = 2.12.0 - 2026-08-19 =
 * New: Request Source Tracking - See where each change came from (REST API, WP-CLI, WP-Cron, XML-RPC, WP Abilities, Application Passwords)
 * New: Added metadata storage for extensible log context
