@@ -92,7 +92,8 @@ jQuery( function( $ ) {
 		getData: function ( type, cb ) {
 			var payload = {
 				action: 'aal_get_properties',
-				action_category: type
+				action_category: type,
+				_nonce: window.aalSettings && window.aalSettings.nonce ? window.aalSettings.nonce : ''
 			};
 			$.getJSON( window.ajaxurl, payload, cb );
 		}

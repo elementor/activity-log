@@ -242,7 +242,7 @@ class AAL_Maintenance {
 
 	public static function handle_manual_upgrade() {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( __( 'You do not have sufficient permissions to access this page.', 'aryo-activity-log' ) );
+			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'aryo-activity-log' ) );
 		}
 
 		check_admin_referer( 'aal_run_db_upgrade' );
