@@ -3,7 +3,7 @@
 	"slug": "aryo-activity-log",
 	"homepage": "http://pojo.me/",
 	"description": "Activity Log",
-	"version": "2.12.0",
+	"version": "2.12.1",
 	"scripts": {
 		"clean": "rimraf $npm_package_name $npm_package_name.*.zip",
 		"package": "npm run clean && rsync -av --exclude-from=.build-rsync-exclude . $npm_package_name",
