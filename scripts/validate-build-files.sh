@@ -11,11 +11,9 @@ if [[ -z "$PLUGIN_VERSION" ]]; then
 	exit 1
 fi
 
-PLUGIN_PATH="${PLUGIN_SLUG}"
-
-if [[ -n "$GITHUB_WORKSPACE" ]]; then
-	PLUGIN_PATH="${GITHUB_WORKSPACE}/${PLUGIN_SLUG}"
-fi
+REPO_ROOT="${GITHUB_WORKSPACE:-.}"
+PLUGIN_PATH="${REPO_ROOT}/${PLUGIN_SLUG}"
+EXCLUDE_FILE="${REPO_ROOT}/.build-rsync-exclude"
 
 if [[ ! -d "$PLUGIN_PATH" ]]; then
 	echo "BUILD_DIR '$PLUGIN_PATH' does not exist"
@@ -50,23 +48,32 @@ if [[ $(grep -c "Stable tag: $PLUGIN_VERSION" "readme.txt") -eq 0 ]]; then
 	exit 1
 fi
 
-DENY_LIST="tests vendor bin .github .git node_modules"
+if [[ ! -f "$EXCLUDE_FILE" ]]; then
+	echo "WARNING: $EXCLUDE_FILE not found, skipping exclude-list check"
+else
+	ERRORS=0
+	while IFS= read -r entry; do
+		# Skip empty lines, comments, and glob-only patterns (e.g. *.zip)
+		[[ -z "$entry" ]] && continue
+		[[ "$entry" == \#* ]] && continue
 
-for item in $DENY_LIST; do
-	if [[ -e "$item" ]]; then
-		echo "ERROR: '$item' must not be in the build directory"
+		# Strip trailing slash for directory entries
+		clean="${entry%/}"
+
+		# Skip self-references and glob patterns
+		[[ "$clean" == "$PLUGIN_SLUG" ]] && continue
+		[[ "$clean" == *"*"* ]] && continue
+
+		if [[ -e "$clean" ]]; then
+			echo "ERROR: '$clean' from .build-rsync-exclude found in build directory"
+			ERRORS=1
+		fi
+	done < "$EXCLUDE_FILE"
+
+	if [[ $ERRORS -ne 0 ]]; then
 		exit 1
 	fi
-done
-
-DENY_FILES="phpunit.xml composer.json composer.lock package.json package-lock.json"
-
-for item in $DENY_FILES; do
-	if [[ -f "$item" ]]; then
-		echo "ERROR: '$item' must not be in the build directory"
-		exit 1
-	fi
-done
+fi
 
 echo "Build validation passed for ${PLUGIN_SLUG} v${PLUGIN_VERSION}"
 echo "Contents:"
