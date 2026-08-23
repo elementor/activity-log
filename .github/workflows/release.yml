@@ -124,7 +124,7 @@ jobs:
         run: |
           TAG="${{ env.TAG }}"
 
-          if ${{ inputs.dry_run }}; then
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
             BODY="Dry-run release for version ${{ env.VERSION }}."
           else
             PREV=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
@@ -147,7 +147,7 @@ jobs:
             echo "## What's Changed"
             echo ""
             echo "$BODY"
-            if [ -n "$PREV" ] && ! ${{ inputs.dry_run }}; then
+            if [ -n "$PREV" ] && [[ "${{ inputs.dry_run }}" != "true" ]]; then
               echo ""
               echo "**Full Changelog**: [\`${PREV}...${TAG}\`](${REPO_URL}/compare/${PREV}...${TAG})"
             fi
@@ -191,7 +191,7 @@ jobs:
 
       - name: Summary
         run: |
-          if ${{ inputs.dry_run }}; then
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
             echo "::notice::Dry run complete for v${{ env.VERSION }}. No commits, tags, or WP.org deploys were made."
           else
             echo "::notice::Released v${{ env.VERSION }} to GitHub and WordPress.org."
