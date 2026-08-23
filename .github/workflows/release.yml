@@ -1,0 +1,198 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        required: true
+        type: choice
+        options: [patch, minor, major]
+      dry_run:
+        description: Dry run (no git push, no WP.org commit)
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: wordpress-org-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  phpcs:
+    if: >-
+      github.ref == 'refs/heads/master'
+      && ( github.actor == 'KingYes' || github.actor == 'bainternet' || github.actor == 'arielk' )
+      && startsWith( github.repository, 'elementor/' )
+    uses: ./.github/workflows/php-coding-standards.yml
+
+  phpunit:
+    if: >-
+      github.ref == 'refs/heads/master'
+      && ( github.actor == 'KingYes' || github.actor == 'bainternet' || github.actor == 'arielk' )
+      && startsWith( github.repository, 'elementor/' )
+    uses: ./.github/workflows/phpunit.yml
+
+  release:
+    needs: [phpcs, phpunit]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          tools: composer:v2
+
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.json') }}
+          restore-keys: |
+            composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Lint
+        run: composer lint
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Compute next version
+        run: |
+          VERSION=$(node scripts/next-version.js ${{ inputs.bump }})
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=v$VERSION" >> "$GITHUB_ENV"
+          echo "Next version: $VERSION"
+
+      - name: Validate readme changelog
+        run: node scripts/validate-readme-changelog.js "${{ env.VERSION }}"
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        run: npm version ${{ inputs.bump }} --no-git-tag-version
+
+      - name: Sync version to plugin files
+        run: npm run version:sync
+
+      - name: Build plugin directory
+        run: npm run package
+
+      - name: Validate build
+        env:
+          PLUGIN_SLUG: aryo-activity-log
+          PLUGIN_VERSION: ${{ env.VERSION }}
+        run: bash scripts/validate-build-files.sh
+
+      - name: Create zip
+        run: |
+          zip -r aryo-activity-log.${{ env.VERSION }}.zip ./aryo-activity-log/*
+
+      - name: Commit version bump
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          git add package.json package-lock.json aryo-activity-log.php readme.txt
+          git commit -m "Internal: Release ${{ env.VERSION }}"
+
+      - name: Create tag
+        if: ${{ inputs.dry_run != true }}
+        run: git tag "${{ env.TAG }}"
+
+      - name: Generate changelog
+        id: changelog
+        env:
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          TAG="${{ env.TAG }}"
+
+          if ${{ inputs.dry_run }}; then
+            BODY="Dry-run release for version ${{ env.VERSION }}."
+          else
+            PREV=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
+            if [ -z "$PREV" ]; then
+              LOG=$(git log --no-merges --format="%H %s" "$TAG")
+            else
+              LOG=$(git log --no-merges --format="%H %s" "${PREV}..${TAG}")
+            fi
+            BODY=$(echo "$LOG" \
+              | grep -v -E ' (bump: v|CI: |Internal: |Revert: )' \
+              | while read -r hash msg; do
+                  short=${hash:0:7}
+                  msg=$(echo "$msg" | sed "s|(#\([0-9]*\))|[#\1](${REPO_URL}/pull/\1)|g")
+                  echo "- [\`${short}\`](${REPO_URL}/commit/${hash}) ${msg}"
+                done)
+          fi
+
+          {
+            echo "body<<EOF"
+            echo "## What's Changed"
+            echo ""
+            echo "$BODY"
+            if [ -n "$PREV" ] && ! ${{ inputs.dry_run }}; then
+              echo ""
+              echo "**Full Changelog**: [\`${PREV}...${TAG}\`](${REPO_URL}/compare/${PREV}...${TAG})"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Push commit and tag
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          git push origin master
+          git push origin "${{ env.TAG }}"
+
+      - name: Create GitHub Release
+        if: ${{ inputs.dry_run != true }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.TAG }}
+          body: ${{ steps.changelog.outputs.body }}
+          files: aryo-activity-log.${{ env.VERSION }}.zip
+
+      - name: Deploy to WordPress.org
+        if: ${{ inputs.dry_run != true }}
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: aryo-activity-log
+          VERSION: ${{ env.VERSION }}
+          BUILD_DIR: aryo-activity-log
+
+      - name: Deploy to WordPress.org (dry run)
+        if: ${{ inputs.dry_run == true }}
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        with:
+          dry-run: true
+        env:
+          SLUG: aryo-activity-log
+          VERSION: ${{ env.VERSION }}
+          BUILD_DIR: aryo-activity-log
+
+      - name: Summary
+        run: |
+          if ${{ inputs.dry_run }}; then
+            echo "::notice::Dry run complete for v${{ env.VERSION }}. No commits, tags, or WP.org deploys were made."
+          else
+            echo "::notice::Released v${{ env.VERSION }} to GitHub and WordPress.org."
+          fi

@@ -7,7 +7,10 @@
 	"scripts": {
 		"clean": "rimraf $npm_package_name $npm_package_name.*.zip",
 		"package": "npm run clean && rsync -av --exclude-from=.build-rsync-exclude . $npm_package_name",
-		"package:zip": "npm run package && zip -r $npm_package_name.$npm_package_version.zip ./$npm_package_name/*"
+		"package:zip": "npm run package && zip -r $npm_package_name.$npm_package_version.zip ./$npm_package_name/*",
+		"version:next": "node scripts/next-version.js",
+		"version:sync": "node scripts/sync-version.js",
+		"version:validate-changelog": "node scripts/validate-readme-changelog.js"
 	},
 	"devDependencies": {
 		"rimraf": "^6.0.0"
