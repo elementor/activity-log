@@ -3,10 +3,11 @@ name: PHPUnit Tests
 on:
   push:
   pull_request:
+  workflow_call:
 
 concurrency:
   cancel-in-progress: true
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: phpunit-${{ github.ref }}
 
 permissions:
   contents: read
@@ -45,7 +46,7 @@ jobs:
           fail-fast: true
 
       - name: Install Composer dependencies
-        uses: ramsey/composer-install@v2
+        uses: ramsey/composer-install@v3
         with:
           dependency-versions: locked
 
