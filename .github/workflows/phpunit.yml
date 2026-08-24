@@ -68,10 +68,15 @@ jobs:
             cp -r /tmp/wordpress-develop/tests/phpunit/* /tmp/wordpress-tests-lib/
 
             if [ "${{ matrix.wp-version }}" = "latest" ]; then
-              wget -O /tmp/wordpress.tar.gz https://wordpress.org/latest.tar.gz
+              WP_URL="https://wordpress.org/latest.tar.gz"
             else
-              wget -O /tmp/wordpress.tar.gz https://wordpress.org/wordpress-${{ matrix.wp-version }}.tar.gz
+              WP_URL="https://wordpress.org/wordpress-${{ matrix.wp-version }}.tar.gz"
             fi
+            for i in 1 2 3 4 5; do
+              wget -nv -O /tmp/wordpress.tar.gz "$WP_URL" && break
+              echo "Download attempt $i failed, retrying in $((i * 15))s..."
+              sleep $((i * 15))
+            done
             tar -xzf /tmp/wordpress.tar.gz -C /tmp/
           }
 
