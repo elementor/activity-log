@@ -18,11 +18,18 @@ WP_TESTS_DIR=${WP_TESTS_DIR-$TMPDIR/wordpress-tests-lib}
 WP_CORE_DIR=${WP_CORE_DIR-$TMPDIR/wordpress}
 
 download() {
-    if [ `which curl` ]; then
-        curl -s "$1" > "$2";
-    elif [ `which wget` ]; then
-        wget -nv -O "$2" "$1"
-    fi
+    local max_retries=5
+    for i in $(seq 1 $max_retries); do
+        if [ `which curl` ]; then
+            curl -sSf --retry 3 --retry-delay 10 "$1" > "$2" && return 0
+        elif [ `which wget` ]; then
+            wget -nv --tries=3 --waitretry=10 -O "$2" "$1" && return 0
+        fi
+        echo "Download attempt $i/$max_retries failed for $1, retrying in $((i * 15))s..."
+        sleep $((i * 15))
+    done
+    echo "All download attempts failed for $1"
+    return 1
 }
 
 if [[ $WP_VERSION =~ ^[0-9]+\.[0-9]+\-(beta|RC)[0-9]+$ ]]; then
