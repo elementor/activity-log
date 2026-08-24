@@ -20,5 +20,6 @@ package.json
 package-lock.json
 Gruntfile.js
 README.md
+scripts/
 aryo-activity-log/
 aryo-activity-log.*.zip

@@ -4,7 +4,7 @@ Tags: Activity Log, User Log, Audit Log, Security, Email Log,
 Requires at least: 6.0
 Requires PHP: 7.4
 Tested up to: 7.1
-Stable tag: 2.12.0
+Stable tag: 2.12.1
 License: GPLv2 or later
 
 Monitor every change on your WordPress site — who did what, when, and where it came from — for a complete audit trail and stronger security.
@@ -145,6 +145,10 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 = 2.13.0 =
 * Removed: Email notifications feature (hidden since 2.5 for sites that never enabled it) has been fully removed
+
+= 2.12.1 - 2026-08-20 =
+* Tweak: Removed text domain loading method in favor of WordPress standard loading
+* Fix: Re-release for WordPress.org after a failed deploy
 
 = 2.12.0 - 2026-08-19 =
 * New: Request Source Tracking - See where each change came from (REST API, WP-CLI, WP-Cron, XML-RPC, WP Abilities, Application Passwords)
