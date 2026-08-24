@@ -143,7 +143,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
-= 2.13.0 =
+= 2.13.0 - 2026-08-24 =
 * Removed: Email notifications feature (hidden since 2.5 for sites that never enabled it) has been fully removed
 
 = 2.12.1 - 2026-08-20 =
