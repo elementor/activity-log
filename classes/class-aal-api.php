@@ -75,7 +75,7 @@ class AAL_API {
 		
 		$visitor_ip_address = '';
 		if ( ! empty( $_SERVER[ $header_key ] ) ) {
-			$visitor_ip_address = $_SERVER[ $header_key ];
+			$visitor_ip_address = sanitize_text_field( wp_unslash( $_SERVER[ $header_key ] ) );
 		}
 
 		$remote_address = apply_filters( 'aal_get_ip_address', $visitor_ip_address );

@@ -35,7 +35,6 @@ include( 'classes/class-aal-admin-ui.php' );
 include( 'classes/class-aal-settings.php' );
 include( 'classes/class-aal-api.php' );
 include( 'classes/class-aal-hooks.php' );
-include( 'classes/class-aal-notifications.php' );
 include( 'classes/class-aal-export.php' );
 include( 'classes/class-aal-privacy.php' );
 include( 'classes/abstract-class-aal-exporter.php' );
@@ -77,11 +76,6 @@ final class AAL_Main {
 	public $api;
 
 	/**
-	 * @var \AAL_Notifications
-	 */
-	public $notifications;
-
-	/**
 	 * Construct
 	 */
 	protected function __construct() {
@@ -91,7 +85,6 @@ final class AAL_Main {
 		$this->hooks         = new AAL_Hooks();
 		$this->settings      = new AAL_Settings();
 		$this->api           = new AAL_API();
-		$this->notifications = new AAL_Notifications();
 
 		new AAL_Export();
 		new AAL_Privacy();
@@ -112,10 +105,12 @@ final class AAL_Main {
 	public function __clone() {
 		_doing_it_wrong(
 			__FUNCTION__,
-			sprintf(
-				/* translators: %s: Class name. */
-				__( 'Cloning instances of the singleton "%s" class is forbidden.', 'aryo-activity-log' ),
-				get_class( $this )
+			esc_html(
+				sprintf(
+					/* translators: %s: Class name. */
+					__( 'Cloning instances of the singleton "%s" class is forbidden.', 'aryo-activity-log' ),
+					get_class( $this )
+				)
 			),
 			'2.0.7'
 		);
@@ -130,10 +125,12 @@ final class AAL_Main {
 	public function __wakeup() {
 		_doing_it_wrong(
 			__FUNCTION__,
-			sprintf(
-				/* translators: %s: Class name. */
-				__( 'Unserializing instances of the singleton "%s" class is forbidden.', 'aryo-activity-log' ),
-				get_class( $this )
+			esc_html(
+				sprintf(
+					/* translators: %s: Class name. */
+					__( 'Unserializing instances of the singleton "%s" class is forbidden.', 'aryo-activity-log' ),
+					get_class( $this )
+				)
 			),
 			'2.0.7'
 		);

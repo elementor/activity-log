@@ -14,13 +14,17 @@
 	<exclude-pattern>build/</exclude-pattern>
 	<exclude-pattern>node_modules/</exclude-pattern>
 	<exclude-pattern>tests/</exclude-pattern>
+	<exclude-pattern>aryo-activity-log/</exclude-pattern>
 
 	<!--
-		Security rules downgraded to warnings until legacy violations are resolved.
-		TODO: Promote back to errors once the codebase is cleaned up.
+		Remaining Security sniffs are warnings until nonce/sanitization debt is resolved.
+		EscapeOutput is an error so unescaped output (including __()) fails CI.
 	-->
 	<rule ref="WordPress.Security">
 		<type>warning</type>
+	</rule>
+	<rule ref="WordPress.Security.EscapeOutput">
+		<type>error</type>
 	</rule>
 
 	<rule ref="WordPress.WP.DeprecatedFunctions" />

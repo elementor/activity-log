@@ -21,12 +21,13 @@ class AAL_Admin_Ui {
 
 	public function activity_log_page_func() {
 		$this->get_list_table()->prepare_items();
+		$page_slug = isset( $_REQUEST['page'] ) ? sanitize_key( wp_unslash( $_REQUEST['page'] ) ) : 'activity-log-page';
 		?>
 		<div class="wrap">
-			<h1 class="aal-page-title"><?php _ex( 'Activity Log', 'Page and Menu Title', 'aryo-activity-log' ); ?></h1>
+			<h1 class="aal-page-title"><?php echo esc_html_x( 'Activity Log', 'Page and Menu Title', 'aryo-activity-log' ); ?></h1>
 
 			<form id="activity-filter" method="get">
-				<input type="hidden" name="page" value="<?php echo esc_attr( $_REQUEST['page'] ); ?>" />
+				<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>" />
 				<?php $this->get_list_table()->display(); ?>
 			</form>
 		</div>
