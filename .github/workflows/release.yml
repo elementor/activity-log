@@ -117,40 +117,17 @@ jobs:
         if: ${{ inputs.dry_run != true }}
         run: git tag "${{ env.TAG }}"
 
-      - name: Generate changelog
+      - name: Extract changelog from readme
         id: changelog
-        env:
-          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
-          TAG="${{ env.TAG }}"
-
-          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
-            BODY="Dry-run release for version ${{ env.VERSION }}."
-          else
-            PREV=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
-            if [ -z "$PREV" ]; then
-              LOG=$(git log --no-merges --format="%H %s" "$TAG")
-            else
-              LOG=$(git log --no-merges --format="%H %s" "${PREV}..${TAG}")
-            fi
-            BODY=$(echo "$LOG" \
-              | grep -v -E ' (bump: v|CI: |Internal: |Revert: )' \
-              | while read -r hash msg; do
-                  short=${hash:0:7}
-                  msg=$(echo "$msg" | sed "s|(#\([0-9]*\))|[#\1](${REPO_URL}/pull/\1)|g")
-                  echo "- [\`${short}\`](${REPO_URL}/commit/${hash}) ${msg}"
-                done)
-          fi
+          node scripts/extract-changelog-section.js "${{ env.VERSION }}" > /tmp/changelog_section.txt
 
           {
             echo "body<<EOF"
-            echo "## What's Changed"
+            echo "## Changelog"
             echo ""
-            echo "$BODY"
-            if [ -n "$PREV" ] && [[ "${{ inputs.dry_run }}" != "true" ]]; then
-              echo ""
-              echo "**Full Changelog**: [\`${PREV}...${TAG}\`](${REPO_URL}/compare/${PREV}...${TAG})"
-            fi
+            cat /tmp/changelog_section.txt
+            echo ""
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
