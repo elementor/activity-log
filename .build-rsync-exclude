@@ -18,8 +18,11 @@ composer.json
 composer.lock
 package.json
 package-lock.json
+webpack.config.js
+babel.config.js
 Gruntfile.js
 README.md
 scripts/
 aryo-activity-log/
 aryo-activity-log.*.zip
+assets/js/admin/src/

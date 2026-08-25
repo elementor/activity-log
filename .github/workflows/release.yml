@@ -94,6 +94,9 @@ jobs:
       - name: Sync version to plugin files
         run: npm run version:sync
 
+      - name: Build JS assets
+        run: npm run build
+
       - name: Build plugin directory
         run: npm run package
 
