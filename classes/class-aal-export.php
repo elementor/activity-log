@@ -55,6 +55,7 @@ class AAL_Export {
 		$list_table->prepare_items();
 		$items = $list_table->items;
 		$columns = $list_table->get_columns();
+		$columns = $this->add_export_ip_column( $columns );
 
 		$op = array();
 		foreach ( $items as $item ) {
@@ -182,6 +183,26 @@ class AAL_Export {
 	 */
 	public function increase_throughput( $records_per_page ) {
 		return PHP_INT_MAX;
+	}
+
+	/**
+	 * Inject a standalone IP column into the export columns right after 'source'.
+	 * Skipped when IP collection is disabled.
+	 */
+	private function add_export_ip_column( array $columns ): array {
+		if ( 'no-collect-ip' === AAL_Main::instance()->settings->get_option( 'log_visitor_ip_source' ) ) {
+			return $columns;
+		}
+
+		$result = array();
+		foreach ( $columns as $key => $label ) {
+			$result[ $key ] = $label;
+			if ( 'source' === $key ) {
+				$result['ip'] = __( 'IP', 'aryo-activity-log' );
+			}
+		}
+
+		return $result;
 	}
 
 	private static function format_source_label( $raw ) {

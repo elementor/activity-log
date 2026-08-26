@@ -143,6 +143,9 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
+= 2.13.1 - 2026-08-26 =
+* Fix: CSV export file missing IP column ([Topic](https://wordpress.org/support/topic/missing-source-ip-in-csv-export/))
+
 = 2.13.0 - 2026-08-24 =
 * Removed: Email notifications feature (hidden since 2.5 for sites that never enabled it) has been fully removed
 
