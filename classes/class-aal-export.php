@@ -190,12 +190,20 @@ class AAL_Export {
 			return $columns;
 		}
 
+		$ip_label = __( 'IP', 'aryo-activity-log' );
+
 		$result = array();
+		$inserted = false;
 		foreach ( $columns as $key => $label ) {
 			$result[ $key ] = $label;
 			if ( 'source' === $key ) {
-				$result['ip'] = __( 'IP', 'aryo-activity-log' );
+				$result['ip'] = $ip_label;
+				$inserted = true;
 			}
+		}
+
+		if ( ! $inserted ) {
+			$result['ip'] = $ip_label;
 		}
 
 		return $result;

@@ -72,6 +72,23 @@ class AAL_Test_Export extends WP_UnitTestCase {
 		$this->assertSame( [ 'date', 'author', 'source', 'type' ], array_keys( $result ) );
 	}
 
+	public function test_ip_column_appended_when_source_column_missing() {
+		$this->set_ip_source_option( 'REMOTE_ADDR' );
+		$export = $this->get_export_instance();
+
+		$columns = [
+			'date'   => 'Date',
+			'author' => 'User',
+			'type'   => 'Topic',
+		];
+
+		$result = $this->invoke_add_export_ip_column( $export, $columns );
+
+		$keys = array_keys( $result );
+		$this->assertSame( [ 'date', 'author', 'type', 'ip' ], $keys );
+		$this->assertSame( 'IP', $result['ip'] );
+	}
+
 	public function test_prep_row_populates_source_and_ip() {
 		$this->set_ip_source_option( 'REMOTE_ADDR' );
 		$export = $this->get_export_instance();
