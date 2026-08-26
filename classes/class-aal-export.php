@@ -185,10 +185,6 @@ class AAL_Export {
 		return PHP_INT_MAX;
 	}
 
-	/**
-	 * Inject a standalone IP column into the export columns right after 'source'.
-	 * Skipped when IP collection is disabled.
-	 */
 	private function add_export_ip_column( array $columns ): array {
 		if ( 'no-collect-ip' === AAL_Main::instance()->settings->get_option( 'log_visitor_ip_source' ) ) {
 			return $columns;
