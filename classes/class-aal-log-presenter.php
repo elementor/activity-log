@@ -109,8 +109,12 @@ class AAL_Log_Presenter {
 		if ( ! empty( $item->user_id ) && 0 !== (int) $item->user_id ) {
 			$user = get_user_by( 'id', $item->user_id );
 			if ( $user instanceof WP_User && 0 !== $user->ID ) {
-				$role_name = __( 'Unknown', 'aryo-activity-log' );
-				if ( isset( $user->roles[0] ) && isset( $wp_roles->role_names[ $user->roles[0] ] ) ) {
+				$stored_slug = isset( $item->user_caps ) ? $item->user_caps : '';
+				$role_name   = __( 'Unknown', 'aryo-activity-log' );
+
+				if ( ! empty( $stored_slug ) && isset( $wp_roles->role_names[ $stored_slug ] ) ) {
+					$role_name = $wp_roles->role_names[ $stored_slug ];
+				} elseif ( isset( $user->roles[0] ) && isset( $wp_roles->role_names[ $user->roles[0] ] ) ) {
 					$role_name = $wp_roles->role_names[ $user->roles[0] ];
 				}
 

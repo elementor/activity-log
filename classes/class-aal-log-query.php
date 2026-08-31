@@ -93,11 +93,11 @@ class AAL_Log_Query {
 			return false;
 		}
 
-		$user_cap   = strtolower( key( $user->caps ) );
+		$user_role  = ! empty( $user->roles[0] ) ? strtolower( $user->roles[0] ) : '';
 		$allow_caps = array();
 
 		foreach ( $this->caps as $key => $cap_allow ) {
-			if ( $key === $user_cap ) {
+			if ( $key === $user_role ) {
 				$allow_caps = array_merge( $allow_caps, $cap_allow );
 				break;
 			}
@@ -347,13 +347,16 @@ class AAL_Log_Query {
 			}
 		}
 
+		global $wp_roles;
+
 		$allow_caps = $this->get_allow_caps();
 		$roles      = array();
 		if ( false !== $allow_caps ) {
 			foreach ( $allow_caps as $cap ) {
+				$label = isset( $wp_roles->role_names[ $cap ] ) ? $wp_roles->role_names[ $cap ] : ucwords( $cap );
 				$roles[] = array(
 					'value' => $cap,
-					'label' => ucwords( $cap ),
+					'label' => $label,
 				);
 			}
 		}
