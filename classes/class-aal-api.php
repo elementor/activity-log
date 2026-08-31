@@ -195,7 +195,10 @@ class AAL_API {
 		}
 
 		if ( $user ) {
-			$args['user_caps'] = strtolower( key( $user->caps ) );
+			$args['user_caps'] = ! empty( $user->roles[0] )
+				? strtolower( $user->roles[0] )
+				: ( is_super_admin( $user->ID ) ? 'administrator' : 'guest' );
+
 			if ( empty( $args['user_id'] ) ) {
 				$args['user_id'] = $user->ID;
 			}
@@ -204,12 +207,6 @@ class AAL_API {
 			if ( empty( $args['user_id'] ) ) {
 				$args['user_id'] = 0;
 			}
-		}
-
-		// TODO: Find better way to Multisite compatibility.
-		// Fallback for multisite with bbPress
-		if ( empty( $args['user_caps'] ) || 'bbp_participant' === $args['user_caps'] ) {
-			$args['user_caps'] = 'administrator';
 		}
 
 		return $args;
