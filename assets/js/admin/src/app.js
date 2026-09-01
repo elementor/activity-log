@@ -305,8 +305,8 @@ export default function App() {
 		{ label: __( 'All Time', 'aryo-activity-log' ), value: '' },
 		{ label: __( 'Today', 'aryo-activity-log' ), value: 'today' },
 		{ label: __( 'Yesterday', 'aryo-activity-log' ), value: 'yesterday' },
-		{ label: __( 'Week', 'aryo-activity-log' ), value: 'week' },
-		{ label: __( 'Month', 'aryo-activity-log' ), value: 'month' },
+		{ label: __( 'Last 7 days', 'aryo-activity-log' ), value: 'week' },
+		{ label: __( 'Last 30 days', 'aryo-activity-log' ), value: 'month' },
 	];
 
 	const exportUrl = buildExportUrl( params );

@@ -143,6 +143,10 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
+= 2.14.0 =
+* New: Redesigned activity log admin UI built with React
+* Tweak: Renamed date filter options from "Week" / "Month" to "Last 7 days" / "Last 30 days" for clarity
+
 = 2.13.1 - 2026-08-26 =
 * Fix: CSV export file missing IP column ([Topic](https://wordpress.org/support/topic/missing-source-ip-in-csv-export/))
 

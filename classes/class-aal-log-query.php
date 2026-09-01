@@ -162,7 +162,7 @@ class AAL_Log_Query {
 	 *     @type int    $usershow    Filter by user_id.
 	 *     @type string $capshow     Filter by user_caps.
 	 *     @type string $sourceshow  Filter by request_source channel.
-	 *     @type string $dateshow    Date filter: today|yesterday|week|month|dd/mm/yyyy.
+	 *     @type string $dateshow    Date filter: today|yesterday|week (last 7 days)|month (last 30 days)|dd/mm/yyyy.
 	 *     @type string $s           Search term.
 	 *     @type string $orderby     Column to sort by (hist_time|hist_ip). Default hist_time.
 	 *     @type string $order       ASC or DESC. Default DESC.
@@ -248,7 +248,7 @@ class AAL_Log_Query {
 				} elseif ( 'week' === $args['dateshow'] ) {
 					$start_time = strtotime( '-1 week', $start_time );
 				} elseif ( 'month' === $args['dateshow'] ) {
-					$start_time = strtotime( '-1 month', $start_time );
+					$start_time = strtotime( '-30 days', $start_time );
 				}
 			} else {
 				$date_array = explode( '/', $args['dateshow'] );
