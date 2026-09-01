@@ -31,7 +31,7 @@ const styles = {
 	loading: { textAlign: 'center', padding: '40px 0' },
 	pagination: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, justifyContent: 'flex-end' },
 	paginationInfo: { fontSize: 13, color: '#50575e' },
-	badgeBase: { display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 12, lineHeight: '18px', textDecoration: 'none' },
+	badgeBase: { display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 'inherit', lineHeight: '14px', textDecoration: 'none' },
 	badgeChannel: { background: '#e7f0f7', color: '#1e4d78' },
 	badgeApp: { background: '#f0e7f7', color: '#4d1e78' },
 	noItems: { textAlign: 'center', padding: 20, color: '#646970' },
@@ -523,6 +523,12 @@ function LogRow( { item, params, onFilter } ) {
 				) }
 				{ author.role && <br /> }
 				{ author.role && <small>{ author.role }</small> }
+				{ source.app_name && (
+					<>
+						<br />
+						<small><SourceBadge type="app">{ source.app_name }</SourceBadge></small>
+					</>
+				) }
 			</td>
 			<td>
 				{ source.channel_label && (
@@ -536,12 +542,6 @@ function LogRow( { item, params, onFilter } ) {
 						>
 							{ source.channel_label }
 						</SourceBadge>
-						<br />
-					</>
-				) }
-				{ source.app_name && (
-					<>
-						<SourceBadge type="app">{ source.app_name }</SourceBadge>
 						<br />
 					</>
 				) }

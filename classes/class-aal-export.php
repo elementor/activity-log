@@ -64,10 +64,11 @@ class AAL_Export {
 		$result = $query->query( $query_args );
 
 		$columns = array(
-			'date'        => __( 'Date', 'aryo-activity-log' ),
-			'author'      => __( 'User', 'aryo-activity-log' ),
-			'source'      => __( 'Source', 'aryo-activity-log' ),
-			'type'        => __( 'Topic', 'aryo-activity-log' ),
+			'date'         => __( 'Date', 'aryo-activity-log' ),
+			'author'       => __( 'User', 'aryo-activity-log' ),
+			'app_password' => __( 'App Password', 'aryo-activity-log' ),
+			'source'       => __( 'Source', 'aryo-activity-log' ),
+			'type'         => __( 'Topic', 'aryo-activity-log' ),
 			'label'       => __( 'Context', 'aryo-activity-log' ),
 			'description' => __( 'Meta', 'aryo-activity-log' ),
 			'action'      => __( 'Action', 'aryo-activity-log' ),

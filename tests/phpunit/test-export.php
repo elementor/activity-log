@@ -119,4 +119,49 @@ class AAL_Test_Export extends WP_UnitTestCase {
 		$this->assertSame( '192.168.1.1', $row['ip'] );
 		$this->assertSame( '', $row['source'] );
 	}
+
+	public function test_export_row_app_password_column_with_app() {
+		$columns = [
+			'app_password' => 'App Password',
+			'source'       => 'Source',
+		];
+
+		$item = (object) [
+			'hist_ip'        => '',
+			'request_source' => 'rest|app:My App',
+			'hist_time'      => time(),
+			'user_id'        => 0,
+			'object_type'    => 'Posts',
+			'object_subtype' => 'post',
+			'object_name'    => 'hello',
+			'action'         => 'updated',
+		];
+
+		$row = AAL_Log_Presenter::to_export_row( $item, $columns );
+
+		$this->assertSame( 'My App', $row['app_password'] );
+		$this->assertStringNotContainsString( 'App Password', $row['source'] );
+	}
+
+	public function test_export_row_app_password_column_without_app() {
+		$columns = [
+			'app_password' => 'App Password',
+			'source'       => 'Source',
+		];
+
+		$item = (object) [
+			'hist_ip'        => '',
+			'request_source' => 'rest',
+			'hist_time'      => time(),
+			'user_id'        => 0,
+			'object_type'    => 'Posts',
+			'object_subtype' => 'post',
+			'object_name'    => 'hello',
+			'action'         => 'updated',
+		];
+
+		$row = AAL_Log_Presenter::to_export_row( $item, $columns );
+
+		$this->assertSame( '', $row['app_password'] );
+	}
 }

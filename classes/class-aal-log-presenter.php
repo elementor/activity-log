@@ -50,6 +50,15 @@ class AAL_Log_Presenter {
 					$row[ $column ] = isset( $user->display_name ) ? $user->display_name : 'unknown';
 					break;
 
+				case 'app_password':
+					if ( AAL_Maintenance::is_schema_ready( '1.1' ) && ! empty( $item->request_source ) ) {
+						$parsed = AAL_API::parse_request_source( $item->request_source );
+						$row[ $column ] = $parsed['app_name'];
+					} else {
+						$row[ $column ] = '';
+					}
+					break;
+
 				case 'source':
 					if ( AAL_Maintenance::is_schema_ready( '1.1' ) && ! empty( $item->request_source ) ) {
 						$row[ $column ] = self::format_source_label_plain( $item->request_source );
@@ -275,12 +284,6 @@ class AAL_Log_Presenter {
 
 		if ( ! empty( $parsed['channel'] ) && isset( $channel_labels[ $parsed['channel'] ] ) ) {
 			$parts[] = $channel_labels[ $parsed['channel'] ];
-		}
-
-		if ( ! empty( $parsed['app_name'] ) ) {
-			$parts[] = 'App Password: ' . $parsed['app_name'];
-		} elseif ( false !== strpos( $raw, 'app:' ) ) {
-			$parts[] = 'App Password';
 		}
 
 		return implode( '; ', $parts );
