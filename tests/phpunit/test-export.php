@@ -13,21 +13,6 @@ class AAL_Test_Export extends WP_UnitTestCase {
 		return $method->invoke( $export, $columns );
 	}
 
-	private function invoke_prep_row( AAL_Export $export, $item, array $columns ): array {
-		$method = new ReflectionMethod( AAL_Export::class, 'prep_row' );
-		$method->setAccessible( true );
-
-		$list_table = $this->getMockBuilder( AAL_Activity_Log_List_Table::class )
-			->disableOriginalConstructor()
-			->onlyMethods( [ 'get_action_label' ] )
-			->getMock();
-
-		$list_table->method( 'get_action_label' )
-			->willReturnArgument( 0 );
-
-		return $method->invoke( $export, $item, $columns, $list_table );
-	}
-
 	private function set_ip_source_option( string $value ): void {
 		update_option( 'activity-log-settings', [ 'log_visitor_ip_source' => $value ] );
 
@@ -89,10 +74,7 @@ class AAL_Test_Export extends WP_UnitTestCase {
 		$this->assertSame( 'IP', $result['ip'] );
 	}
 
-	public function test_prep_row_populates_source_and_ip() {
-		$this->set_ip_source_option( 'REMOTE_ADDR' );
-		$export = $this->get_export_instance();
-
+	public function test_export_row_populates_source_and_ip() {
 		$columns = [
 			'source' => 'Source',
 			'ip'     => 'IP',
@@ -109,16 +91,13 @@ class AAL_Test_Export extends WP_UnitTestCase {
 			'action'         => 'updated',
 		];
 
-		$row = $this->invoke_prep_row( $export, $item, $columns );
+		$row = AAL_Log_Presenter::to_export_row( $item, $columns );
 
 		$this->assertSame( '10.0.0.1', $row['ip'] );
 		$this->assertNotEmpty( $row['source'] );
 	}
 
-	public function test_prep_row_ip_empty_source_when_no_request_source() {
-		$this->set_ip_source_option( 'REMOTE_ADDR' );
-		$export = $this->get_export_instance();
-
+	public function test_export_row_ip_empty_source_when_no_request_source() {
 		$columns = [
 			'source' => 'Source',
 			'ip'     => 'IP',
@@ -135,7 +114,7 @@ class AAL_Test_Export extends WP_UnitTestCase {
 			'action'         => 'created',
 		];
 
-		$row = $this->invoke_prep_row( $export, $item, $columns );
+		$row = AAL_Log_Presenter::to_export_row( $item, $columns );
 
 		$this->assertSame( '192.168.1.1', $row['ip'] );
 		$this->assertSame( '', $row['source'] );

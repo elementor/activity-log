@@ -48,18 +48,35 @@ class AAL_Export {
 
 		$this->insert_export_log();
 
-		// Disable row limit
-		add_filter( 'edit_aal_logs_per_page', array( $this, 'increase_throughput' ) );
+		$query = new AAL_Log_Query();
 
-		// Prep items for export
-		$list_table->prepare_items();
-		$items = $list_table->items;
-		$columns = $list_table->get_columns();
+		$query_args = array(
+			'per_page' => PHP_INT_MAX,
+		);
+
+		$filter_keys = array( 'dateshow', 'capshow', 'usershow', 'typeshow', 'showaction', 'sourceshow', 'filter_ip', 's' );
+		foreach ( $filter_keys as $key ) {
+			if ( ! empty( $_GET[ $key ] ) ) {
+				$query_args[ $key ] = sanitize_text_field( wp_unslash( $_GET[ $key ] ) );
+			}
+		}
+
+		$result = $query->query( $query_args );
+
+		$columns = array(
+			'date'        => __( 'Date', 'aryo-activity-log' ),
+			'author'      => __( 'User', 'aryo-activity-log' ),
+			'source'      => __( 'Source', 'aryo-activity-log' ),
+			'type'        => __( 'Topic', 'aryo-activity-log' ),
+			'label'       => __( 'Context', 'aryo-activity-log' ),
+			'description' => __( 'Meta', 'aryo-activity-log' ),
+			'action'      => __( 'Action', 'aryo-activity-log' ),
+		);
 		$columns = $this->add_export_ip_column( $columns );
 
 		$op = array();
-		foreach ( $items as $item ) {
-			$op[] = $this->prep_row( $item, $columns, $list_table );
+		foreach ( $result['items'] as $item ) {
+			$op[] = AAL_Log_Presenter::to_export_row( $item, $columns );
 		}
 
 		$exporter = $this->exporters[ $exporter_selected ];
@@ -69,60 +86,6 @@ class AAL_Export {
 	protected function redirect_back() {
 		wp_redirect( menu_page_url( 'activity-log-page', false ) );
 		exit;
-	}
-
-	/**
-	 * @param stdClass                    $item
-	 * @param array                       $columns
-	 * @param AAL_Activity_Log_List_Table $list_table
-	 *
-	 * @return array
-	 */
-	private function prep_row( $item, $columns, $list_table ) {
-		$row = array();
-
-		foreach ( array_keys( $columns ) as $column ) {
-			switch ( $column ) {
-				case 'date':
-					$row[ $column ] = date_i18n( get_option( 'date_format' ), $item->hist_time ) . ' ' . date_i18n( get_option( 'time_format' ), $item->hist_time );;
-					break;
-
-				case 'author':
-					$user = get_userdata( $item->user_id );
-					$row[ $column ] = isset( $user->display_name ) ? $user->display_name : 'unknown';
-					break;
-
-				case 'source':
-					if ( AAL_Maintenance::is_schema_ready( '1.1' ) && ! empty( $item->request_source ) ) {
-						$row[ $column ] = self::format_source_label( $item->request_source );
-					} else {
-						$row[ $column ] = '';
-					}
-					break;
-
-				case 'ip':
-					$row[ $column ] = $item->hist_ip;
-					break;
-
-				case 'type':
-					$row[ $column ] = $item->object_type;
-					break;
-
-				case 'label':
-					$row[ $column ] = $item->object_subtype;
-					break;
-
-				case 'action':
-					$row[ $column ] = $list_table->get_action_label( $item->action );
-					break;
-
-				case 'description':
-					$row[ $column ] = $item->object_name;
-					break;
-			}
-		}
-
-		return $row;
 	}
 
 	private function insert_export_log() {
@@ -174,17 +137,6 @@ class AAL_Export {
 		return $this->exporters;
 	}
 
-	/**
-	 * Increase throughput
-	 *
-	 * @param int $records_per_page Old limit of records
-	 *
-	 * @return int
-	 */
-	public function increase_throughput( $records_per_page ) {
-		return PHP_INT_MAX;
-	}
-
 	private function add_export_ip_column( array $columns ): array {
 		if ( 'no-collect-ip' === AAL_Main::instance()->settings->get_option( 'log_visitor_ip_source' ) ) {
 			return $columns;
@@ -207,23 +159,5 @@ class AAL_Export {
 		}
 
 		return $result;
-	}
-
-	private static function format_source_label( $raw ) {
-		$parsed = AAL_API::parse_request_source( $raw );
-		$parts = array();
-		$channel_labels = AAL_API::get_channel_labels();
-
-		if ( ! empty( $parsed['channel'] ) && isset( $channel_labels[ $parsed['channel'] ] ) ) {
-			$parts[] = $channel_labels[ $parsed['channel'] ];
-		}
-
-		if ( ! empty( $parsed['app_name'] ) ) {
-			$parts[] = 'App Password: ' . $parsed['app_name'];
-		} elseif ( false !== strpos( $raw, 'app:' ) ) {
-			$parts[] = 'App Password';
-		}
-
-		return implode( '; ', $parts );
 	}
 }

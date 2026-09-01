@@ -1,7 +1,7 @@
 === Activity Log - Monitor & Record User Changes ===
 Contributors: elemntor, KingYes, ariel.k
 Tags: Activity Log, User Log, Audit Log, Security, Email Log,
-Requires at least: 6.0
+Requires at least: 6.2
 Requires PHP: 7.4
 Tested up to: 7.1
 Stable tag: 2.13.1
@@ -142,6 +142,10 @@ Yes. Beyond the built-in toggles for failed logins and email logs, developers ca
 You can report security bugs through the Patchstack Vulnerability Disclosure Program. The Patchstack team help validate, triage and handle any security vulnerabilities. [Report a security vulnerability](https://patchstack.com/database/vdp/aryo-activity-log).
 
 == Changelog ==
+
+= 2.14.0 =
+* New: Redesigned activity log admin UI built with React
+* Tweak: Renamed date filter options from "Week" / "Month" to "Last 7 days" / "Last 30 days" for clarity
 
 = 2.13.1 - 2026-08-26 =
 * Fix: CSV export file missing IP column ([Topic](https://wordpress.org/support/topic/missing-source-ip-in-csv-export/))
