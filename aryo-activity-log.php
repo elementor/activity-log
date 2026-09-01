@@ -5,7 +5,7 @@ Plugin URI: https://activitylog.io/?utm_source=wp-plugins&utm_campaign=plugin-ur
 Description: This top rated Activity Log plugin helps you monitor & log all changes and actions on your WordPress site, so you can remain secure and organized.
 Author: Activity Log Team
 Author URI: https://activitylog.io/?utm_source=wp-plugins&utm_campaign=author-uri&utm_medium=wp-dash
-Version: 2.13.1
+Version: 2.14.0
 Text Domain: aryo-activity-log
 License: GPLv2 or later
 

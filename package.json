@@ -3,7 +3,7 @@
 	"slug": "aryo-activity-log",
 	"homepage": "http://pojo.me/",
 	"description": "Activity Log",
-	"version": "2.13.1",
+	"version": "2.14.0",
 	"scripts": {
 		"build": "wp-scripts build assets/js/admin/src/index.js --output-path=assets/js/admin/build",
 		"start": "wp-scripts start assets/js/admin/src/index.js --output-path=assets/js/admin/build",
