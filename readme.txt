@@ -143,7 +143,10 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
-= 2.14.0 =
+= 2.14.1 - 2026-09-02 =
+* Tweak: Moved Application Password badge from Source column to User column
+
+= 2.14.0 - 2026-09-01 =
 * New: Redesigned activity log admin UI built with React
 * Tweak: Renamed date filter options from "Week" / "Month" to "Last 7 days" / "Last 30 days" for clarity
 
