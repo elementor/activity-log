@@ -143,6 +143,9 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
+= 2.15.0 - 2026-09-03 =
+* New: Settings page rebuilt with React UI and REST API
+
 = 2.14.1 - 2026-09-02 =
 * Tweak: Moved Application Password badge from Source column to User column
 
