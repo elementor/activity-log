@@ -5,8 +5,8 @@
 	"description": "Activity Log",
 	"version": "2.14.1",
 	"scripts": {
-		"build": "wp-scripts build assets/js/admin/src/index.js --output-path=assets/js/admin/build",
-		"start": "wp-scripts start assets/js/admin/src/index.js --output-path=assets/js/admin/build",
+		"build": "wp-scripts build assets/js/admin/src/index.js assets/js/admin/src/settings-index.js --output-path=assets/js/admin/build",
+		"start": "wp-scripts start assets/js/admin/src/index.js assets/js/admin/src/settings-index.js --output-path=assets/js/admin/build",
 		"clean": "rimraf $npm_package_name $npm_package_name.*.zip",
 		"package": "npm run clean && npm run build && rsync -av --exclude-from=.build-rsync-exclude . $npm_package_name",
 		"package:zip": "npm run package && zip -r $npm_package_name.$npm_package_version.zip ./$npm_package_name/*",

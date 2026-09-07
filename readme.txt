@@ -1,4 +1,4 @@
-=== Activity Log - Monitor & Record User Changes ===
+=== Activity Log – Monitor User and Agent Changes ===
 Contributors: elemntor, KingYes, ariel.k
 Tags: Activity Log, User Log, Audit Log, Security, Email Log,
 Requires at least: 6.2
@@ -142,6 +142,9 @@ Yes. Beyond the built-in toggles for failed logins and email logs, developers ca
 You can report security bugs through the Patchstack Vulnerability Disclosure Program. The Patchstack team help validate, triage and handle any security vulnerabilities. [Report a security vulnerability](https://patchstack.com/database/vdp/aryo-activity-log).
 
 == Changelog ==
+
+= 2.15.0 - 2026-09-07 =
+* New: Settings page rebuilt with React UI and REST API
 
 = 2.14.1 - 2026-09-02 =
 * Tweak: Moved Application Password badge from Source column to User column

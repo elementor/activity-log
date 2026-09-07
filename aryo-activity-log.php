@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: Activity Log
+Plugin Name: Activity Log – Monitor User and Agent Changes
 Plugin URI: https://activitylog.io/?utm_source=wp-plugins&utm_campaign=plugin-uri&utm_medium=wp-dash
 Description: This top rated Activity Log plugin helps you monitor & log all changes and actions on your WordPress site, so you can remain secure and organized.
 Author: Activity Log Team

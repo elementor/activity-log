@@ -28,16 +28,16 @@ export function dismissPromotion( id ) {
 	} );
 }
 
-const EXPORT_FILTER_KEYS = [
-	'dateshow', 'capshow', 'usershow', 'typeshow',
-	'showaction', 'sourceshow', 'filter_ip', 's',
-];
-
 export function buildExportUrl( filters ) {
 	const base = config.exportUrl || '';
 	if ( ! base ) {
 		return '';
 	}
+
+	const EXPORT_FILTER_KEYS = [
+		'dateshow', 'capshow', 'usershow', 'typeshow',
+		'showaction', 'sourceshow', 'filter_ip', 's',
+	];
 
 	const url = new URL( base, window.location.origin );
 
@@ -52,4 +52,28 @@ export function buildExportUrl( filters ) {
 	url.searchParams.set( 'aal_actions_nonce', config.exportNonce || '' );
 
 	return url.toString();
+}
+
+export function fetchSettings() {
+	return apiFetch( {
+		path: 'activity-log/v1/settings',
+		headers: { 'X-AAL-Settings-Nonce': config.settingsNonce || '' },
+	} );
+}
+
+export function saveSettings( data ) {
+	return apiFetch( {
+		path: 'activity-log/v1/settings',
+		method: 'PUT',
+		data,
+		headers: { 'X-AAL-Settings-Nonce': config.settingsNonce || '' },
+	} );
+}
+
+export function eraseLogs() {
+	return apiFetch( {
+		path: 'activity-log/v1/logs/erase',
+		method: 'POST',
+		headers: { 'X-AAL-Settings-Nonce': config.settingsNonce || '' },
+	} );
 }
