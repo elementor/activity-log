@@ -10,6 +10,8 @@
     <testsuites>
         <testsuite name="phpunit">
             <directory prefix="test-" suffix=".php">./tests/phpunit</directory>
+            <exclude>./tests/phpunit/test-maintenance-activation.php</exclude>
+            <file>./tests/phpunit/test-maintenance-activation.php</file>
         </testsuite>
     </testsuites>
     <coverage>
