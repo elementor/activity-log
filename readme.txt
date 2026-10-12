@@ -144,10 +144,9 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 == Changelog ==
 
 = 2.16.0 - 2026-10-12 =
-* New: Read-only WordPress Abilities for AI agents on WordPress 6.9+ (query logs, get an entry by ID, and load filter values)
-* New: "Expose activity log to AI agents" setting (off by default; filterable default via `aal_abilities_agent_exposure_default` when the setting has not been saved)
-* Tweak: IP addresses are not included in WordPress Ability responses
-* Fix: `query-logs` and `get-filters` abilities work when the REST `input` parameter is omitted
+* New: Read-only Abilities API support for AI agents (WP 6.9+)
+* New: Setting to expose activity log to AI agents
+* Tweak: Exclude IP addresses from ability responses
 
 = 2.15.0 - 2026-09-07 =
 * New: Settings page rebuilt with React UI and REST API
