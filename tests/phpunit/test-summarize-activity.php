@@ -131,14 +131,29 @@ class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 	public function test_summarize_top_users_limit_ten() {
 		update_option( 'timezone_string', 'UTC' );
 		$leader_id = self::factory()->user->create( array( 'role' => 'administrator', 'display_name' => 'Summary Leader' ) );
+		$other_ids = array();
+		for ( $i = 0; $i < 10; $i++ ) {
+			$other_ids[] = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		}
+		sort( $other_ids );
 		for ( $i = 0; $i < 5; $i++ ) {
 			$this->insert_log( array( 'hist_time' => 1773144000, 'user_id' => $leader_id ) );
 		}
-		for ( $i = 0; $i < 10; $i++ ) {
-			$this->insert_log( array( 'hist_time' => 1773144000, 'user_id' => self::factory()->user->create( array( 'role' => 'administrator' ) ) ) );
+		foreach ( $other_ids as $user_id ) {
+			$this->insert_log( array( 'hist_time' => 1773144000, 'user_id' => $user_id ) );
 		}
 		$result = $this->run_summarize( self::DAY_RANGE, 1773144000 );
-		$this->assertSame( array( 'count' => 10, 'lead' => array( 'name' => 'Summary Leader', 'count' => 5 ) ), array( 'count' => count( $result['top_users'] ), 'lead' => array( 'name' => $result['top_users'][0]['name'], 'count' => $result['top_users'][0]['count'] ) ) );
+		$expected_ids = array_merge( array( $leader_id ), array_slice( $other_ids, 0, 9 ) );
+		$this->assertSame(
+			array(
+				'user_ids' => $expected_ids,
+				'lead'     => array( 'name' => 'Summary Leader', 'count' => 5 ),
+			),
+			array(
+				'user_ids' => wp_list_pluck( $result['top_users'], 'user_id' ),
+				'lead'     => array( 'name' => $result['top_users'][0]['name'], 'count' => $result['top_users'][0]['count'] ),
+			)
+		);
 	}
 
 	public function test_summarize_empty_when_role_filter_denies() {

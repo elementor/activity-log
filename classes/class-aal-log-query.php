@@ -518,7 +518,7 @@ class AAL_Log_Query {
 		$user_rows = $wpdb->get_results(
 			'SELECT `user_id`, COUNT(`histid`) AS `cnt` FROM `' . $wpdb->activity_log . '`'
 			. $time_where . ' ' . $role_where
-			. ' GROUP BY `user_id` ORDER BY `cnt` DESC LIMIT 10'
+			. ' GROUP BY `user_id` ORDER BY `cnt` DESC, `user_id` ASC LIMIT 10'
 		);
 
 		$top_users = array();
@@ -546,7 +546,7 @@ class AAL_Log_Query {
 			$source_rows = $wpdb->get_results(
 				'SELECT `request_source`, COUNT(`histid`) AS `cnt` FROM `' . $wpdb->activity_log . '`'
 				. $time_where . ' ' . $role_where
-				. ' GROUP BY `request_source`'
+				. ' GROUP BY `request_source` ORDER BY `request_source` ASC'
 			);
 			if ( $source_rows ) {
 				foreach ( $source_rows as $row ) {
