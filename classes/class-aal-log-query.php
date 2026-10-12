@@ -11,60 +11,97 @@ class AAL_Log_Query {
 	}
 
 	public static function hist_time_to_unix( $hist_time ) {
-		return self::hist_time_to_local_datetime( (int) $hist_time )->getTimestamp();
+		$resolved = self::resolve_hist_time( (int) $hist_time );
+
+		return $resolved['unix'];
 	}
 
 	public static function hist_time_to_iso8601( $hist_time ) {
-		return wp_date( 'c', self::hist_time_to_unix( (int) $hist_time ) );
+		$hist_time = (int) $hist_time;
+		$resolved  = self::resolve_hist_time( $hist_time );
+
+		// Civil time from stored hist_time; offset from the chosen transition (not DateTime::format).
+		return gmdate( 'Y-m-d\TH:i:s', $hist_time ) . self::format_iso8601_offset( $resolved['offset'] );
 	}
 
 	protected static function hist_time_to_local_datetime( $hist_time ) {
+		$resolved = self::resolve_hist_time( (int) $hist_time );
+
+		return ( new DateTimeImmutable( '@' . $resolved['unix'] ) )->setTimezone( wp_timezone() );
+	}
+
+	/**
+	 * @return array{unix: int, offset: int}
+	 */
+	protected static function resolve_hist_time( $hist_time ) {
 		$timezone  = wp_timezone();
 		$hist_time = (int) $hist_time;
 		$unix_hint = $hist_time - $timezone->getOffset( new DateTimeImmutable( 'now', $timezone ) );
 
-		$transitions    = array();
-		$window_start   = $unix_hint - DAY_IN_SECONDS;
-		$window_end     = $unix_hint + DAY_IN_SECONDS;
-		$can_transition = $window_start <= $window_end && $window_end <= PHP_INT_MAX;
-		if ( $can_transition ) {
-			$transitions = $timezone->getTransitions( (int) $window_start, (int) $window_end );
-			if ( ! is_array( $transitions ) ) {
-				$transitions = array();
-			}
-		}
-		$offsets = array();
-		foreach ( $transitions as $transition ) {
-			$offsets[] = (int) $transition['offset'];
-		}
-		$offsets[] = $timezone->getOffset( new DateTimeImmutable( '@' . $unix_hint, $timezone ) );
-		$offsets   = array_unique( $offsets );
+		$offsets = self::hist_time_candidate_offsets( $timezone, $unix_hint );
+		$pairs   = array();
 
-		$candidates = array();
 		foreach ( $offsets as $offset ) {
-			$unix  = $hist_time - $offset;
-			$local = ( new DateTimeImmutable( '@' . $unix ) )->setTimezone( $timezone );
-			if ( $local->getTimestamp() + $timezone->getOffset( $local ) === $hist_time ) {
-				$candidates[] = $local;
+			$unix = $hist_time - $offset;
+			if ( $timezone->getOffset( new DateTimeImmutable( '@' . $unix ) ) === $offset ) {
+				$pairs[] = array(
+					'unix'   => $unix,
+					'offset' => $offset,
+				);
 			}
 		}
 
-		if ( ! empty( $candidates ) ) {
+		if ( ! empty( $pairs ) ) {
 			// Fall-back hour: pick the earlier instant (DST pass), not PHP's default second pass.
 			usort(
-				$candidates,
-				static function ( DateTimeImmutable $a, DateTimeImmutable $b ) {
-					return $a->getTimestamp() <=> $b->getTimestamp();
+				$pairs,
+				static function ( $a, $b ) {
+					return $a['unix'] <=> $b['unix'];
 				}
 			);
 
-			return $candidates[0];
+			return $pairs[0];
 		}
 
-		$unix  = $hist_time - $timezone->getOffset( new DateTimeImmutable( '@' . $unix_hint, $timezone ) );
-		$local = ( new DateTimeImmutable( '@' . $unix ) )->setTimezone( $timezone );
+		$offset = $timezone->getOffset( new DateTimeImmutable( '@' . $unix_hint ) );
 
-		return $local;
+		return array(
+			'unix'   => $hist_time - $offset,
+			'offset' => $offset,
+		);
+	}
+
+	/**
+	 * @return int[]
+	 */
+	protected static function hist_time_candidate_offsets( DateTimeZone $timezone, $unix_hint ) {
+		$offsets        = array();
+		$window_start   = $unix_hint - DAY_IN_SECONDS;
+		$window_end     = $unix_hint + DAY_IN_SECONDS;
+		$can_transition = $window_start <= $window_end && $window_end <= PHP_INT_MAX;
+
+		if ( $can_transition ) {
+			$transitions = $timezone->getTransitions( (int) $window_start, (int) $window_end );
+			if ( is_array( $transitions ) ) {
+				foreach ( $transitions as $transition ) {
+					$offsets[] = (int) $transition['offset'];
+				}
+			}
+		}
+
+		$offsets[] = $timezone->getOffset( new DateTimeImmutable( '@' . $unix_hint ) );
+
+		return array_values( array_unique( $offsets ) );
+	}
+
+	protected static function format_iso8601_offset( $offset_seconds ) {
+		$offset_seconds = (int) $offset_seconds;
+		$sign           = $offset_seconds >= 0 ? '+' : '-';
+		$abs            = abs( $offset_seconds );
+		$hours          = (int) floor( $abs / HOUR_IN_SECONDS );
+		$minutes        = (int) floor( ( $abs % HOUR_IN_SECONDS ) / MINUTE_IN_SECONDS );
+
+		return sprintf( '%s%02d:%02d', $sign, $hours, $minutes );
 	}
 
 	protected $roles = array();
