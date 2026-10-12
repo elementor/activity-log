@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @group schema
+ * @runInSeparateProcess
+ * @preserveGlobalState disabled
+ */
 class AAL_Test_Maintenance_Activation extends WP_UnitTestCase {
 
 	public function setUp(): void {
@@ -11,10 +16,19 @@ class AAL_Test_Maintenance_Activation extends WP_UnitTestCase {
 	}
 
 	public function tearDown(): void {
+		remove_all_filters( 'aal_auto_upgrade_max_rows' );
 		parent::tearDown();
+		delete_option( 'aal_manual_db_upgrade' );
+		delete_transient( 'aal_upgrade_failed' );
+		delete_option( 'activity_log_db_version' );
 		$m = new ReflectionMethod( 'AAL_Maintenance', '_create_tables' );
 		$m->setAccessible( true );
 		$m->invoke( null );
+		$ref = new ReflectionClass( 'AAL_Maintenance' );
+		$p = $ref->getProperty( 'schema_ready_cache' );
+		$p->setAccessible( true );
+		$p->setValue( null, array() );
+		wp_cache_flush();
 	}
 
 	public function test_activation_upgrades_legacy_table() {
