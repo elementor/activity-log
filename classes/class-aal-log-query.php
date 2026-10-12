@@ -18,18 +18,51 @@ class AAL_Log_Query {
 		return wp_date( 'c', self::hist_time_to_unix( (int) $hist_time ) );
 	}
 
-	/**
-	 * Map stored hist_time to a site-timezone DateTimeImmutable (handles DST ambiguity).
-	 */
 	protected static function hist_time_to_local_datetime( $hist_time ) {
-		$timezone = wp_timezone();
-		$unix     = $hist_time - $timezone->getOffset( new DateTimeImmutable( 'now', $timezone ) );
-		$local    = ( new DateTimeImmutable( '@' . $unix ) )->setTimezone( $timezone );
+		$timezone  = wp_timezone();
+		$hist_time = (int) $hist_time;
+		$unix_hint = $hist_time - $timezone->getOffset( new DateTimeImmutable( 'now', $timezone ) );
 
-		if ( $local->getTimestamp() + $timezone->getOffset( $local ) !== $hist_time ) {
-			$unix  = $hist_time - $timezone->getOffset( $local );
-			$local = ( new DateTimeImmutable( '@' . $unix ) )->setTimezone( $timezone );
+		$transitions    = array();
+		$window_start   = $unix_hint - DAY_IN_SECONDS;
+		$window_end     = $unix_hint + DAY_IN_SECONDS;
+		$can_transition = $window_start <= $window_end && $window_end <= PHP_INT_MAX;
+		if ( $can_transition ) {
+			$transitions = $timezone->getTransitions( (int) $window_start, (int) $window_end );
+			if ( ! is_array( $transitions ) ) {
+				$transitions = array();
+			}
 		}
+		$offsets = array();
+		foreach ( $transitions as $transition ) {
+			$offsets[] = (int) $transition['offset'];
+		}
+		$offsets[] = $timezone->getOffset( new DateTimeImmutable( '@' . $unix_hint, $timezone ) );
+		$offsets   = array_unique( $offsets );
+
+		$candidates = array();
+		foreach ( $offsets as $offset ) {
+			$unix  = $hist_time - $offset;
+			$local = ( new DateTimeImmutable( '@' . $unix ) )->setTimezone( $timezone );
+			if ( $local->getTimestamp() + $timezone->getOffset( $local ) === $hist_time ) {
+				$candidates[] = $local;
+			}
+		}
+
+		if ( ! empty( $candidates ) ) {
+			// Fall-back hour: pick the earlier instant (DST pass), not PHP's default second pass.
+			usort(
+				$candidates,
+				static function ( DateTimeImmutable $a, DateTimeImmutable $b ) {
+					return $a->getTimestamp() <=> $b->getTimestamp();
+				}
+			);
+
+			return $candidates[0];
+		}
+
+		$unix  = $hist_time - $timezone->getOffset( new DateTimeImmutable( '@' . $unix_hint, $timezone ) );
+		$local = ( new DateTimeImmutable( '@' . $unix ) )->setTimezone( $timezone );
 
 		return $local;
 	}
@@ -179,6 +212,62 @@ class AAL_Log_Query {
 		}
 
 		return 'AND (' . implode( ' OR ', $where ) . ') AND (' . implode( ' OR ', $where_caps ) . ')';
+	}
+
+	/**
+	 * Role/cap visibility clause for $wpdb->prepare() (object types and caps are allowlisted).
+	 *
+	 * @return array{sql: string, args: array<int, string>}|false
+	 */
+	protected function get_role_visibility_sql_parts() {
+		$allow_modules = array();
+
+		foreach ( $this->roles as $key => $role ) {
+			if ( current_user_can( $key ) || current_user_can( 'view_all_aryo_activity_log' ) ) {
+				$allow_modules = array_merge( $allow_modules, $role );
+			}
+		}
+
+		if ( empty( $allow_modules ) ) {
+			return false;
+		}
+
+		$allow_modules = array_values( array_unique( $allow_modules ) );
+		$allow_caps    = $this->get_allow_caps();
+		if ( false === $allow_caps ) {
+			return false;
+		}
+
+		$allow_caps = array_values( array_unique( $allow_caps ) );
+
+		$type_sql = implode( ' OR ', array_fill( 0, count( $allow_modules ), '`object_type` = %s' ) );
+		$cap_sql  = implode( ' OR ', array_fill( 0, count( $allow_caps ), '`user_caps` = %s' ) );
+
+		return array(
+			'sql'  => 'AND (' . $type_sql . ') AND (' . $cap_sql . ')',
+			'args' => array_merge( $allow_modules, $allow_caps ),
+		);
+	}
+
+	/**
+	 * @param string               $before_role_sql Ends with time-bound WHERE clause placeholders.
+	 * @param string               $after_role_sql  Optional GROUP BY / ORDER BY (placeholders after role args).
+	 * @param array<int, mixed>    $before_args     Values for $before_role_sql placeholders.
+	 * @param array<int, mixed>    $after_args      Values for $after_role_sql placeholders.
+	 * @return string|null Prepared SQL, or null when visibility denies access.
+	 */
+	protected function prepare_summary_sql( $before_role_sql, $after_role_sql, $before_args, $after_args = array() ) {
+		global $wpdb;
+
+		$role = $this->get_role_visibility_sql_parts();
+		if ( false === $role ) {
+			return null;
+		}
+
+		$sql          = $before_role_sql . ' ' . $role['sql'] . $after_role_sql;
+		$prepare_args = array_merge( $before_args, $role['args'], $after_args );
+
+		return $wpdb->prepare( $sql, $prepare_args );
 	}
 
 	/**
@@ -627,39 +716,26 @@ class AAL_Log_Query {
 		$to_ts   = (int) $args['to_ts'];
 		$empty   = $this->empty_activity_summary( $from_ts, $to_ts );
 
-		$role_where = $this->get_where_by_role();
-		if ( false === $role_where ) {
+		if ( false === $this->get_role_visibility_sql_parts() ) {
 			return $empty;
 		}
 
-		$time_where = $wpdb->prepare(
-			' WHERE `hist_time` >= %d AND `hist_time` <= %d',
-			$from_ts,
-			$to_ts
+		$count_sql = $this->prepare_summary_sql(
+			'SELECT COUNT(`histid`) FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d',
+			'',
+			array( $wpdb->activity_log, $from_ts, $to_ts )
 		);
+		$total     = (int) $wpdb->get_var( $count_sql );
 
-		$total = (int) $wpdb->get_var(
-			'SELECT COUNT(`histid`) FROM `' . $wpdb->activity_log . '`'
-			. $time_where . ' ' . $role_where
-		);
+		$by_action      = $this->summarize_group_counts( 'action', $from_ts, $to_ts );
+		$by_object_type = $this->summarize_group_counts( 'object_type', $from_ts, $to_ts );
 
-		$by_action = $this->summarize_group_counts(
-			'action',
-			$time_where,
-			$role_where
+		$user_sql  = $this->prepare_summary_sql(
+			'SELECT `user_id`, COUNT(`histid`) AS `cnt` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d',
+			' GROUP BY `user_id` ORDER BY `cnt` DESC, `user_id` ASC LIMIT 10',
+			array( $wpdb->activity_log, $from_ts, $to_ts )
 		);
-
-		$by_object_type = $this->summarize_group_counts(
-			'object_type',
-			$time_where,
-			$role_where
-		);
-
-		$user_rows = $wpdb->get_results(
-			'SELECT `user_id`, COUNT(`histid`) AS `cnt` FROM `' . $wpdb->activity_log . '`'
-			. $time_where . ' ' . $role_where
-			. ' GROUP BY `user_id` ORDER BY `cnt` DESC, `user_id` ASC LIMIT 10'
-		);
+		$user_rows = $wpdb->get_results( $user_sql );
 
 		$top_users = array();
 		if ( $user_rows ) {
@@ -683,11 +759,12 @@ class AAL_Log_Query {
 		$by_channel  = array();
 		$by_app_name = array();
 		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
-			$source_rows = $wpdb->get_results(
-				'SELECT `request_source`, COUNT(`histid`) AS `cnt` FROM `' . $wpdb->activity_log . '`'
-				. $time_where . ' ' . $role_where
-				. ' GROUP BY `request_source` ORDER BY `request_source` ASC'
+			$source_sql  = $this->prepare_summary_sql(
+				'SELECT `request_source`, COUNT(`histid`) AS `cnt` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d',
+				' GROUP BY `request_source` ORDER BY `request_source` ASC',
+				array( $wpdb->activity_log, $from_ts, $to_ts )
 			);
+			$source_rows = $wpdb->get_results( $source_sql );
 			if ( $source_rows ) {
 				foreach ( $source_rows as $row ) {
 					$parsed  = AAL_API::parse_request_source( $row->request_source );
@@ -713,12 +790,13 @@ class AAL_Log_Query {
 
 		$range_seconds = max( 0, $to_ts - $from_ts );
 		$hourly        = $range_seconds <= ( 48 * HOUR_IN_SECONDS );
-		$bucket_expr   = $this->get_summary_time_bucket_sql( $hourly );
-		$bucket_rows   = $wpdb->get_results(
-			'SELECT ' . $bucket_expr . ' AS `bucket_start`, COUNT(`histid`) AS `cnt` FROM `' . $wpdb->activity_log . '`'
-			. $time_where . ' ' . $role_where
-			. ' GROUP BY `bucket_start` ORDER BY `bucket_start` ASC'
+		$interval      = $hourly ? HOUR_IN_SECONDS : DAY_IN_SECONDS;
+		$bucket_sql    = $this->prepare_summary_sql(
+			'SELECT FLOOR(`hist_time` / %d) * %d AS `bucket_start`, COUNT(`histid`) AS `cnt` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d',
+			' GROUP BY `bucket_start` ORDER BY `bucket_start` ASC',
+			array( $interval, $interval, $wpdb->activity_log, $from_ts, $to_ts )
 		);
+		$bucket_rows   = $wpdb->get_results( $bucket_sql );
 
 		$time_buckets = array();
 		if ( $bucket_rows ) {
@@ -748,7 +826,7 @@ class AAL_Log_Query {
 		);
 	}
 
-	protected function summarize_group_counts( $column, $time_where, $role_where ) {
+	protected function summarize_group_counts( $column, $from_ts, $to_ts ) {
 		global $wpdb;
 
 		$allowed = array( 'action', 'object_type' );
@@ -756,11 +834,17 @@ class AAL_Log_Query {
 			return array();
 		}
 
-		$rows = $wpdb->get_results(
-			'SELECT `' . $column . '`, COUNT(`histid`) AS `cnt` FROM `' . $wpdb->activity_log . '`'
-			. $time_where . ' ' . $role_where
-			. ' GROUP BY `' . $column . '` ORDER BY `' . $column . '` ASC'
+		$sql = $this->prepare_summary_sql(
+			'SELECT %i, COUNT(`histid`) AS `cnt` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d',
+			' GROUP BY %i ORDER BY %i ASC',
+			array( $column, $wpdb->activity_log, $from_ts, $to_ts ),
+			array( $column, $column )
 		);
+		if ( null === $sql ) {
+			return array();
+		}
+
+		$rows = $wpdb->get_results( $sql );
 
 		$counts = array();
 		if ( $rows ) {
@@ -770,20 +854,6 @@ class AAL_Log_Query {
 		}
 
 		return $counts;
-	}
-
-	/**
-	 * SQL expression for hour or day buckets on stored hist_time values.
-	 *
-	 * @param bool $hourly True for hourly buckets, false for daily.
-	 * @return string
-	 */
-	protected function get_summary_time_bucket_sql( $hourly ) {
-		// Site-shifted hist_time cannot split the repeated local hour when DST ends;
-		// both passes are counted in one hourly bucket (limit of current_time storage).
-		$interval = $hourly ? HOUR_IN_SECONDS : DAY_IN_SECONDS;
-
-		return sprintf( 'FLOOR(`hist_time` / %d) * %d', $interval, $interval );
 	}
 
 	protected function empty_activity_summary( $from_ts, $to_ts ) {
