@@ -5,6 +5,67 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class AAL_Log_Query {
 
+	/** Site-local instant to stored hist_time (same space as current_time( 'timestamp' )). */
+	public static function local_datetime_to_hist_time( DateTimeImmutable $local_datetime ) {
+		return $local_datetime->getTimestamp() + wp_timezone()->getOffset( $local_datetime );
+	}
+
+	public static function hist_time_to_unix( $hist_time ) {
+		return (int) $hist_time - self::hist_time_offset_seconds( (int) $hist_time );
+	}
+
+	/** Stored hist_time (site-shifted) to ISO-8601; gmdate for civil time, explicit offset (no wp_date). */
+	public static function hist_time_to_iso8601( $hist_time ) {
+		$hist_time = (int) $hist_time;
+		$offset    = self::hist_time_offset_seconds( $hist_time );
+		$sign      = $offset >= 0 ? '+' : '-';
+		$abs       = abs( $offset );
+
+		return gmdate( 'Y-m-d\TH:i:s', $hist_time )
+			. sprintf( '%s%02d:%02d', $sign, (int) floor( $abs / HOUR_IN_SECONDS ), (int) floor( ( $abs % HOUR_IN_SECONDS ) / MINUTE_IN_SECONDS ) );
+	}
+
+	protected static function hist_time_offset_seconds( $hist_time ) {
+		$timezone  = wp_timezone();
+		$unix_hint = $hist_time - $timezone->getOffset( new DateTimeImmutable( 'now', $timezone ) );
+		$offsets   = array();
+		$from      = $unix_hint - DAY_IN_SECONDS;
+		$to        = $unix_hint + DAY_IN_SECONDS;
+
+		if ( $from <= $to && $to <= PHP_INT_MAX ) {
+			$transitions = $timezone->getTransitions( (int) $from, (int) $to );
+			if ( is_array( $transitions ) ) {
+				foreach ( $transitions as $transition ) {
+					$offsets[] = (int) $transition['offset'];
+				}
+			}
+		}
+
+		$offsets[] = $timezone->getOffset( new DateTimeImmutable( '@' . $unix_hint ) );
+		$offsets   = array_values( array_unique( $offsets ) );
+		$chosen    = null;
+
+		foreach ( $offsets as $offset ) {
+			$unix = $hist_time - $offset;
+			if ( $timezone->getOffset( new DateTimeImmutable( '@' . $unix ) ) !== $offset ) {
+				continue;
+			}
+			if ( null === $chosen || $unix < $chosen['unix'] ) {
+				// Fall-back hour: hist_time cannot distinguish DST passes; use the earlier (DST) one.
+				$chosen = array(
+					'unix'   => $unix,
+					'offset' => $offset,
+				);
+			}
+		}
+
+		if ( null !== $chosen ) {
+			return $chosen['offset'];
+		}
+
+		return $timezone->getOffset( new DateTimeImmutable( '@' . $unix_hint ) );
+	}
+
 	protected $roles = array();
 	protected $caps = array();
 	protected $allow_caps = array();
@@ -150,6 +211,17 @@ class AAL_Log_Query {
 		}
 
 		return 'AND (' . implode( ' OR ', $where ) . ') AND (' . implode( ' OR ', $where_caps ) . ')';
+	}
+
+	/**
+	 * @param string            $role_where      From get_where_by_role().
+	 * @param array<int, mixed> $prepare_args    Values for placeholders in $before_role_sql and $after_role_sql.
+	 * @return string
+	 */
+	protected function prepare_summary_sql( $role_where, $before_role_sql, $after_role_sql, $prepare_args ) {
+		global $wpdb;
+
+		return $wpdb->prepare( $before_role_sql . ' ' . $role_where . $after_role_sql, $prepare_args );
 	}
 
 	/**
@@ -431,6 +503,303 @@ class AAL_Log_Query {
 			'topics'  => $topics_raw ? $topics_raw : array(),
 			'actions' => $actions,
 			'sources' => $sources,
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $input Ability input (period or date_from/date_to).
+	 * @param int|null             $now   Optional hist_time for period windows (tests).
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public function summarize_activity_from_input( $input, $now = null ) {
+		$range = self::resolve_summarize_activity_range( $input, $now );
+		if ( is_wp_error( $range ) ) {
+			return $range;
+		}
+
+		return $this->summarize_activity( $range );
+	}
+
+	/**
+	 * @param array<string, mixed> $input
+	 * @param int|null             $now
+	 * @return array{from_ts: int, to_ts: int}|WP_Error
+	 */
+	public static function resolve_summarize_activity_range( $input, $now = null ) {
+		$has_period = array_key_exists( 'period', $input );
+		$has_from   = array_key_exists( 'date_from', $input );
+		$has_to     = array_key_exists( 'date_to', $input );
+		$has_dates  = $has_from || $has_to;
+
+		if ( $has_dates && $has_period ) {
+			return new WP_Error(
+				'ability_invalid_input',
+				__( 'Provide either period or date_from/date_to, not both.', 'aryo-activity-log' ),
+				array( 'status' => \WP_Http::BAD_REQUEST )
+			);
+		}
+
+		if ( $has_dates ) {
+			if ( ! $has_from || ! $has_to ) {
+				return new WP_Error(
+					'ability_invalid_input',
+					__( 'date_from and date_to must both be set.', 'aryo-activity-log' ),
+					array( 'status' => \WP_Http::BAD_REQUEST )
+				);
+			}
+
+			$from_ts = self::iso_calendar_date_to_hist_time( $input['date_from'], false );
+			$to_ts   = self::iso_calendar_date_to_hist_time( $input['date_to'], true );
+			if ( is_wp_error( $from_ts ) ) {
+				return $from_ts;
+			}
+			if ( is_wp_error( $to_ts ) ) {
+				return $to_ts;
+			}
+
+			if ( $from_ts > $to_ts ) {
+				return new WP_Error(
+					'ability_invalid_input',
+					__( 'date_from must not be after date_to.', 'aryo-activity-log' ),
+					array( 'status' => \WP_Http::BAD_REQUEST )
+				);
+			}
+
+			$range_days = (int) floor( ( $to_ts - $from_ts ) / DAY_IN_SECONDS ) + 1;
+			if ( $range_days > 90 ) {
+				return new WP_Error(
+					'ability_invalid_input',
+					__( 'The date range may not exceed 90 days.', 'aryo-activity-log' ),
+					array( 'status' => \WP_Http::BAD_REQUEST )
+				);
+			}
+
+			return array(
+				'from_ts' => $from_ts,
+				'to_ts'   => $to_ts,
+			);
+		}
+
+		if ( ! $has_period ) {
+			$input['period'] = '24h';
+		}
+
+		$period  = $input['period'];
+		$now     = null !== $now ? (int) $now : (int) current_time( 'timestamp' );
+		$periods = array(
+			'24h' => DAY_IN_SECONDS,
+			'7d'  => 7 * DAY_IN_SECONDS,
+			'30d' => 30 * DAY_IN_SECONDS,
+		);
+
+		if ( 'today' === $period ) {
+			$from_ts = self::iso_calendar_date_to_hist_time( gmdate( 'Y-m-d', $now ), false );
+			if ( is_wp_error( $from_ts ) ) {
+				return $from_ts;
+			}
+			$to_ts = $now;
+		} elseif ( isset( $periods[ $period ] ) ) {
+			$from_ts = $now - $periods[ $period ];
+			$to_ts   = $now;
+		} else {
+			return new WP_Error(
+				'ability_invalid_input',
+				__( 'Invalid period value.', 'aryo-activity-log' ),
+				array( 'status' => \WP_Http::BAD_REQUEST )
+			);
+		}
+
+		return array(
+			'from_ts' => (int) $from_ts,
+			'to_ts'   => (int) $to_ts,
+		);
+	}
+
+	/**
+	 * @param mixed $date Y-m-d calendar date in the site timezone.
+	 * @return int|WP_Error
+	 */
+	protected static function iso_calendar_date_to_hist_time( $date, $end_of_day ) {
+		$parts = explode( '-', $date );
+		$year  = (int) $parts[0];
+		$month = (int) $parts[1];
+		$day   = (int) $parts[2];
+
+		if ( ! checkdate( $month, $day, $year ) ) {
+			return new WP_Error(
+				'ability_invalid_input',
+				__( 'Invalid date_from or date_to value.', 'aryo-activity-log' ),
+				array( 'status' => \WP_Http::BAD_REQUEST )
+			);
+		}
+
+		$dt = DateTimeImmutable::createFromFormat(
+			'Y-m-d H:i:s',
+			sprintf( '%s %s', $date, $end_of_day ? '23:59:59' : '00:00:00' ),
+			wp_timezone()
+		);
+
+		return self::local_datetime_to_hist_time( $dt );
+	}
+
+	public function summarize_activity( $args ) {
+		global $wpdb;
+
+		$from_ts    = (int) $args['from_ts'];
+		$to_ts      = (int) $args['to_ts'];
+		$role_where = $this->get_where_by_role();
+
+		if ( false === $role_where ) {
+			return $this->build_activity_summary( $from_ts, $to_ts );
+		}
+
+		$count_sql = $this->prepare_summary_sql(
+			$role_where,
+			'SELECT COUNT(`histid`) FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d',
+			'',
+			array( $wpdb->activity_log, $from_ts, $to_ts )
+		);
+		$total     = (int) $wpdb->get_var( $count_sql );
+
+		$by_action      = $this->summarize_group_counts( $role_where, 'action', $from_ts, $to_ts );
+		$by_object_type = $this->summarize_group_counts( $role_where, 'object_type', $from_ts, $to_ts );
+
+		$user_sql  = $this->prepare_summary_sql(
+			$role_where,
+			'SELECT `user_id`, COUNT(`histid`) AS `cnt` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d',
+			' GROUP BY `user_id` ORDER BY `cnt` DESC, `user_id` ASC LIMIT 10',
+			array( $wpdb->activity_log, $from_ts, $to_ts )
+		);
+		$user_rows = $wpdb->get_results( $user_sql );
+
+		$top_users = array();
+		if ( $user_rows ) {
+			foreach ( $user_rows as $row ) {
+				$user_id = (int) $row->user_id;
+				$name    = __( 'N/A', 'aryo-activity-log' );
+				if ( $user_id > 0 ) {
+					$user = get_user_by( 'id', $user_id );
+					if ( $user ) {
+						$name = $user->user_nicename;
+					}
+				}
+				$top_users[] = array(
+					'user_id' => $user_id,
+					'name'    => $name,
+					'count'   => (int) $row->cnt,
+				);
+			}
+		}
+
+		$by_channel  = array();
+		$by_app_name = array();
+		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
+			$source_sql  = $this->prepare_summary_sql(
+				$role_where,
+				'SELECT `request_source`, COUNT(`histid`) AS `cnt` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d',
+				' GROUP BY `request_source` ORDER BY `request_source` ASC',
+				array( $wpdb->activity_log, $from_ts, $to_ts )
+			);
+			$source_rows = $wpdb->get_results( $source_sql );
+			if ( $source_rows ) {
+				foreach ( $source_rows as $row ) {
+					$parsed  = AAL_API::parse_request_source( $row->request_source );
+					$channel = $parsed['channel'];
+					if ( '' === $channel ) {
+						$channel = 'unknown';
+					}
+					if ( ! isset( $by_channel[ $channel ] ) ) {
+						$by_channel[ $channel ] = 0;
+					}
+					$by_channel[ $channel ] += (int) $row->cnt;
+
+					$app_name = $parsed['app_name'];
+					if ( '' !== $app_name ) {
+						if ( ! isset( $by_app_name[ $app_name ] ) ) {
+							$by_app_name[ $app_name ] = 0;
+						}
+						$by_app_name[ $app_name ] += (int) $row->cnt;
+					}
+				}
+			}
+		}
+
+		$range_seconds = max( 0, $to_ts - $from_ts );
+		$hourly        = $range_seconds <= ( 48 * HOUR_IN_SECONDS );
+		$interval      = $hourly ? HOUR_IN_SECONDS : DAY_IN_SECONDS;
+		$bucket_sql    = $this->prepare_summary_sql(
+			$role_where,
+			'SELECT FLOOR(`hist_time` / %d) * %d AS `bucket_start`, COUNT(`histid`) AS `cnt` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d',
+			' GROUP BY `bucket_start` ORDER BY `bucket_start` ASC',
+			array( $interval, $interval, $wpdb->activity_log, $from_ts, $to_ts )
+		);
+		$bucket_rows   = $wpdb->get_results( $bucket_sql );
+
+		$time_buckets = array();
+		if ( $bucket_rows ) {
+			foreach ( $bucket_rows as $row ) {
+				$time_buckets[] = array(
+					'bucket' => self::hist_time_to_iso8601( (int) $row->bucket_start ),
+					'count'  => (int) $row->cnt,
+				);
+			}
+		}
+
+		ksort( $by_channel );
+		ksort( $by_app_name );
+
+		return $this->build_activity_summary(
+			$from_ts,
+			$to_ts,
+			array(
+				'total'          => $total,
+				'by_action'      => $by_action,
+				'by_object_type' => $by_object_type,
+				'top_users'      => $top_users,
+				'by_channel'     => $by_channel,
+				'by_app_name'    => $by_app_name,
+				'time_buckets'   => $time_buckets,
+			)
+		);
+	}
+
+	protected function summarize_group_counts( $role_where, $column, $from_ts, $to_ts ) {
+		global $wpdb;
+
+		$sql  = $this->prepare_summary_sql(
+			$role_where,
+			'SELECT %i, COUNT(`histid`) AS `cnt` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d',
+			' GROUP BY %i ORDER BY %i ASC',
+			array( $column, $wpdb->activity_log, $from_ts, $to_ts, $column, $column )
+		);
+		$rows = $wpdb->get_results( $sql );
+
+		$counts = array();
+		if ( $rows ) {
+			foreach ( $rows as $row ) {
+				$counts[ (string) $row->$column ] = (int) $row->cnt;
+			}
+		}
+
+		return $counts;
+	}
+
+	protected function build_activity_summary( $from_ts, $to_ts, $values = array() ) {
+		return array_merge(
+			array(
+				'range'          => array(
+					'from' => self::hist_time_to_iso8601( $from_ts ),
+					'to'   => self::hist_time_to_iso8601( $to_ts ),
+				),
+				'total'          => 0,
+				'by_action'      => array(),
+				'by_object_type' => array(),
+				'top_users'      => array(),
+				'by_channel'     => array(),
+				'by_app_name'    => array(),
+				'time_buckets'   => array(),
+			),
+			$values
 		);
 	}
 }
