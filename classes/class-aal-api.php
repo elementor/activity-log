@@ -168,7 +168,7 @@ class AAL_API {
 		);
 		$formats = array( '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%d' );
 
-		if ( AAL_Maintenance::is_schema_ready() ) {
+		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
 			$request_source = $this->resolve_request_source( $args );
 			$row['request_source'] = $request_source;
 			$formats[] = '%s';
@@ -182,10 +182,7 @@ class AAL_API {
 			}
 		}
 
-		if ( false === $wpdb->insert( $wpdb->activity_log, $row, $formats ) ) {
-			AAL_Maintenance::flag_schema_mismatch_from_insert_error( $wpdb->last_error );
-			return;
-		}
+		$wpdb->insert( $wpdb->activity_log, $row, $formats );
 
 		do_action( 'aal_insert_log', $args );
 	}

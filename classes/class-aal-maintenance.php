@@ -3,12 +3,16 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class AAL_Maintenance {
 
-	const BASE_DB_VERSION   = '1.0';
 	const TARGET_DB_VERSION = '1.1';
 
-	private static $schema_ready_cache = array();
+	/**
+	 * Columns each DB version must have. A version is stored only after these are verified.
+	 */
+	const SCHEMA_COLUMNS = array(
+		'1.1' => array( 'request_source', 'meta' ),
+	);
 
-	private static $schema_mismatch_flagged = false;
+	private static $schema_ready_cache = array();
 
 	public static function activate( $network_wide ) {
 		global $wpdb;
@@ -59,7 +63,7 @@ class AAL_Maintenance {
 	}
 
 	public static function maybe_upgrade() {
-		$installed_version = get_option( 'activity_log_db_version', self::BASE_DB_VERSION );
+		$installed_version = get_option( 'activity_log_db_version', '1.0' );
 
 		if ( version_compare( $installed_version, self::TARGET_DB_VERSION, '>=' ) ) {
 			return;
@@ -87,7 +91,7 @@ class AAL_Maintenance {
 	}
 
 	public static function run_upgrade_steps() {
-		$installed_version = get_option( 'activity_log_db_version', self::BASE_DB_VERSION );
+		$installed_version = get_option( 'activity_log_db_version', '1.0' );
 
 		$steps = array(
 			'1.1' => 'upgrade_to_1_1',
@@ -98,7 +102,8 @@ class AAL_Maintenance {
 				continue;
 			}
 
-			$success = call_user_func( array( __CLASS__, $method ) );
+			$success = call_user_func( array( __CLASS__, $method ) )
+				&& self::table_has_columns( self::SCHEMA_COLUMNS[ $version ] );
 
 			if ( ! $success ) {
 				set_transient( 'aal_upgrade_failed', $version, HOUR_IN_SECONDS );
@@ -133,45 +138,44 @@ class AAL_Maintenance {
 	}
 
 	/**
+	 * @param string[] $columns
+	 * @return string[]
+	 */
+	private static function get_missing_columns( $columns ) {
+		global $wpdb;
+
+		$existing = $wpdb->get_col( $wpdb->prepare( 'SHOW COLUMNS FROM %i', $wpdb->prefix . 'aryo_activity_log' ) );
+
+		return array_values( array_diff( $columns, $existing ) );
+	}
+
+	/**
+	 * @param string[] $columns
+	 * @return bool
+	 */
+	private static function table_has_columns( $columns ) {
+		return empty( self::get_missing_columns( $columns ) );
+	}
+
+	/**
 	 * @return bool
 	 */
 	private static function upgrade_to_1_1() {
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'aryo_activity_log';
-
-		$has_request_source = $wpdb->get_results(
-			$wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", 'request_source' )
-		);
-		$has_meta = $wpdb->get_results(
-			$wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", 'meta' )
+		$definitions = array(
+			'request_source' => "ADD `request_source` varchar(191) NOT NULL DEFAULT '' AFTER `hist_time`, ADD KEY `request_source` (`request_source`)",
+			'meta'           => 'ADD `meta` TEXT DEFAULT NULL AFTER `request_source`',
 		);
 
-		if ( ! empty( $has_request_source ) && ! empty( $has_meta ) ) {
+		$missing = self::get_missing_columns( array_keys( $definitions ) );
+		if ( empty( $missing ) ) {
 			return true;
 		}
 
-		$additions = array();
+		$additions = array_intersect_key( $definitions, array_flip( $missing ) );
 
-		if ( empty( $has_request_source ) ) {
-			$additions[] = "ADD `request_source` varchar(191) NOT NULL DEFAULT '' AFTER `hist_time`";
-			$additions[] = "ADD KEY `request_source` (`request_source`)";
-		}
-
-		if ( empty( $has_meta ) ) {
-			$additions[] = "ADD `meta` TEXT DEFAULT NULL AFTER `request_source`";
-		}
-
-		$wpdb->query( "ALTER TABLE `{$table}` " . implode( ', ', $additions ) );
-
-		$verify_source = $wpdb->get_results(
-			$wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", 'request_source' )
-		);
-		$verify_meta = $wpdb->get_results(
-			$wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", 'meta' )
-		);
-
-		return ! empty( $verify_source ) && ! empty( $verify_meta );
+		return false !== $wpdb->query( "ALTER TABLE `{$wpdb->prefix}aryo_activity_log` " . implode( ', ', $additions ) );
 	}
 
 	/**
@@ -180,34 +184,12 @@ class AAL_Maintenance {
 	 * @param string $min_version
 	 * @return bool
 	 */
-	public static function flag_schema_mismatch_from_insert_error( $last_error ) {
-		if ( self::$schema_mismatch_flagged ) {
-			return;
-		}
-
-		if ( false === stripos( $last_error, 'Unknown column' ) ) {
-			return;
-		}
-
-		$installed = get_option( 'activity_log_db_version', self::BASE_DB_VERSION );
-		if ( version_compare( $installed, self::TARGET_DB_VERSION, '<' ) ) {
-			return;
-		}
-
-		self::$schema_mismatch_flagged = true;
-		update_option( 'activity_log_db_version', self::BASE_DB_VERSION, false );
-		self::invalidate_schema_ready_cache();
-	}
-
-	public static function is_schema_ready( $min_version = null ) {
-		if ( null === $min_version ) {
-			$min_version = self::TARGET_DB_VERSION;
-		}
+	public static function is_schema_ready( $min_version = '1.1' ) {
 		if ( isset( self::$schema_ready_cache[ $min_version ] ) ) {
 			return self::$schema_ready_cache[ $min_version ];
 		}
 
-		$installed = get_option( 'activity_log_db_version', self::BASE_DB_VERSION );
+		$installed = get_option( 'activity_log_db_version', '1.0' );
 		$ready = version_compare( $installed, $min_version, '>=' );
 
 		self::$schema_ready_cache[ $min_version ] = $ready;
@@ -327,11 +309,8 @@ class AAL_Maintenance {
 		if ( $admin_role instanceof WP_Role && ! $admin_role->has_cap( 'view_all_aryo_activity_log' ) )
 			$admin_role->add_cap( 'view_all_aryo_activity_log' );
 
+		// dbDelta skips "IF NOT EXISTS" tables, so an old table is upgraded (and verified) here.
 		self::maybe_upgrade();
-	}
-
-	public static function invalidate_schema_ready_cache() {
-		self::$schema_ready_cache = array();
 	}
 
 	protected static function _remove_tables() {
