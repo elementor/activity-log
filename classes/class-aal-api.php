@@ -168,7 +168,9 @@ class AAL_API {
 		);
 		$formats = array( '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%d' );
 
+		$schema_columns = false;
 		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
+			$schema_columns = true;
 			$request_source = $this->resolve_request_source( $args );
 			$row['request_source'] = $request_source;
 			$formats[] = '%s';
@@ -182,7 +184,19 @@ class AAL_API {
 			}
 		}
 
-		$wpdb->insert( $wpdb->activity_log, $row, $formats );
+		$inserted = $wpdb->insert( $wpdb->activity_log, $row, $formats );
+
+		if ( false === $inserted && $schema_columns && false !== stripos( $wpdb->last_error, 'Unknown column' ) ) {
+			$installed_version = get_option( 'activity_log_db_version', '1.0' );
+			if ( version_compare( $installed_version, '1.1', '>=' ) ) {
+				update_option( 'activity_log_db_version', '1.0', false );
+				AAL_Maintenance::invalidate_schema_ready_cache();
+
+				unset( $row['request_source'], $row['meta'] );
+				$formats = array( '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%d' );
+				$wpdb->insert( $wpdb->activity_log, $row, $formats );
+			}
+		}
 
 		do_action( 'aal_insert_log', $args );
 	}

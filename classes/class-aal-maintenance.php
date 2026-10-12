@@ -301,8 +301,12 @@ class AAL_Maintenance {
 		$admin_role = get_role( 'administrator' );
 		if ( $admin_role instanceof WP_Role && ! $admin_role->has_cap( 'view_all_aryo_activity_log' ) )
 			$admin_role->add_cap( 'view_all_aryo_activity_log' );
-		
-		update_option( 'activity_log_db_version', self::TARGET_DB_VERSION );
+
+		self::maybe_upgrade();
+	}
+
+	public static function invalidate_schema_ready_cache() {
+		self::$schema_ready_cache = array();
 	}
 
 	protected static function _remove_tables() {
