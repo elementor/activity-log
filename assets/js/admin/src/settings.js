@@ -193,6 +193,28 @@ export default function Settings() {
 						</tr>
 					) }
 
+					{ schema.abilities_agent_exposure && (
+						<tr>
+							<th scope="row">
+								<label htmlFor="aal-abilities-agent-exposure">
+									{ schema.abilities_agent_exposure.label }
+								</label>
+							</th>
+							<td>
+								<SelectControl
+									id="aal-abilities-agent-exposure"
+									value={ values.abilities_agent_exposure || 'no' }
+									options={ schema.abilities_agent_exposure.options }
+									onChange={ ( v ) => updateValue( 'abilities_agent_exposure', v ) }
+									__nextHasNoMarginBottom
+								/>
+								{ schema.abilities_agent_exposure.description && (
+									<p className="description">{ schema.abilities_agent_exposure.description }</p>
+								) }
+							</td>
+						</tr>
+					) }
+
 					{ canEraseLogs && (
 						<tr>
 							<th scope="row">

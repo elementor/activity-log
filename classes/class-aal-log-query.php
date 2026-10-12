@@ -153,6 +153,30 @@ class AAL_Log_Query {
 	}
 
 	/**
+	 * Fetch one log row by ID, respecting role/cap visibility rules.
+	 *
+	 * @param int $histid Log entry ID.
+	 * @return object|null
+	 */
+	public function get_item( $histid ) {
+		global $wpdb;
+
+		$role_where = $this->get_where_by_role();
+		if ( false === $role_where ) {
+			return null;
+		}
+
+		$item = $wpdb->get_row(
+			$wpdb->prepare(
+				'SELECT * FROM `' . $wpdb->activity_log . '` WHERE `histid` = %d ' . $role_where,
+				(int) $histid
+			)
+		);
+
+		return $item ? $item : null;
+	}
+
+	/**
 	 * Query activity log rows.
 	 *
 	 * @param array $args {
@@ -168,6 +192,7 @@ class AAL_Log_Query {
 	 *     @type string $order       ASC or DESC. Default DESC.
 	 *     @type int    $page        1-indexed page number.
 	 *     @type int    $per_page    Items per page (max 100).
+	 *     @type bool   $exclude_ip  When true, omit hist_ip from the search columns.
 	 * }
 	 * @return array { items: object[], total: int, pages: int } or empty on access denied.
 	 */
@@ -196,6 +221,7 @@ class AAL_Log_Query {
 			'order'      => 'DESC',
 			'page'       => 1,
 			'per_page'   => 50,
+			'exclude_ip' => false,
 		) );
 
 		$where = ' WHERE 1 = 1';
@@ -265,11 +291,17 @@ class AAL_Log_Query {
 
 		if ( ! empty( $args['s'] ) ) {
 			$search_like = '%' . $wpdb->esc_like( $args['s'] ) . '%';
+			$columns     = array( 'object_name', 'object_subtype' );
+			if ( empty( $args['exclude_ip'] ) ) {
+				$columns[] = 'hist_ip';
+			}
+			$parts = array();
+			foreach ( $columns as $column ) {
+				$parts[] = '`' . $column . '` LIKE %s';
+			}
 			$where .= $wpdb->prepare(
-				' AND (`object_name` LIKE %s OR `object_subtype` LIKE %s OR `hist_ip` LIKE %s)',
-				$search_like,
-				$search_like,
-				$search_like
+				' AND (' . implode( ' OR ', $parts ) . ')',
+				array_fill( 0, count( $columns ), $search_like )
 			);
 		}
 

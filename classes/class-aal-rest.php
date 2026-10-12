@@ -156,6 +156,16 @@ class AAL_REST {
 					array( 'value' => 'no-collect-ip', 'label' => __( 'Do not collect IP', 'aryo-activity-log' ) ),
 				),
 			),
+			'abilities_agent_exposure' => array(
+				'value'       => AAL_Abilities::get_agent_exposure_setting(),
+				'label'       => __( 'Expose activity log to AI agents', 'aryo-activity-log' ),
+				'type'        => 'select',
+				'description' => __( 'When enabled, read-only Activity Log abilities are exposed via the WordPress Abilities REST API and MCP Adapter (requires WordPress 6.9+). Log data may include usernames, object names, and other personal information. IP addresses are not included in ability responses.', 'aryo-activity-log' ),
+				'options'     => array(
+					array( 'value' => 'no', 'label' => __( 'No', 'aryo-activity-log' ) ),
+					array( 'value' => 'yes', 'label' => __( 'Yes', 'aryo-activity-log' ) ),
+				),
+			),
 		);
 
 		return rest_ensure_response( array(
@@ -168,7 +178,7 @@ class AAL_REST {
 		$current = AAL_Main::instance()->settings->get_options();
 		$body    = $request->get_json_params();
 
-		$allowed_keys = array( 'logs_lifespan', 'logs_failed_login', 'logs_email', 'log_visitor_ip_source' );
+		$allowed_keys = array( 'logs_lifespan', 'logs_failed_login', 'logs_email', 'log_visitor_ip_source', 'abilities_agent_exposure' );
 		$sanitized    = array();
 
 		foreach ( $allowed_keys as $key ) {
@@ -195,6 +205,7 @@ class AAL_REST {
 
 				case 'logs_failed_login':
 				case 'logs_email':
+				case 'abilities_agent_exposure':
 					if ( ! in_array( $value, array( 'yes', 'no' ), true ) ) {
 						return new WP_Error(
 							'rest_invalid_param',

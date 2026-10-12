@@ -6,12 +6,58 @@ if ( ! defined( 'ABSPATH' ) ) {
 class AAL_Log_Presenter {
 
 	/**
-	 * Present a single DB row for JSON output.
+	 * Meta keys allowed in ability JSON output.
 	 *
-	 * @param object $item       Raw DB row.
-	 * @param bool   $collect_ip Whether to show IP addresses.
+	 * @var string[]
+	 */
+	private static $ability_meta_allowlist = array(
+		'ability',
+	);
+
+	/**
+	 * Present a single DB row for Abilities API / agent consumers.
+	 *
+	 * IP addresses are intentionally omitted from ability output.
+	 *
+	 * @param object $item Raw DB row.
 	 * @return array
 	 */
+	public static function to_ability_json( $item ) {
+		$parsed = AAL_API::parse_request_source( isset( $item->request_source ) ? $item->request_source : '' );
+
+		$data = array(
+			'id'             => (int) $item->histid,
+			'time'           => wp_date( 'c', (int) $item->hist_time ),
+			'timestamp'      => (int) $item->hist_time,
+			'user_id'        => (int) $item->user_id,
+			'user_caps'      => (string) $item->user_caps,
+			'action'         => (string) $item->action,
+			'object_type'    => (string) $item->object_type,
+			'object_subtype' => (string) $item->object_subtype,
+			'object_name'    => (string) $item->object_name,
+			'object_id'      => (int) $item->object_id,
+			'channel'        => $parsed['channel'],
+			'app_name'       => $parsed['app_name'],
+		);
+
+		if ( ! empty( $item->meta ) ) {
+			$decoded = json_decode( $item->meta, true );
+			if ( is_array( $decoded ) ) {
+				$filtered = array();
+				foreach ( self::$ability_meta_allowlist as $meta_key ) {
+					if ( array_key_exists( $meta_key, $decoded ) ) {
+						$filtered[ $meta_key ] = $decoded[ $meta_key ];
+					}
+				}
+				if ( ! empty( $filtered ) ) {
+					$data['meta'] = $filtered;
+				}
+			}
+		}
+
+		return $data;
+	}
+
 	public static function to_json( $item, $collect_ip = true ) {
 		$data = array(
 			'id'             => (int) $item->histid,

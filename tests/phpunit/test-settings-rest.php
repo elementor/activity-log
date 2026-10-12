@@ -99,6 +99,7 @@ class AAL_Test_Settings_REST extends WP_UnitTestCase {
 		$this->assertArrayHasKey( 'logs_failed_login', $data['fields'] );
 		$this->assertArrayHasKey( 'logs_email', $data['fields'] );
 		$this->assertArrayHasKey( 'log_visitor_ip_source', $data['fields'] );
+		$this->assertArrayHasKey( 'abilities_agent_exposure', $data['fields'] );
 	}
 
 	// --- PUT settings (sanitization) ---

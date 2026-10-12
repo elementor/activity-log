@@ -90,10 +90,11 @@ class AAL_Settings {
 
 	public function register_settings() {
 		if ( ! get_option( $this->slug ) ) {
+			// abilities_agent_exposure is omitted here on purpose: unsaved installs default to off.
 			update_option( $this->slug, apply_filters( 'aal_default_options', array(
-				'logs_lifespan' => '30',
+				'logs_lifespan'     => '30',
 				'logs_failed_login' => 'yes',
-				'logs_email' => 'yes',
+				'logs_email'        => 'yes',
 			) ) );
 		}
 	}

@@ -37,6 +37,7 @@ include( 'classes/class-aal-settings.php' );
 include( 'classes/class-aal-api.php' );
 include( 'classes/class-aal-hooks.php' );
 include( 'classes/class-aal-rest.php' );
+include( 'classes/class-aal-abilities.php' );
 include( 'classes/class-aal-export.php' );
 include( 'classes/class-aal-privacy.php' );
 include( 'classes/abstract-class-aal-exporter.php' );
@@ -83,6 +84,11 @@ final class AAL_Main {
 	public $rest;
 
 	/**
+	 * @var AAL_Abilities|null
+	 */
+	public $abilities;
+
+	/**
 	 * Construct
 	 */
 	protected function __construct() {
@@ -93,6 +99,7 @@ final class AAL_Main {
 		$this->settings      = new AAL_Settings();
 		$this->api           = new AAL_API();
 		$this->rest          = new AAL_REST();
+		$this->abilities     = new AAL_Abilities( $this->rest );
 
 		new AAL_Export();
 		new AAL_Privacy();
