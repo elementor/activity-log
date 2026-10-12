@@ -14,10 +14,10 @@ class AAL_Test_Maintenance_Activation extends WP_UnitTestCase {
 	public function tearDown(): void {
 		parent::tearDown();
 		delete_option( 'activity_log_db_version' );
-		$m = new ReflectionMethod( 'AAL_Maintenance', '_create_tables' );
-		$m->invoke( null );
+		AAL_Maintenance::activate( false );
 		$ref = new ReflectionClass( 'AAL_Maintenance' );
 		$p = $ref->getProperty( 'schema_ready_cache' );
+		$p->setAccessible( true );
 		$p->setValue( null, array() );
 	}
 
