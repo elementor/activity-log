@@ -137,24 +137,38 @@ class AAL_Maintenance {
 
 		$table = $wpdb->prefix . 'aryo_activity_log';
 
-		$definitions = array(
-			'request_source' => "ADD `request_source` varchar(191) NOT NULL DEFAULT '' AFTER `hist_time`, ADD KEY `request_source` (`request_source`)",
-			'meta'           => 'ADD `meta` TEXT DEFAULT NULL AFTER `request_source`',
+		$has_request_source = $wpdb->get_results(
+			$wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", 'request_source' )
+		);
+		$has_meta = $wpdb->get_results(
+			$wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", 'meta' )
 		);
 
-		$existing = $wpdb->get_col( $wpdb->prepare( 'SHOW COLUMNS FROM %i', $table ) );
-		$missing  = array_values( array_diff( array_keys( $definitions ), $existing ) );
-
-		if ( ! empty( $missing ) ) {
-			$additions = array_intersect_key( $definitions, array_flip( $missing ) );
-			if ( false === $wpdb->query( "ALTER TABLE `{$table}` " . implode( ', ', $additions ) ) ) {
-				return false;
-			}
+		if ( ! empty( $has_request_source ) && ! empty( $has_meta ) ) {
+			return true;
 		}
 
-		$existing = $wpdb->get_col( $wpdb->prepare( 'SHOW COLUMNS FROM %i', $table ) );
+		$additions = array();
 
-		return in_array( 'request_source', $existing, true ) && in_array( 'meta', $existing, true );
+		if ( empty( $has_request_source ) ) {
+			$additions[] = "ADD `request_source` varchar(191) NOT NULL DEFAULT '' AFTER `hist_time`";
+			$additions[] = "ADD KEY `request_source` (`request_source`)";
+		}
+
+		if ( empty( $has_meta ) ) {
+			$additions[] = "ADD `meta` TEXT DEFAULT NULL AFTER `request_source`";
+		}
+
+		$wpdb->query( "ALTER TABLE `{$table}` " . implode( ', ', $additions ) );
+
+		$verify_source = $wpdb->get_results(
+			$wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", 'request_source' )
+		);
+		$verify_meta = $wpdb->get_results(
+			$wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", 'meta' )
+		);
+
+		return ! empty( $verify_source ) && ! empty( $verify_meta );
 	}
 
 	/**
@@ -287,8 +301,7 @@ class AAL_Maintenance {
 		$admin_role = get_role( 'administrator' );
 		if ( $admin_role instanceof WP_Role && ! $admin_role->has_cap( 'view_all_aryo_activity_log' ) )
 			$admin_role->add_cap( 'view_all_aryo_activity_log' );
-
-		// dbDelta skips "IF NOT EXISTS" tables, so an old table is upgraded (and verified) here.
+		
 		self::maybe_upgrade();
 	}
 

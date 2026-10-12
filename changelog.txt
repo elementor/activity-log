@@ -1,6 +1,7 @@
 == Changelog ==
 
 = 2.16.0 - 2026-10-12 =
+* New: Activity summary ability for AI agents
 * New: Read-only Abilities API support for AI agents (WP 6.9+)
 * New: Setting to expose activity log to AI agents
 * Tweak: Exclude IP addresses from ability responses

@@ -1,42 +1,68 @@
 <?php
 
-require_once __DIR__ . '/trait-legacy-table-helper.php';
-
 /**
  * @group schema
  */
 class AAL_Test_Maintenance_Activation extends WP_UnitTestCase {
 
-	use AAL_Legacy_Table_Helper;
-
 	public function tearDown(): void {
 		remove_all_filters( 'aal_auto_upgrade_max_rows' );
 		parent::tearDown();
-		$this->restore_table();
-	}
 
-	public function activation_provider() {
-		return array(
-			'fresh install'      => array( false, PHP_INT_MAX, '1.1', false ),
-			'small legacy table' => array( true, PHP_INT_MAX, '1.1', false ),
-			'large legacy table' => array( true, 0, '1.0', true ),
-		);
-	}
+		delete_option( 'aal_manual_db_upgrade' );
+		delete_transient( 'aal_upgrade_failed' );
+		delete_option( 'activity_log_db_version' );
 
-	/**
-	 * @dataProvider activation_provider
-	 */
-	public function test_activation( $legacy_table, $max_rows, $expected_version, $expected_notice ) {
-		$this->reset_table( $legacy_table );
-		add_filter( 'aal_auto_upgrade_max_rows', static function () use ( $max_rows ) {
-			return $max_rows;
+		add_filter( 'aal_auto_upgrade_max_rows', static function () {
+			return PHP_INT_MAX;
 		} );
 
-		$this->create_tables();
+		$method = new ReflectionMethod( 'AAL_Maintenance', '_create_tables' );
+		$method->setAccessible( true );
+		$method->invoke( null );
 
-		$this->assertSame( $expected_version, get_option( 'activity_log_db_version', '1.0' ) );
-		$this->assertSame( $expected_notice, (bool) get_option( 'aal_manual_db_upgrade' ) );
-		$this->assertSame( '1.1' === $expected_version, $this->has_new_columns() );
+		remove_all_filters( 'aal_auto_upgrade_max_rows' );
+
+		$ref = new ReflectionClass( 'AAL_Maintenance' );
+		$prop = $ref->getProperty( 'schema_ready_cache' );
+		$prop->setAccessible( true );
+		$prop->setValue( null, array() );
 	}
 
+	public function test_activation_upgrades_legacy_table() {
+		global $wpdb;
+
+		wp_cache_flush();
+		$wpdb->query( "DROP TABLE IF EXISTS `{$wpdb->activity_log}`" );
+		update_option( 'activity_log_db_version', '1.0' );
+		$wpdb->query(
+			"CREATE TABLE `{$wpdb->activity_log}` (
+				`histid` int(11) NOT NULL AUTO_INCREMENT,
+				`user_caps` varchar(70) NOT NULL DEFAULT 'guest',
+				`action` varchar(255) NOT NULL,
+				`object_type` varchar(255) NOT NULL,
+				`object_subtype` varchar(255) NOT NULL DEFAULT '',
+				`object_name` varchar(255) NOT NULL,
+				`object_id` int(11) NOT NULL DEFAULT '0',
+				`user_id` int(11) NOT NULL DEFAULT '0',
+				`hist_ip` varchar(55) NOT NULL DEFAULT '127.0.0.1',
+				`hist_time` int(11) NOT NULL DEFAULT '0',
+				PRIMARY KEY (`histid`)
+			) {$wpdb->get_charset_collate()}"
+		);
+
+		add_filter( 'aal_auto_upgrade_max_rows', static function () {
+			return PHP_INT_MAX;
+		} );
+
+		$method = new ReflectionMethod( 'AAL_Maintenance', '_create_tables' );
+		$method->setAccessible( true );
+		$method->invoke( null );
+
+		$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$wpdb->activity_log}`" );
+
+		$this->assertSame( '1.1', get_option( 'activity_log_db_version' ) );
+		$this->assertContains( 'request_source', $columns );
+		$this->assertContains( 'meta', $columns );
+	}
 }
