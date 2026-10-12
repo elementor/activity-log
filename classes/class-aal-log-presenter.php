@@ -27,7 +27,7 @@ class AAL_Log_Presenter {
 
 		$data = array(
 			'id'             => (int) $item->histid,
-			'time'           => wp_date( 'c', (int) $item->hist_time ),
+			'time'           => AAL_Log_Query::hist_time_to_iso8601( (int) $item->hist_time ),
 			'timestamp'      => (int) $item->hist_time,
 			'user_id'        => (int) $item->user_id,
 			'user_caps'      => (string) $item->user_caps,

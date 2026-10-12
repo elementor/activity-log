@@ -130,7 +130,7 @@ class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 
 	public function test_summarize_top_users_limit_ten() {
 		update_option( 'timezone_string', 'UTC' );
-		$leader_id = self::factory()->user->create( array( 'role' => 'administrator', 'display_name' => 'Summary Leader' ) );
+		$leader_id = self::factory()->user->create( array( 'role' => 'administrator', 'user_nicename' => 'summary-leader' ) );
 		$other_ids = array();
 		for ( $i = 0; $i < 10; $i++ ) {
 			$other_ids[] = self::factory()->user->create( array( 'role' => 'administrator' ) );
@@ -147,7 +147,7 @@ class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 		$this->assertSame(
 			array(
 				'user_ids' => $expected_ids,
-				'lead'     => array( 'name' => 'Summary Leader', 'count' => 5 ),
+				'lead'     => array( 'name' => 'summary-leader', 'count' => 5 ),
 			),
 			array(
 				'user_ids' => wp_list_pluck( $result['top_users'], 'user_id' ),
@@ -167,6 +167,34 @@ class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 		$request = new WP_REST_Request( 'GET', '/wp-abilities/v1/abilities/' . AAL_Abilities::ABILITY_SUMMARIZE_ACTIVITY . '/run' );
 		$request->set_query_params( array( 'input' => self::DAY_RANGE ) );
 		$this->assertErrorResponse( 'rest_forbidden', rest_get_server()->dispatch( $request ), \WP_Http::FORBIDDEN );
+	}
+
+	/** @dataProvider ability_hist_time_iso_provider */
+	public function test_query_logs_and_summarize_use_same_hist_time_iso( $timezone, $hist_time, $day_range, $now_hist, $expected ) {
+		update_option( 'timezone_string', $timezone );
+		$this->insert_log( array( 'hist_time' => $hist_time ) );
+		global $wpdb;
+		$item    = wp_get_ability( AAL_Abilities::ABILITY_GET_LOG )->execute( array( 'id' => (int) $wpdb->insert_id ) );
+		$summary = $this->run_summarize( $day_range, $now_hist );
+		$this->assertSame( $expected, array( 'time' => $item['time'], 'range' => $summary['range'] ) );
+	}
+
+	public function ability_hist_time_iso_provider() {
+		return array(
+			'utc event and day range' => array(
+				'UTC',
+				1773144000,
+				self::DAY_RANGE,
+				1773144000,
+				array(
+					'time'  => '2026-03-10T12:00:00+00:00',
+					'range' => array(
+						'from' => '2026-03-10T00:00:00+00:00',
+						'to'   => '2026-03-10T23:59:59+00:00',
+					),
+				),
+			),
+		);
 	}
 
 	public function test_summarize_empty_input_defaults_to_24h() {

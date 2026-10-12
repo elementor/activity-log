@@ -403,6 +403,7 @@ class AAL_Abilities {
 				'period'    => array(
 					'type'        => 'string',
 					'description' => __( 'Relative time window (default 24h when input is empty).', 'aryo-activity-log' ),
+					'default'     => '24h',
 					'enum'        => array( 'today', '24h', '7d', '30d' ),
 				),
 				'date_from' => array(
