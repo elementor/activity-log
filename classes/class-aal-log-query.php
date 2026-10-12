@@ -590,6 +590,9 @@ class AAL_Log_Query {
 			}
 		}
 
+		ksort( $by_channel );
+		ksort( $by_app_name );
+
 		return array(
 			'range'          => array(
 				'from' => self::hist_time_to_iso8601( $from_ts ),
