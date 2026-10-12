@@ -472,13 +472,7 @@ class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 	}
 
 	private function run_summarize( $input, $now_shifted ) {
-		add_filter( 'aal_summarize_activity_hist_now', static function () use ( $now_shifted ) {
-			return $now_shifted;
-		} );
-		$result = wp_get_ability( AAL_Abilities::ABILITY_SUMMARIZE_ACTIVITY )->execute( $input );
-		remove_all_filters( 'aal_summarize_activity_hist_now' );
-
-		return $result;
+		return AAL_Main::instance()->abilities->execute_summarize_activity( $input, $now_shifted );
 	}
 
 	private function dispatch_summarize_rest() {

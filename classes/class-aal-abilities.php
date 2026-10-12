@@ -217,10 +217,11 @@ class AAL_Abilities {
 
 	/**
 	 * @param array<string, mixed> $input
+	 * @param int|null             $now    Optional stored hist_time for period windows (tests).
 	 * @return array<string, mixed>|WP_Error
 	 */
-	public function execute_summarize_activity( $input ) {
-		$range = self::resolve_summarize_activity_range( $input, self::get_summarize_activity_hist_now() );
+	public function execute_summarize_activity( $input, $now = null ) {
+		$range = self::resolve_summarize_activity_range( $input, $now );
 		if ( is_wp_error( $range ) ) {
 			return $range;
 		}
@@ -293,7 +294,7 @@ class AAL_Abilities {
 		}
 
 		$period = $has_period ? $input['period'] : '24h';
-		$now    = null !== $now ? (int) $now : self::get_summarize_activity_hist_now();
+		$now    = null !== $now ? (int) $now : (int) current_time( 'timestamp' );
 
 		switch ( $period ) {
 			case 'today':
@@ -404,15 +405,6 @@ class AAL_Abilities {
 			'month' => $month,
 			'day'   => $day,
 		);
-	}
-
-	/**
-	 * @return int Stored hist_time used as "now" for summarize period windows.
-	 */
-	public static function get_summarize_activity_hist_now() {
-		$now = apply_filters( 'aal_summarize_activity_hist_now', null );
-
-		return null !== $now ? (int) $now : (int) current_time( 'timestamp' );
 	}
 
 	/**
