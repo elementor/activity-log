@@ -296,9 +296,9 @@ class AAL_Abilities {
 
 		switch ( $period ) {
 			case 'today':
-				$now_site = new DateTimeImmutable( 'now', wp_timezone() );
-				$from_ts  = $now_site->setTime( 0, 0, 0 )->getTimestamp();
-				$to_ts    = $now_site->getTimestamp();
+				$midnight_dt = ( new DateTimeImmutable( 'today', wp_timezone() ) )->setTime( 0, 0, 0 );
+				$from_ts     = AAL_Log_Query::local_datetime_to_hist_time( $midnight_dt );
+				$to_ts       = $now;
 				break;
 			case '24h':
 				$from_ts = $now - DAY_IN_SECONDS;
@@ -338,8 +338,15 @@ class AAL_Abilities {
 
 		$date_time = sprintf( '%04d-%02d-%02d 00:00:00', $parts['year'], $parts['month'], $parts['day'] );
 		$dt        = DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $date_time, wp_timezone() );
+		if ( false === $dt ) {
+			return new WP_Error(
+				'ability_invalid_input',
+				__( 'Invalid date_from or date_to value.', 'aryo-activity-log' ),
+				array( 'status' => \WP_Http::BAD_REQUEST )
+			);
+		}
 
-		return (int) $dt->getTimestamp();
+		return AAL_Log_Query::local_datetime_to_hist_time( $dt );
 	}
 
 	/**
@@ -354,8 +361,15 @@ class AAL_Abilities {
 
 		$date_time = sprintf( '%04d-%02d-%02d 23:59:59', $parts['year'], $parts['month'], $parts['day'] );
 		$dt        = DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $date_time, wp_timezone() );
+		if ( false === $dt ) {
+			return new WP_Error(
+				'ability_invalid_input',
+				__( 'Invalid date_from or date_to value.', 'aryo-activity-log' ),
+				array( 'status' => \WP_Http::BAD_REQUEST )
+			);
+		}
 
-		return (int) $dt->getTimestamp();
+		return AAL_Log_Query::local_datetime_to_hist_time( $dt );
 	}
 
 	/**

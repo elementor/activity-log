@@ -5,6 +5,43 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class AAL_Log_Query {
 
+	/**
+	 * Convert a site-local instant to stored hist_time (see current_time( 'timestamp' )).
+	 *
+	 * @param DateTimeImmutable $local_datetime
+	 * @return int
+	 */
+	public static function local_datetime_to_hist_time( DateTimeImmutable $local_datetime ) {
+		return $local_datetime->getTimestamp() + wp_timezone()->getOffset( $local_datetime );
+	}
+
+	/**
+	 * Convert stored hist_time to ISO-8601 in the site timezone.
+	 *
+	 * @param int $hist_time
+	 * @return string
+	 */
+	public static function hist_time_to_iso8601( $hist_time ) {
+		return wp_date( 'c', self::hist_time_to_unix( (int) $hist_time ) );
+	}
+
+	/**
+	 * @param int $hist_time Stored hist_time value.
+	 * @return int Real Unix timestamp (UTC).
+	 */
+	public static function hist_time_to_unix( $hist_time ) {
+		$hist_time = (int) $hist_time;
+		$timezone  = wp_timezone();
+		$unix      = $hist_time - $timezone->getOffset( new DateTimeImmutable( 'now', $timezone ) );
+		$local     = ( new DateTimeImmutable( '@' . $unix ) )->setTimezone( $timezone );
+
+		if ( $local->getTimestamp() + $timezone->getOffset( $local ) !== $hist_time ) {
+			$unix = $hist_time - $timezone->getOffset( $local );
+		}
+
+		return (int) $unix;
+	}
+
 	protected $roles = array();
 	protected $caps = array();
 	protected $allow_caps = array();
@@ -438,8 +475,8 @@ class AAL_Log_Query {
 	 * Summarize activity log entries in a time range (role/cap visibility applied).
 	 *
 	 * @param array $args {
-	 *     @type int $from_ts Range start (inclusive), Unix timestamp (site/local).
-	 *     @type int $to_ts   Range end (inclusive), Unix timestamp (site/local).
+	 *     @type int $from_ts Range start (inclusive), stored hist_time.
+	 *     @type int $to_ts   Range end (inclusive), stored hist_time.
 	 * }
 	 * @return array
 	 */
@@ -547,7 +584,7 @@ class AAL_Log_Query {
 		if ( $bucket_rows ) {
 			foreach ( $bucket_rows as $row ) {
 				$time_buckets[] = array(
-					'bucket' => wp_date( 'c', (int) $row->bucket_start ),
+					'bucket' => self::hist_time_to_iso8601( (int) $row->bucket_start ),
 					'count'  => (int) $row->cnt,
 				);
 			}
@@ -555,8 +592,8 @@ class AAL_Log_Query {
 
 		return array(
 			'range'          => array(
-				'from' => wp_date( 'c', $from_ts ),
-				'to'   => wp_date( 'c', $to_ts ),
+				'from' => self::hist_time_to_iso8601( $from_ts ),
+				'to'   => self::hist_time_to_iso8601( $to_ts ),
 			),
 			'total'          => $total,
 			'by_action'      => $by_action,
@@ -599,22 +636,15 @@ class AAL_Log_Query {
 	}
 
 	/**
-	 * SQL expression for aligning hist_time into site-local hour or day buckets.
+	 * SQL expression for hour or day buckets on stored hist_time values.
 	 *
 	 * @param bool $hourly True for hourly buckets, false for daily.
 	 * @return string
 	 */
 	protected function get_summary_time_bucket_sql( $hourly ) {
-		$offset   = (int) wp_timezone()->getOffset( new DateTimeImmutable( 'now', wp_timezone() ) );
 		$interval = $hourly ? HOUR_IN_SECONDS : DAY_IN_SECONDS;
 
-		return sprintf(
-			'FLOOR((`hist_time` - %d) / %d) * %d + %d',
-			$offset,
-			$interval,
-			$interval,
-			$offset
-		);
+		return sprintf( 'FLOOR(`hist_time` / %d) * %d', $interval, $interval );
 	}
 
 	/**
@@ -625,8 +655,8 @@ class AAL_Log_Query {
 	protected function empty_activity_summary( $from_ts, $to_ts ) {
 		return array(
 			'range'          => array(
-				'from' => wp_date( 'c', $from_ts ),
-				'to'   => wp_date( 'c', $to_ts ),
+				'from' => self::hist_time_to_iso8601( $from_ts ),
+				'to'   => self::hist_time_to_iso8601( $to_ts ),
 			),
 			'total'          => 0,
 			'by_action'      => array(),
