@@ -1,6 +1,6 @@
 <?php
 
-class AAL_Test_Abilities extends WP_UnitTestCase {
+class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 
 	private $admin_id;
 
@@ -10,6 +10,8 @@ class AAL_Test_Abilities extends WP_UnitTestCase {
 		if ( ! function_exists( 'wp_register_ability' ) ) {
 			return;
 		}
+
+		add_filter( 'wp_is_application_passwords_available', '__return_true' );
 
 		$this->admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		wp_set_current_user( $this->admin_id );
@@ -39,6 +41,109 @@ class AAL_Test_Abilities extends WP_UnitTestCase {
 		if ( ! function_exists( 'wp_register_ability' ) ) {
 			$this->markTestSkipped( 'WordPress Abilities API requires WP 6.9 or newer.' );
 		}
+	}
+
+	/**
+	 * Re-register plugin abilities so exposure meta reflects current settings.
+	 */
+	private function reregister_plugin_abilities() {
+		$names = array(
+			AAL_Abilities::ABILITY_QUERY_LOGS,
+			AAL_Abilities::ABILITY_GET_LOG,
+			AAL_Abilities::ABILITY_GET_FILTERS,
+		);
+
+		foreach ( $names as $name ) {
+			if ( wp_has_ability( $name ) ) {
+				wp_unregister_ability( $name );
+			}
+		}
+
+		do_action( 'wp_abilities_api_init' );
+	}
+
+	private function enable_agent_exposure() {
+		update_option(
+			'activity-log-settings',
+			array_merge(
+				get_option( 'activity-log-settings', array() ),
+				array( 'abilities_agent_exposure' => 'yes' )
+			)
+		);
+		$this->reset_settings_cache();
+		$this->reregister_plugin_abilities();
+	}
+
+	/**
+	 * @param string      $ability_name Namespaced ability name.
+	 * @param array|null  $input        Ability input.
+	 * @param string|null $basic_auth   Optional HTTP Basic Authorization header value (without "Basic " prefix).
+	 * @return WP_REST_Response
+	 */
+	private function dispatch_ability_rest( $ability_name, $input = array( 'per_page' => 1 ), $basic_auth = null ) {
+		if ( ! defined( 'REST_REQUEST' ) ) {
+			define( 'REST_REQUEST', true );
+		}
+
+		$route   = '/wp-abilities/v1/abilities/' . $ability_name . '/run';
+		$request = new WP_REST_Request( 'GET', $route );
+		$request->set_query_params(
+			array(
+				'input' => $input,
+			)
+		);
+
+		if ( null !== $basic_auth ) {
+			$request->set_header( 'Authorization', 'Basic ' . $basic_auth );
+		}
+
+		$server = rest_get_server();
+		$server->check_authentication();
+
+		return $server->dispatch( $request );
+	}
+
+	/**
+	 * @param int    $user_id User ID.
+	 * @param string $name    Application password label.
+	 * @return string Plaintext application password.
+	 */
+	private function create_application_password( $user_id, $name = 'AAL PHPUnit' ) {
+		if ( ! class_exists( 'WP_Application_Passwords' ) ) {
+			$this->markTestSkipped( 'Application Passwords are not available.' );
+		}
+
+		$created = WP_Application_Passwords::create_new_application_password(
+			$user_id,
+			array( 'name' => $name )
+		);
+
+		$this->assertIsArray( $created );
+		$this->assertArrayHasKey( 0, $created );
+
+		return $created[0];
+	}
+
+	private function basic_auth_header_for_user( $user_id, $app_password ) {
+		if ( ! defined( 'REST_REQUEST' ) ) {
+			define( 'REST_REQUEST', true );
+		}
+
+		$user = get_userdata( $user_id );
+		$this->assertInstanceOf( 'WP_User', $user );
+
+		$_SERVER['PHP_AUTH_USER'] = $user->user_login;
+		$_SERVER['PHP_AUTH_PW']   = $app_password;
+
+		return base64_encode( $user->user_login . ':' . $app_password );
+	}
+
+	/**
+	 * Clear the cached current user so Application Password authentication can run.
+	 */
+	private function clear_cached_current_user() {
+		global $current_user;
+		$current_user = null;
 	}
 
 	private function insert_sample_log( $overrides = array() ) {
@@ -151,8 +256,20 @@ class AAL_Test_Abilities extends WP_UnitTestCase {
 		$this->assertSame( 'rest', $found['channel'] );
 		$this->assertSame( 'Test Agent', $found['app_name'] );
 		$this->assertArrayNotHasKey( 'request_source', $found );
+		$this->assertArrayNotHasKey( 'ip', $found );
 		$this->assertNotEmpty( $found['time'] );
 		$this->assertMatchesRegularExpression( '/^\d{4}-\d{2}-\d{2}T/', $found['time'] );
+	}
+
+	public function test_ability_output_never_includes_ip() {
+		$this->require_abilities_api();
+
+		$log_id = $this->insert_sample_log( array( 'hist_ip' => '198.51.100.42' ) );
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_GET_LOG )->execute( array( 'id' => $log_id ) );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayNotHasKey( 'ip', $result );
 	}
 
 	public function test_get_log_by_id() {
@@ -193,6 +310,17 @@ class AAL_Test_Abilities extends WP_UnitTestCase {
 		$this->assertArrayHasKey( 'sources', $result );
 	}
 
+	public function test_anonymous_cannot_execute_query_logs_directly() {
+		$this->require_abilities_api();
+
+		wp_set_current_user( 0 );
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 1 ) );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'ability_invalid_permissions', $result->get_error_code() );
+	}
+
 	public function test_subscriber_cannot_execute_query_logs() {
 		$this->require_abilities_api();
 
@@ -204,6 +332,147 @@ class AAL_Test_Abilities extends WP_UnitTestCase {
 
 		$this->assertWPError( $result );
 		$this->assertSame( 'ability_invalid_permissions', $result->get_error_code() );
+	}
+
+	public function test_contributor_cannot_execute_query_logs() {
+		$this->require_abilities_api();
+
+		$contributor = self::factory()->user->create( array( 'role' => 'contributor' ) );
+		wp_set_current_user( $contributor );
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 1 ) );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'ability_invalid_permissions', $result->get_error_code() );
+	}
+
+	public function test_editor_can_execute_query_logs() {
+		$this->require_abilities_api();
+
+		$this->insert_sample_log();
+
+		$editor = self::factory()->user->create( array( 'role' => 'editor' ) );
+		wp_set_current_user( $editor );
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 1 ) );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'items', $result );
+	}
+
+	public function test_administrator_can_execute_query_logs() {
+		$this->require_abilities_api();
+
+		$this->insert_sample_log();
+		wp_set_current_user( $this->admin_id );
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 1 ) );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'items', $result );
+	}
+
+	public function test_anonymous_cannot_execute_via_abilities_rest_with_exposure_on() {
+		$this->require_abilities_api();
+
+		$this->enable_agent_exposure();
+		wp_set_current_user( 0 );
+
+		$response = $this->dispatch_ability_rest( AAL_Abilities::ABILITY_QUERY_LOGS );
+
+		$this->assertErrorResponse( 'rest_ability_cannot_execute', $response, rest_authorization_required_code() );
+	}
+
+	public function test_subscriber_cannot_execute_via_abilities_rest_with_exposure_on() {
+		$this->require_abilities_api();
+
+		$this->enable_agent_exposure();
+
+		$subscriber = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		wp_set_current_user( $subscriber );
+
+		$response = $this->dispatch_ability_rest( AAL_Abilities::ABILITY_QUERY_LOGS );
+
+		$this->assertErrorResponse( 'rest_ability_cannot_execute', $response, rest_authorization_required_code() );
+	}
+
+	public function test_editor_can_execute_via_abilities_rest_with_exposure_on() {
+		$this->require_abilities_api();
+
+		$this->enable_agent_exposure();
+		$this->insert_sample_log();
+
+		$editor = self::factory()->user->create( array( 'role' => 'editor' ) );
+		wp_set_current_user( $editor );
+
+		$response = $this->dispatch_ability_rest( AAL_Abilities::ABILITY_QUERY_LOGS );
+
+		$this->assertSame( 200, $response->get_status() );
+		$data = $response->get_data();
+		$this->assertArrayHasKey( 'items', $data );
+	}
+
+	public function test_application_password_authorized_user_can_execute_via_rest() {
+		$this->require_abilities_api();
+
+		$this->enable_agent_exposure();
+		$this->insert_sample_log();
+
+		$password = $this->create_application_password( $this->admin_id );
+		wp_logout();
+		$this->clear_cached_current_user();
+
+		$auth_header = $this->basic_auth_header_for_user( $this->admin_id, $password );
+		$this->assertSame( $this->admin_id, (int) wp_validate_application_password( false ) );
+
+		$response = $this->dispatch_ability_rest(
+			AAL_Abilities::ABILITY_QUERY_LOGS,
+			array( 'per_page' => 1 ),
+			$auth_header
+		);
+
+		if ( 200 !== $response->get_status() && $response->is_error() ) {
+			$this->fail( $response->as_error()->get_error_code() . ': ' . $response->as_error()->get_error_message() );
+		}
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertArrayHasKey( 'items', $response->get_data() );
+	}
+
+	public function test_application_password_unauthorized_user_denied_via_rest() {
+		$this->require_abilities_api();
+
+		$this->enable_agent_exposure();
+
+		$subscriber = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$password = $this->create_application_password( $subscriber );
+
+		wp_logout();
+		$this->clear_cached_current_user();
+
+		$response = $this->dispatch_ability_rest(
+			AAL_Abilities::ABILITY_QUERY_LOGS,
+			array( 'per_page' => 1 ),
+			$this->basic_auth_header_for_user( $subscriber, $password )
+		);
+
+		$this->assertErrorResponse( 'rest_ability_cannot_execute', $response, rest_authorization_required_code() );
+	}
+
+	public function test_exposure_on_does_not_bypass_permission_callback() {
+		$this->require_abilities_api();
+
+		$this->enable_agent_exposure();
+
+		$ability = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS );
+		$this->assertTrue( $ability->get_meta_item( 'show_in_rest' ) );
+
+		wp_set_current_user( 0 );
+		$this->assertFalse( $ability->check_permissions( array( 'per_page' => 1 ) ) );
+
+		$subscriber = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		wp_set_current_user( $subscriber );
+		$this->assertFalse( $ability->check_permissions( array( 'per_page' => 1 ) ) );
 	}
 
 	public function test_ability_execution_attributes_abilities_channel() {
@@ -252,6 +521,8 @@ class AAL_Test_Abilities extends WP_UnitTestCase {
 	}
 
 	public function tear_down() {
+		remove_filter( 'wp_is_application_passwords_available', '__return_true' );
+		unset( $_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW'] );
 		$this->clear_ability_stack();
 		parent::tear_down();
 	}

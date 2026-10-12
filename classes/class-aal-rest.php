@@ -160,7 +160,7 @@ class AAL_REST {
 				'value'       => isset( $options['abilities_agent_exposure'] ) ? $options['abilities_agent_exposure'] : 'no',
 				'label'       => __( 'Expose activity log to AI agents', 'aryo-activity-log' ),
 				'type'        => 'select',
-				'description' => __( 'When enabled, read-only Activity Log abilities are exposed via the WordPress Abilities REST API and MCP Adapter (requires WordPress 6.9+). Log data may include IP addresses and other personal information.', 'aryo-activity-log' ),
+				'description' => __( 'When enabled, read-only Activity Log abilities are exposed via the WordPress Abilities REST API and MCP Adapter (requires WordPress 6.9+). Log data may include usernames, object names, and other personal information. IP addresses are not included in ability responses.', 'aryo-activity-log' ),
 				'options'     => array(
 					array( 'value' => 'no', 'label' => __( 'No (recommended)', 'aryo-activity-log' ) ),
 					array( 'value' => 'yes', 'label' => __( 'Yes', 'aryo-activity-log' ) ),

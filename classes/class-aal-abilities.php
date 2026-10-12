@@ -123,6 +123,10 @@ class AAL_Abilities {
 	 * @return bool|WP_Error
 	 */
 	public function check_view_permission( $input = null ) {
+		if ( ! is_user_logged_in() || get_current_user_id() < 1 ) {
+			return false;
+		}
+
 		$allowed = $this->rest->check_permissions();
 
 		if ( is_wp_error( $allowed ) ) {
@@ -158,11 +162,9 @@ class AAL_Abilities {
 			)
 		);
 
-		$collect_ip = 'no-collect-ip' !== AAL_Main::instance()->settings->get_option( 'log_visitor_ip_source' );
-
 		$items = array();
 		foreach ( $result['items'] as $item ) {
-			$items[] = AAL_Log_Presenter::to_ability_json( $item, $collect_ip );
+			$items[] = AAL_Log_Presenter::to_ability_json( $item );
 		}
 
 		return array(
@@ -196,9 +198,7 @@ class AAL_Abilities {
 			);
 		}
 
-		$collect_ip = 'no-collect-ip' !== AAL_Main::instance()->settings->get_option( 'log_visitor_ip_source' );
-
-		return AAL_Log_Presenter::to_ability_json( $item, $collect_ip );
+		return AAL_Log_Presenter::to_ability_json( $item );
 	}
 
 	/**
@@ -323,10 +323,6 @@ class AAL_Abilities {
 				'app_name'        => array(
 					'type'        => 'string',
 					'description' => __( 'Application Password name when the request used an app password.', 'aryo-activity-log' ),
-				),
-				'ip'              => array(
-					'type'        => 'string',
-					'description' => __( 'Visitor IP when collection is enabled.', 'aryo-activity-log' ),
 				),
 				'meta'            => array(
 					'type'        => 'object',
