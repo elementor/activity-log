@@ -15,7 +15,8 @@ class AAL_Abilities {
 
 	const ABILITY_QUERY_LOGS  = 'activity-log/query-logs';
 	const ABILITY_GET_LOG     = 'activity-log/get-log';
-	const ABILITY_GET_FILTERS = 'activity-log/get-filters';
+	const ABILITY_GET_FILTERS      = 'activity-log/get-filters';
+	const ABILITY_SUMMARIZE_ACTIVITY = 'activity-log/summarize-activity';
 
 	/**
 	 * @var AAL_REST
@@ -109,6 +110,20 @@ class AAL_Abilities {
 				'meta'                => $exposure_meta,
 			)
 		);
+
+		wp_register_ability(
+			self::ABILITY_SUMMARIZE_ACTIVITY,
+			array(
+				'label'               => __( 'Summarize activity', 'aryo-activity-log' ),
+				'description'         => __( 'Returns aggregated activity statistics for a time range (counts by action, type, user, channel, and time buckets).', 'aryo-activity-log' ),
+				'category'            => self::CATEGORY,
+				'input_schema'        => self::get_summarize_activity_input_schema(),
+				'output_schema'       => self::get_summarize_activity_output_schema(),
+				'execute_callback'    => array( $this, 'execute_summarize_activity' ),
+				'permission_callback' => array( $this, 'check_view_permission' ),
+				'meta'                => $exposure_meta,
+			)
+		);
 	}
 
 	/**
@@ -198,6 +213,10 @@ class AAL_Abilities {
 		$query = new AAL_Log_Query();
 
 		return $query->get_filter_options();
+	}
+
+	public function execute_summarize_activity( $input, $now = null ) {
+		return ( new AAL_Log_Query() )->summarize_activity_from_input( $input, $now );
 	}
 
 	/**
@@ -373,6 +392,58 @@ class AAL_Abilities {
 				'pages' => array( 'type' => 'integer' ),
 			),
 			'required'   => array( 'items', 'total', 'pages' ),
+		);
+	}
+
+	public static function get_summarize_activity_input_schema() {
+		return array(
+			'type'                 => 'object',
+			'default'              => array(),
+			'properties'           => array(
+				'period'    => array(
+					'type'        => 'string',
+					'description' => __( 'Relative time window (default 24h when input is empty).', 'aryo-activity-log' ),
+					'default'     => '24h',
+					'enum'        => array( 'today', '24h', '7d', '30d' ),
+				),
+				'date_from' => array(
+					'type'        => 'string',
+					'description' => __( 'Range start date (ISO-8601 Y-m-d, site timezone).', 'aryo-activity-log' ),
+					'pattern'     => '^\d{4}-\d{2}-\d{2}$',
+				),
+				'date_to'   => array(
+					'type'        => 'string',
+					'description' => __( 'Range end date (ISO-8601 Y-m-d, site timezone). Max 90 days from date_from.', 'aryo-activity-log' ),
+					'pattern'     => '^\d{4}-\d{2}-\d{2}$',
+				),
+			),
+			'additionalProperties' => false,
+		);
+	}
+
+	public static function get_summarize_activity_output_schema() {
+		return array(
+			'type'       => 'object',
+			'properties' => array(
+				'range'          => array( 'type' => 'object' ),
+				'total'          => array( 'type' => 'integer' ),
+				'by_action'      => array( 'type' => 'object' ),
+				'by_object_type' => array( 'type' => 'object' ),
+				'top_users'      => array( 'type' => 'array' ),
+				'by_channel'     => array( 'type' => 'object' ),
+				'by_app_name'    => array( 'type' => 'object' ),
+				'time_buckets'   => array( 'type' => 'array' ),
+			),
+			'required'   => array(
+				'range',
+				'total',
+				'by_action',
+				'by_object_type',
+				'top_users',
+				'by_channel',
+				'by_app_name',
+				'time_buckets',
+			),
 		);
 	}
 
