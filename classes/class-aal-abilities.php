@@ -6,8 +6,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Registers read-only WordPress Abilities for AI agents (WP 6.9+).
  *
- * Agent exposure must be enabled in settings (or via the default filter) for abilities to run,
- * including direct {@see WP_Ability::execute()} calls. REST/MCP visibility uses the same flag.
+ * Agent exposure must be enabled in settings for abilities to run, including direct
+ * {@see WP_Ability::execute()} calls. REST/MCP visibility uses the same flag.
  */
 class AAL_Abilities {
 
@@ -16,14 +16,6 @@ class AAL_Abilities {
 	const ABILITY_QUERY_LOGS  = 'activity-log/query-logs';
 	const ABILITY_GET_LOG     = 'activity-log/get-log';
 	const ABILITY_GET_FILTERS = 'activity-log/get-filters';
-
-	/**
-	 * Default agent exposure when the setting has never been saved.
-	 * Change this constant in a future release to flip the product default.
-	 *
-	 * @var string 'yes' or 'no'
-	 */
-	const DEFAULT_AGENT_EXPOSURE = 'no';
 
 	/**
 	 * @var AAL_REST
@@ -42,35 +34,6 @@ class AAL_Abilities {
 	}
 
 	/**
-	 * Filterable default for abilities_agent_exposure when the option key is not stored.
-	 *
-	 * @return string 'yes' or 'no'
-	 */
-	public static function get_default_agent_exposure() {
-		$default = self::DEFAULT_AGENT_EXPOSURE;
-		$value   = apply_filters( 'aal_abilities_agent_exposure_default', $default );
-
-		if ( ! in_array( $value, array( 'yes', 'no' ), true ) ) {
-			return $default;
-		}
-
-		return $value;
-	}
-
-	/**
-	 * Whether the site has an explicitly saved abilities_agent_exposure value.
-	 *
-	 * @return bool
-	 */
-	public static function has_saved_agent_exposure_setting() {
-		$options = get_option( AAL_Main::instance()->settings->slug(), array() );
-
-		return is_array( $options ) && array_key_exists( 'abilities_agent_exposure', $options );
-	}
-
-	/**
-	 * Effective abilities_agent_exposure value (saved or default).
-	 *
 	 * @return string 'yes' or 'no'
 	 */
 	public static function get_agent_exposure_setting() {
@@ -80,7 +43,7 @@ class AAL_Abilities {
 			return 'yes' === $options['abilities_agent_exposure'] ? 'yes' : 'no';
 		}
 
-		return self::get_default_agent_exposure();
+		return 'no';
 	}
 
 	/**
@@ -177,13 +140,7 @@ class AAL_Abilities {
 			return false;
 		}
 
-		$allowed = $this->rest->check_permissions();
-
-		if ( is_wp_error( $allowed ) ) {
-			return $allowed;
-		}
-
-		return (bool) $allowed;
+		return $this->rest->check_permissions();
 	}
 
 	/**
@@ -191,34 +148,14 @@ class AAL_Abilities {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public function execute_query_logs( $input ) {
-		$query = new AAL_Log_Query();
-
-		$per_page = isset( $input['per_page'] ) ? min( max( 1, (int) $input['per_page'] ), 100 ) : 50;
-		$page     = isset( $input['page'] ) ? max( 1, (int) $input['page'] ) : 1;
-		$order    = isset( $input['order'] ) ? strtoupper( (string) $input['order'] ) : 'DESC';
-		if ( ! in_array( $order, array( 'ASC', 'DESC' ), true ) ) {
-			$order = 'DESC';
-		}
-
-		$usershow = '';
-		if ( isset( $input['usershow'] ) && (int) $input['usershow'] > 0 ) {
-			$usershow = (int) $input['usershow'];
-		}
-
+		$query  = new AAL_Log_Query();
 		$result = $query->query(
-			array(
-				'typeshow'   => isset( $input['typeshow'] ) ? (string) $input['typeshow'] : '',
-				'showaction' => isset( $input['showaction'] ) ? (string) $input['showaction'] : '',
-				'usershow'   => $usershow,
-				'capshow'    => isset( $input['capshow'] ) ? (string) $input['capshow'] : '',
-				'sourceshow' => isset( $input['sourceshow'] ) ? (string) $input['sourceshow'] : '',
-				'dateshow'   => isset( $input['dateshow'] ) ? (string) $input['dateshow'] : '',
-				's'          => isset( $input['s'] ) ? (string) $input['s'] : '',
-				'orderby'    => 'hist_time',
-				'order'      => $order,
-				'page'       => $page,
-				'per_page'   => $per_page,
-				'exclude_ip' => true,
+			array_merge(
+				(array) $input,
+				array(
+					'orderby'    => 'hist_time',
+					'exclude_ip' => true,
+				)
 			)
 		);
 
@@ -239,14 +176,6 @@ class AAL_Abilities {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public function execute_get_log( $input ) {
-		if ( empty( $input['id'] ) ) {
-			return new WP_Error(
-				'aal_missing_log_id',
-				__( 'Log entry ID is required.', 'aryo-activity-log' ),
-				array( 'status' => \WP_Http::BAD_REQUEST )
-			);
-		}
-
 		$query = new AAL_Log_Query();
 		$item  = $query->get_item( (int) $input['id'] );
 
@@ -284,7 +213,7 @@ class AAL_Abilities {
 	}
 
 	public static function get_query_logs_source_filter_values() {
-		return array( 'abilities', 'rest', 'xmlrpc', 'cli', 'cron', 'app_password' );
+		return array_merge( array_keys( AAL_API::get_channel_labels() ), array( 'app_password' ) );
 	}
 
 	public static function get_query_logs_input_schema() {

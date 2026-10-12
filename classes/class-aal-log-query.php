@@ -166,15 +166,10 @@ class AAL_Log_Query {
 			return null;
 		}
 
-		$histid = (int) $histid;
-		if ( $histid < 1 ) {
-			return null;
-		}
-
 		$item = $wpdb->get_row(
 			$wpdb->prepare(
 				'SELECT * FROM `' . $wpdb->activity_log . '` WHERE `histid` = %d ' . $role_where,
-				$histid
+				(int) $histid
 			)
 		);
 
@@ -197,7 +192,7 @@ class AAL_Log_Query {
 	 *     @type string $order       ASC or DESC. Default DESC.
 	 *     @type int    $page        1-indexed page number.
 	 *     @type int    $per_page    Items per page (max 100).
-	 *     @type bool   $exclude_ip  When true, omit IP from search filters and restrict orderby to hist_time.
+	 *     @type bool   $exclude_ip  When true, omit hist_ip from the search columns.
 	 * }
 	 * @return array { items: object[], total: int, pages: int } or empty on access denied.
 	 */
@@ -239,7 +234,7 @@ class AAL_Log_Query {
 			$where .= $wpdb->prepare( ' AND `action` = %s', sanitize_text_field( $args['showaction'] ) );
 		}
 
-		if ( empty( $args['exclude_ip'] ) && '' !== $args['filter_ip'] && ! empty( $args['filter_ip'] ) ) {
+		if ( '' !== $args['filter_ip'] && ! empty( $args['filter_ip'] ) ) {
 			$where .= $wpdb->prepare( ' AND `hist_ip` = %s', sanitize_text_field( $args['filter_ip'] ) );
 		}
 
@@ -296,23 +291,21 @@ class AAL_Log_Query {
 
 		if ( ! empty( $args['s'] ) ) {
 			$search_like = '%' . $wpdb->esc_like( $args['s'] ) . '%';
-			if ( ! empty( $args['exclude_ip'] ) ) {
-				$where .= $wpdb->prepare(
-					' AND (`object_name` LIKE %s OR `object_subtype` LIKE %s)',
-					$search_like,
-					$search_like
-				);
-			} else {
-				$where .= $wpdb->prepare(
-					' AND (`object_name` LIKE %s OR `object_subtype` LIKE %s OR `hist_ip` LIKE %s)',
-					$search_like,
-					$search_like,
-					$search_like
-				);
+			$columns     = array( 'object_name', 'object_subtype' );
+			if ( empty( $args['exclude_ip'] ) ) {
+				$columns[] = 'hist_ip';
 			}
+			$parts = array();
+			foreach ( $columns as $column ) {
+				$parts[] = '`' . $column . '` LIKE %s';
+			}
+			$where .= $wpdb->prepare(
+				' AND (' . implode( ' OR ', $parts ) . ')',
+				array_fill( 0, count( $columns ), $search_like )
+			);
 		}
 
-		$allowed_orderby = ! empty( $args['exclude_ip'] ) ? array( 'hist_time' ) : array( 'hist_time', 'hist_ip' );
+		$allowed_orderby = array( 'hist_time', 'hist_ip' );
 		$items_orderby   = in_array( $args['orderby'], $allowed_orderby, true ) ? $args['orderby'] : 'hist_time';
 		$items_order     = 'ASC' === strtoupper( $args['order'] ) ? 'ASC' : 'DESC';
 

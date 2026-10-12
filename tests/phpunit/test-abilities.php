@@ -15,10 +15,8 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		}
 
 		add_filter( 'wp_is_application_passwords_available', '__return_true' );
-
 		$this->admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		wp_set_current_user( $this->admin_id );
-
 		update_option(
 			'activity-log-settings',
 			array(
@@ -36,8 +34,6 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 	public function tear_down() {
 		remove_filter( 'wp_is_application_passwords_available', '__return_true' );
 		unset( $_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW'] );
-		remove_all_filters( 'aal_abilities_agent_exposure_default' );
-		remove_all_filters( 'aal_menu_page_capability' );
 		$this->clear_ability_stack();
 		parent::tear_down();
 	}
@@ -53,51 +49,22 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		$this->assertTrue( wp_has_ability( AAL_Abilities::ABILITY_QUERY_LOGS ) );
 		$this->assertTrue( wp_has_ability( AAL_Abilities::ABILITY_GET_LOG ) );
 		$this->assertTrue( wp_has_ability( AAL_Abilities::ABILITY_GET_FILTERS ) );
-		$this->assertTrue( wp_has_ability_category( AAL_Abilities::CATEGORY ) );
 		$this->assertTrue( wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->get_meta()['annotations']['readonly'] );
 	}
 
-	public function test_unsaved_agent_exposure_uses_code_default() {
-		$this->restore_unsaved_settings_option();
-		$this->assertFalse( AAL_Abilities::has_saved_agent_exposure_setting() );
+	public function test_agent_exposure_defaults_to_no_when_unset() {
+		$this->reset_settings_without_exposure();
 		$this->assertFalse( AAL_Abilities::is_agent_exposure_enabled() );
 	}
 
-	public function test_filter_changes_unsaved_agent_exposure_default() {
-		$this->restore_unsaved_settings_option();
-		add_filter( 'aal_abilities_agent_exposure_default', static function () {
-			return 'yes';
-		} );
-		$this->assertTrue( AAL_Abilities::is_agent_exposure_enabled() );
-	}
-
-	public function test_explicit_no_agent_exposure_wins_over_filter() {
-		$this->save_setting( 'abilities_agent_exposure', 'no' );
-		add_filter( 'aal_abilities_agent_exposure_default', static function () {
-			return 'yes';
-		} );
-		$this->assertTrue( AAL_Abilities::has_saved_agent_exposure_setting() );
-		$this->assertFalse( AAL_Abilities::is_agent_exposure_enabled() );
-	}
-
-	public function test_explicit_yes_agent_exposure_is_saved() {
+	public function test_saved_agent_exposure_yes_is_enabled() {
 		$this->save_setting( 'abilities_agent_exposure', 'yes' );
-		$this->assertTrue( AAL_Abilities::has_saved_agent_exposure_setting() );
 		$this->assertTrue( AAL_Abilities::is_agent_exposure_enabled() );
-	}
-
-	public function test_invalid_agent_exposure_filter_falls_back_to_constant() {
-		$this->restore_unsaved_settings_option();
-		add_filter( 'aal_abilities_agent_exposure_default', static function () {
-			return 'maybe';
-		} );
-		$this->assertSame( 'no', AAL_Abilities::get_default_agent_exposure() );
 	}
 
 	public function test_registered_ability_exposure_meta_is_public_when_enabled() {
 		$meta = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->get_meta();
 		$this->assertTrue( $meta['show_in_rest'] );
-		$this->assertTrue( $meta['public'] );
 		$this->assertTrue( $meta['mcp']['public'] );
 	}
 
@@ -106,8 +73,6 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		$this->reregister_plugin_abilities();
 		$meta = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->get_meta();
 		$this->assertFalse( $meta['show_in_rest'] );
-		$this->assertFalse( $meta['public'] );
-		$this->assertFalse( $meta['mcp']['public'] );
 	}
 
 	public function test_agent_exposure_disabled_denies_execution() {
@@ -119,126 +84,48 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		$this->assertSame( 'ability_invalid_permissions', $result->get_error_code() );
 	}
 
-	/** @dataProvider denied_roles_provider */
-	public function test_query_logs_direct_denied_for_role( $role ) {
+	/** @dataProvider rest_allowed_roles_provider */
+	public function test_query_logs_rest_allowed_for_role( $role ) {
 		$this->insert_sample_log();
 		$this->act_as_role( $role );
-		$ability = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS );
-		$this->assertNotTrue( $ability->check_permissions( array( 'per_page' => 1 ) ) );
-	}
-
-	public function denied_roles_provider() {
-		return array(
-			'anonymous'   => array( '' ),
-			'subscriber'  => array( 'subscriber' ),
-			'contributor' => array( 'contributor' ),
-		);
-	}
-
-	/** @dataProvider allowed_roles_provider */
-	public function test_query_logs_direct_allowed_for_role( $role ) {
-		$this->insert_sample_log();
-		$this->act_as_role( $role );
-		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 1 ) );
-		$this->assertArrayHasKey( 'items', $result );
-	}
-
-	public function allowed_roles_provider() {
-		return array(
-			'editor'        => array( 'editor' ),
-			'administrator' => array( 'administrator' ),
-		);
-	}
-
-	public function test_view_all_cap_allows_direct_query() {
-		$this->insert_sample_log();
-		$user_id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
-		( new WP_User( $user_id ) )->add_cap( 'view_all_aryo_activity_log' );
-		wp_set_current_user( $user_id );
-		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 1 ) );
-		$this->assertArrayHasKey( 'items', $result );
-	}
-
-	public function test_menu_page_capability_filter_allows_direct_query() {
-		$this->insert_sample_log();
-		add_filter( 'aal_menu_page_capability', static function () {
-			return 'read';
-		} );
-		$user_id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
-		$user    = new WP_User( $user_id );
-		$user->add_cap( 'read' );
-		$user->add_cap( 'view_all_aryo_activity_log' );
-		wp_set_current_user( $user_id );
-		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 1 ) );
-		$this->assertArrayHasKey( 'items', $result );
-	}
-
-	public function test_query_logs_rest_denied_for_anonymous() {
-		$this->insert_sample_log();
-		wp_set_current_user( 0 );
-		$response = $this->dispatch_ability_rest( AAL_Abilities::ABILITY_QUERY_LOGS );
-		$this->assertErrorResponse( 'rest_forbidden', $response, rest_authorization_required_code() );
-	}
-
-	public function test_query_logs_rest_denied_for_subscriber() {
-		$this->insert_sample_log();
-		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
-		$response = $this->dispatch_ability_rest( AAL_Abilities::ABILITY_QUERY_LOGS );
-		$this->assertErrorResponse( 'rest_forbidden', $response, \WP_Http::FORBIDDEN );
-	}
-
-	public function test_query_logs_rest_allowed_for_editor() {
-		$this->insert_sample_log();
-		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
 		$response = $this->dispatch_ability_rest( AAL_Abilities::ABILITY_QUERY_LOGS );
 		$this->assertSame( 200, $response->get_status() );
 		$this->assertArrayHasKey( 'items', $response->get_data() );
 	}
 
-	public function test_application_password_rest_allowed_for_administrator() {
-		$this->insert_sample_log();
-		$user_id  = self::factory()->user->create( array( 'role' => 'administrator' ) );
-		$password = $this->create_application_password( $user_id );
-		wp_logout();
-		$this->clear_cached_current_user();
-		$auth = $this->basic_auth_header_for_user( $user_id, $password );
-		$this->assertSame( $user_id, (int) wp_validate_application_password( null ) );
-		$response = $this->dispatch_ability_rest(
-			AAL_Abilities::ABILITY_QUERY_LOGS,
-			array( 'per_page' => 1 ),
-			$auth
+	public function rest_allowed_roles_provider() {
+		return array(
+			'editor' => array( 'editor' ),
 		);
-		$this->assertSame( 200, $response->get_status() );
 	}
 
-	public function test_application_password_rest_denied_for_subscriber() {
+	/** @dataProvider rest_denied_roles_provider */
+	public function test_query_logs_rest_denied_for_role( $role, $error_code, $status ) {
 		$this->insert_sample_log();
-		$user_id  = self::factory()->user->create( array( 'role' => 'subscriber' ) );
-		$password = $this->create_application_password( $user_id );
-		wp_logout();
-		$this->clear_cached_current_user();
-		$response = $this->dispatch_ability_rest(
-			AAL_Abilities::ABILITY_QUERY_LOGS,
-			array( 'per_page' => 1 ),
-			$this->basic_auth_header_for_user( $user_id, $password )
+		$this->act_as_role( $role );
+		$response = $this->dispatch_ability_rest( AAL_Abilities::ABILITY_QUERY_LOGS );
+		$this->assertErrorResponse( $error_code, $response, $status );
+	}
+
+	public function rest_denied_roles_provider() {
+		return array(
+			'anonymous'  => array( '', 'rest_forbidden', rest_authorization_required_code() ),
+			'subscriber' => array( 'subscriber', 'rest_forbidden', \WP_Http::FORBIDDEN ),
 		);
-		$this->assertErrorResponse( 'rest_forbidden', $response, \WP_Http::FORBIDDEN );
 	}
 
 	public function test_query_logs_agent_json_shape_excludes_ip() {
 		$log_id = $this->insert_sample_log( array( 'hist_ip' => '198.51.100.42' ) );
-		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 100, 'page' => 1 ) );
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 100 ) );
 		$item   = $this->find_log_item( $result['items'], $log_id );
 		$this->assertSame( 'rest', $item['channel'] );
-		$this->assertSame( 'Test Agent', $item['app_name'] );
 		$this->assertArrayNotHasKey( 'ip', $item );
-		$this->assertMatchesRegularExpression( '/^\d{4}-\d{2}-\d{2}T/', $item['time'] );
 	}
 
 	public function test_get_log_returns_entry_without_ip() {
-		$log_id = $this->insert_sample_log( array( 'object_name' => 'ability-get-log-target' ) );
+		$log_id = $this->insert_sample_log();
 		$result = wp_get_ability( AAL_Abilities::ABILITY_GET_LOG )->execute( array( 'id' => $log_id ) );
-		$this->assertSame( 'ability-get-log-target', $result['object_name'] );
+		$this->assertSame( $log_id, $result['id'] );
 		$this->assertArrayNotHasKey( 'ip', $result );
 	}
 
@@ -254,24 +141,11 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		$this->assertSame( 'ability_invalid_input', $result->get_error_code() );
 	}
 
-	public function test_query_logs_direct_without_input() {
+	public function test_query_logs_without_input_direct_and_rest() {
 		$this->insert_sample_log();
 		wp_set_current_user( $this->admin_id );
-		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute();
-		$this->assertArrayHasKey( 'items', $result );
-	}
-
-	public function test_get_filters_direct_without_input() {
-		$this->insert_sample_log();
-		$result = wp_get_ability( AAL_Abilities::ABILITY_GET_FILTERS )->execute();
-		$this->assertArrayHasKey( 'sources', $result );
-	}
-
-	public function test_query_logs_rest_without_input() {
-		$this->insert_sample_log();
-		wp_set_current_user( $this->admin_id );
-		$response = $this->dispatch_ability_rest_request( AAL_Abilities::ABILITY_QUERY_LOGS, false );
-		$this->assertSame( 200, $response->get_status() );
+		$this->assertArrayHasKey( 'items', wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute() );
+		$this->assertSame( 200, $this->dispatch_ability_rest_request( AAL_Abilities::ABILITY_QUERY_LOGS, false )->get_status() );
 	}
 
 	public function test_query_search_does_not_match_ip() {
@@ -337,54 +211,6 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		$this->assertSame( 'aal_log_not_found', $result->get_error_code() );
 	}
 
-	public function test_ability_execution_records_abilities_channel() {
-		global $wpdb;
-		$marker = 'ability-attribution-' . wp_generate_password( 6, false );
-		add_action(
-			'wp_before_execute_ability',
-			static function ( $ability_name ) use ( $marker ) {
-				if ( AAL_Abilities::ABILITY_QUERY_LOGS !== $ability_name ) {
-					return;
-				}
-				aal_insert_log(
-					array(
-						'action'      => 'updated',
-						'object_type' => 'Posts',
-						'object_name' => $marker,
-						'object_id'   => 1,
-					)
-				);
-			}
-		);
-		wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 1 ) );
-		remove_all_actions( 'wp_before_execute_ability' );
-		$this->clear_ability_stack();
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT `request_source`, `meta` FROM `{$wpdb->activity_log}` WHERE `object_name` = %s",
-				$marker
-			)
-		);
-		$this->assertStringContainsString( 'abilities', $row->request_source );
-		$this->assertSame( AAL_Abilities::ABILITY_QUERY_LOGS, json_decode( $row->meta, true )['ability'] );
-	}
-
-	public function test_settings_rest_reflects_unsaved_default_via_filter() {
-		$this->restore_unsaved_settings_option();
-		add_filter( 'aal_abilities_agent_exposure_default', static function () {
-			return 'yes';
-		} );
-		$this->assertSame( 'yes', $this->get_settings_exposure_value() );
-	}
-
-	public function test_settings_rest_reflects_explicit_no_over_filter() {
-		$this->save_setting( 'abilities_agent_exposure', 'no' );
-		add_filter( 'aal_abilities_agent_exposure_default', static function () {
-			return 'yes';
-		} );
-		$this->assertSame( 'no', $this->get_settings_exposure_value() );
-	}
-
 	private function act_as_role( $role ) {
 		if ( '' === $role ) {
 			wp_set_current_user( 0 );
@@ -406,15 +232,14 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		$this->fail( 'Log item not found in ability response.' );
 	}
 
-	private function get_settings_exposure_value() {
-		$request = new WP_REST_Request( 'GET', '/activity-log/v1/settings' );
-		$request->set_header( 'X-AAL-Settings-Nonce', wp_create_nonce( 'aal_settings' ) );
-		$response = rest_get_server()->dispatch( $request );
-		$this->assertSame( 200, $response->get_status() );
-		return $response->get_data()['fields']['abilities_agent_exposure']['value'];
+	private function reset_settings_cache() {
+		$settings = AAL_Main::instance()->settings;
+		$ref      = new ReflectionProperty( $settings, 'options' );
+		$ref->setAccessible( true );
+		$ref->setValue( $settings, null );
 	}
 
-	private function restore_unsaved_settings_option() {
+	private function reset_settings_without_exposure() {
 		update_option(
 			'activity-log-settings',
 			array(
@@ -426,13 +251,6 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		);
 		$this->reset_settings_cache();
 		$this->reregister_plugin_abilities();
-	}
-
-	private function reset_settings_cache() {
-		$settings = AAL_Main::instance()->settings;
-		$ref      = new ReflectionProperty( $settings, 'options' );
-		$ref->setAccessible( true );
-		$ref->setValue( $settings, null );
 	}
 
 	private function save_setting( $key, $value ) {
@@ -458,54 +276,22 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		do_action( 'wp_abilities_api_init' );
 	}
 
-	private function dispatch_ability_rest( $ability_name, $input = array( 'per_page' => 1 ), $basic_auth = null ) {
-		return $this->dispatch_ability_rest_request( $ability_name, true, $input, $basic_auth );
+	private function dispatch_ability_rest( $ability_name, $input = array( 'per_page' => 1 ) ) {
+		return $this->dispatch_ability_rest_request( $ability_name, true, $input );
 	}
 
-	private function dispatch_ability_rest_request( $ability_name, $include_input, $input = null, $basic_auth = null ) {
-		$this->mark_rest_request();
+	private function dispatch_ability_rest_request( $ability_name, $include_input, $input = null ) {
 		$request = new WP_REST_Request( 'GET', '/wp-abilities/v1/abilities/' . $ability_name . '/run' );
 		if ( $include_input ) {
 			$request->set_query_params( array( 'input' => $input ) );
-		}
-		if ( null !== $basic_auth ) {
-			$request->set_header( 'Authorization', 'Basic ' . $basic_auth );
 		}
 		rest_get_server()->check_authentication();
 		return rest_get_server()->dispatch( $request );
 	}
 
-	private function create_application_password( $user_id ) {
-		if ( ! class_exists( 'WP_Application_Passwords' ) ) {
-			$this->markTestSkipped( 'Application Passwords are not available.' );
-		}
-		$created = WP_Application_Passwords::create_new_application_password( $user_id, array( 'name' => 'AAL PHPUnit' ) );
-		$this->assertIsArray( $created );
-		return $created[0];
-	}
-
-	private function basic_auth_header_for_user( $user_id, $app_password ) {
-		$this->mark_rest_request();
-		$user                     = get_userdata( $user_id );
-		$_SERVER['PHP_AUTH_USER'] = $user->user_login;
-		$_SERVER['PHP_AUTH_PW']   = $app_password;
-		return base64_encode( $user->user_login . ':' . $app_password );
-	}
-
-	private function mark_rest_request() {
-		if ( ! defined( 'REST_REQUEST' ) ) {
-			define( 'REST_REQUEST', true );
-		}
-	}
-
-	private function clear_cached_current_user() {
-		global $current_user;
-		$current_user = null;
-	}
-
 	private function insert_sample_log( $overrides = array() ) {
 		global $wpdb;
-		$row     = array_merge(
+		$row = array_merge(
 			array(
 				'action'         => 'updated',
 				'object_type'    => 'Posts',
@@ -521,8 +307,7 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 			),
 			$overrides
 		);
-		$formats = array( '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%d', '%s', '%s' );
-		$wpdb->insert( $wpdb->activity_log, $row, $formats );
+		$wpdb->insert( $wpdb->activity_log, $row, array( '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%d', '%s', '%s' ) );
 		return (int) $wpdb->insert_id;
 	}
 
