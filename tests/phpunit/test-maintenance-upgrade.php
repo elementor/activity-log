@@ -30,30 +30,26 @@ class AAL_Test_Maintenance_Upgrade extends WP_UnitTestCase {
 		$prop->setValue( null, array() );
 	}
 
-	public function test_large_table_skips_auto_upgrade() {
-		update_option( 'activity_log_db_version', '1.0' );
-
-		add_filter( 'aal_auto_upgrade_max_rows', function () {
-			return 0;
-		} );
-
-		AAL_Maintenance::maybe_upgrade();
-
-		$this->assertSame( '1.0', get_option( 'activity_log_db_version' ) );
-		$this->assertTrue( (bool) get_option( 'aal_manual_db_upgrade' ) );
+	public function maybe_upgrade_threshold_provider() {
+		return array(
+			'large table' => array( 0, '1.0', true ),
+			'small table' => array( PHP_INT_MAX, '1.1', false ),
+		);
 	}
 
-	public function test_small_table_auto_upgrades() {
+	/**
+	 * @dataProvider maybe_upgrade_threshold_provider
+	 */
+	public function test_maybe_upgrade_respects_row_threshold( $max_rows, $expected_version, $expected_manual ) {
 		update_option( 'activity_log_db_version', '1.0' );
-
-		add_filter( 'aal_auto_upgrade_max_rows', function () {
-			return PHP_INT_MAX;
+		add_filter( 'aal_auto_upgrade_max_rows', static function () use ( $max_rows ) {
+			return $max_rows;
 		} );
 
 		AAL_Maintenance::maybe_upgrade();
 
-		$this->assertSame( AAL_Maintenance::TARGET_DB_VERSION, get_option( 'activity_log_db_version' ) );
-		$this->assertFalse( get_option( 'aal_manual_db_upgrade' ) );
+		$this->assertSame( $expected_version, get_option( 'activity_log_db_version' ) );
+		$this->assertSame( $expected_manual, (bool) get_option( 'aal_manual_db_upgrade' ) );
 	}
 
 	public function test_maybe_upgrade_returns_early_when_manual_flag_set() {

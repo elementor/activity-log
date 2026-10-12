@@ -19,7 +19,7 @@ class AAL_Test_Maintenance_Schema extends WP_UnitTestCase {
 		return 0 === stripos( $query, 'ALTER TABLE' ) ? 'SELECT 1' : $query;
 	}
 
-	public function test_version_is_not_stored_when_columns_are_still_missing() {
+	public function test_upgrade_step_failure_does_not_store_version() {
 		$this->reset_table( true );
 		add_filter( 'query', array( $this, 'skip_alter' ) );
 

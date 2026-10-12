@@ -5,13 +5,6 @@ class AAL_Maintenance {
 
 	const TARGET_DB_VERSION = '1.1';
 
-	/**
-	 * Columns each DB version must have. A version is stored only after these are verified.
-	 */
-	const SCHEMA_COLUMNS = array(
-		'1.1' => array( 'request_source', 'meta' ),
-	);
-
 	private static $schema_ready_cache = array();
 
 	public static function activate( $network_wide ) {
@@ -102,8 +95,7 @@ class AAL_Maintenance {
 				continue;
 			}
 
-			$success = call_user_func( array( __CLASS__, $method ) )
-				&& self::table_has_columns( self::SCHEMA_COLUMNS[ $version ] );
+			$success = call_user_func( array( __CLASS__, $method ) );
 
 			if ( ! $success ) {
 				set_transient( 'aal_upgrade_failed', $version, HOUR_IN_SECONDS );
@@ -138,44 +130,31 @@ class AAL_Maintenance {
 	}
 
 	/**
-	 * @param string[] $columns
-	 * @return string[]
-	 */
-	private static function get_missing_columns( $columns ) {
-		global $wpdb;
-
-		$existing = $wpdb->get_col( $wpdb->prepare( 'SHOW COLUMNS FROM %i', $wpdb->prefix . 'aryo_activity_log' ) );
-
-		return array_values( array_diff( $columns, $existing ) );
-	}
-
-	/**
-	 * @param string[] $columns
-	 * @return bool
-	 */
-	private static function table_has_columns( $columns ) {
-		return empty( self::get_missing_columns( $columns ) );
-	}
-
-	/**
 	 * @return bool
 	 */
 	private static function upgrade_to_1_1() {
 		global $wpdb;
+
+		$table = $wpdb->prefix . 'aryo_activity_log';
 
 		$definitions = array(
 			'request_source' => "ADD `request_source` varchar(191) NOT NULL DEFAULT '' AFTER `hist_time`, ADD KEY `request_source` (`request_source`)",
 			'meta'           => 'ADD `meta` TEXT DEFAULT NULL AFTER `request_source`',
 		);
 
-		$missing = self::get_missing_columns( array_keys( $definitions ) );
-		if ( empty( $missing ) ) {
-			return true;
+		$existing = $wpdb->get_col( $wpdb->prepare( 'SHOW COLUMNS FROM %i', $table ) );
+		$missing  = array_values( array_diff( array_keys( $definitions ), $existing ) );
+
+		if ( ! empty( $missing ) ) {
+			$additions = array_intersect_key( $definitions, array_flip( $missing ) );
+			if ( false === $wpdb->query( "ALTER TABLE `{$table}` " . implode( ', ', $additions ) ) ) {
+				return false;
+			}
 		}
 
-		$additions = array_intersect_key( $definitions, array_flip( $missing ) );
+		$existing = $wpdb->get_col( $wpdb->prepare( 'SHOW COLUMNS FROM %i', $table ) );
 
-		return false !== $wpdb->query( "ALTER TABLE `{$wpdb->prefix}aryo_activity_log` " . implode( ', ', $additions ) );
+		return in_array( 'request_source', $existing, true ) && in_array( 'meta', $existing, true );
 	}
 
 	/**
