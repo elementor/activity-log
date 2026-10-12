@@ -15,6 +15,14 @@ class AAL_Abilities {
 	const ABILITY_GET_FILTERS = 'activity-log/get-filters';
 
 	/**
+	 * Default agent exposure when the setting has never been saved.
+	 * Change this constant in a future release to flip the product default.
+	 *
+	 * @var string 'yes' or 'no'
+	 */
+	const DEFAULT_AGENT_EXPOSURE = 'no';
+
+	/**
 	 * @var AAL_REST
 	 */
 	private $rest;
@@ -31,12 +39,54 @@ class AAL_Abilities {
 	}
 
 	/**
-	 * Whether abilities are exposed to REST / MCP clients (opt-in).
+	 * Filterable default for abilities_agent_exposure when the option key is not stored.
+	 *
+	 * @return string 'yes' or 'no'
+	 */
+	public static function get_default_agent_exposure() {
+		$default = self::DEFAULT_AGENT_EXPOSURE;
+		$value   = apply_filters( 'aal_abilities_agent_exposure_default', $default );
+
+		if ( ! in_array( $value, array( 'yes', 'no' ), true ) ) {
+			return $default;
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Whether the site has an explicitly saved abilities_agent_exposure value.
+	 *
+	 * @return bool
+	 */
+	public static function has_saved_agent_exposure_setting() {
+		$options = get_option( AAL_Main::instance()->settings->slug(), array() );
+
+		return is_array( $options ) && array_key_exists( 'abilities_agent_exposure', $options );
+	}
+
+	/**
+	 * Effective abilities_agent_exposure value (saved or default).
+	 *
+	 * @return string 'yes' or 'no'
+	 */
+	public static function get_agent_exposure_setting() {
+		$options = AAL_Main::instance()->settings->get_options();
+
+		if ( is_array( $options ) && array_key_exists( 'abilities_agent_exposure', $options ) ) {
+			return 'yes' === $options['abilities_agent_exposure'] ? 'yes' : 'no';
+		}
+
+		return self::get_default_agent_exposure();
+	}
+
+	/**
+	 * Whether abilities are exposed to REST / MCP clients.
 	 *
 	 * @return bool
 	 */
 	public static function is_agent_exposure_enabled() {
-		return 'yes' === AAL_Main::instance()->settings->get_option( 'abilities_agent_exposure' );
+		return 'yes' === self::get_agent_exposure_setting();
 	}
 
 	public function register_category() {

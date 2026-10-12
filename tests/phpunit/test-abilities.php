@@ -19,11 +19,10 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		update_option(
 			'activity-log-settings',
 			array(
-				'logs_lifespan'            => '30',
-				'logs_failed_login'        => 'yes',
-				'logs_email'               => 'yes',
-				'log_visitor_ip_source'    => 'REMOTE_ADDR',
-				'abilities_agent_exposure' => 'no',
+				'logs_lifespan'         => '30',
+				'logs_failed_login'     => 'yes',
+				'logs_email'            => 'yes',
+				'log_visitor_ip_source' => 'REMOTE_ADDR',
 			)
 		);
 
@@ -200,6 +199,78 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		$this->assertFalse( $meta['public'] );
 		$this->assertFalse( $meta['mcp']['public'] );
 		$this->assertTrue( $meta['annotations']['readonly'] );
+	}
+
+	public function test_unsaved_agent_exposure_uses_code_default() {
+		$this->require_abilities_api();
+
+		$this->assertFalse( AAL_Abilities::has_saved_agent_exposure_setting() );
+		$this->assertSame( AAL_Abilities::DEFAULT_AGENT_EXPOSURE, AAL_Abilities::get_default_agent_exposure() );
+		$this->assertSame( 'no', AAL_Abilities::get_agent_exposure_setting() );
+		$this->assertFalse( AAL_Abilities::is_agent_exposure_enabled() );
+	}
+
+	public function test_filter_changes_unsaved_agent_exposure_default() {
+		$this->require_abilities_api();
+
+		add_filter( 'aal_abilities_agent_exposure_default', static function () {
+			return 'yes';
+		} );
+
+		$this->assertFalse( AAL_Abilities::has_saved_agent_exposure_setting() );
+		$this->assertTrue( AAL_Abilities::is_agent_exposure_enabled() );
+
+		remove_all_filters( 'aal_abilities_agent_exposure_default' );
+	}
+
+	public function test_explicit_no_agent_exposure_not_overridden_by_filter() {
+		$this->require_abilities_api();
+
+		update_option(
+			'activity-log-settings',
+			array_merge(
+				get_option( 'activity-log-settings', array() ),
+				array( 'abilities_agent_exposure' => 'no' )
+			)
+		);
+		$this->reset_settings_cache();
+
+		add_filter( 'aal_abilities_agent_exposure_default', static function () {
+			return 'yes';
+		} );
+
+		$this->assertTrue( AAL_Abilities::has_saved_agent_exposure_setting() );
+		$this->assertFalse( AAL_Abilities::is_agent_exposure_enabled() );
+
+		remove_all_filters( 'aal_abilities_agent_exposure_default' );
+	}
+
+	public function test_explicit_yes_agent_exposure_enables_exposure() {
+		$this->require_abilities_api();
+
+		update_option(
+			'activity-log-settings',
+			array_merge(
+				get_option( 'activity-log-settings', array() ),
+				array( 'abilities_agent_exposure' => 'yes' )
+			)
+		);
+		$this->reset_settings_cache();
+
+		$this->assertTrue( AAL_Abilities::has_saved_agent_exposure_setting() );
+		$this->assertTrue( AAL_Abilities::is_agent_exposure_enabled() );
+	}
+
+	public function test_invalid_filter_default_falls_back_to_constant() {
+		$this->require_abilities_api();
+
+		add_filter( 'aal_abilities_agent_exposure_default', static function () {
+			return 'maybe';
+		} );
+
+		$this->assertSame( 'no', AAL_Abilities::get_default_agent_exposure() );
+
+		remove_all_filters( 'aal_abilities_agent_exposure_default' );
 	}
 
 	public function test_exposure_meta_when_setting_enabled() {
@@ -430,10 +501,6 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 			array( 'per_page' => 1 ),
 			$auth_header
 		);
-
-		if ( 200 !== $response->get_status() && $response->is_error() ) {
-			$this->fail( $response->as_error()->get_error_code() . ': ' . $response->as_error()->get_error_message() );
-		}
 
 		$this->assertSame( 200, $response->get_status() );
 		$this->assertArrayHasKey( 'items', $response->get_data() );

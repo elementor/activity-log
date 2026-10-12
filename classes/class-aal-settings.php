@@ -91,10 +91,9 @@ class AAL_Settings {
 	public function register_settings() {
 		if ( ! get_option( $this->slug ) ) {
 			update_option( $this->slug, apply_filters( 'aal_default_options', array(
-				'logs_lifespan'           => '30',
-				'logs_failed_login'       => 'yes',
-				'logs_email'              => 'yes',
-				'abilities_agent_exposure' => 'no',
+				'logs_lifespan'     => '30',
+				'logs_failed_login' => 'yes',
+				'logs_email'        => 'yes',
 			) ) );
 		}
 	}
