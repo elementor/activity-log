@@ -513,8 +513,11 @@ class AAL_Log_Query {
 			);
 			if ( $source_rows ) {
 				foreach ( $source_rows as $row ) {
-					$parsed = AAL_API::parse_request_source( $row->request_source );
+					$parsed  = AAL_API::parse_request_source( $row->request_source );
 					$channel = $parsed['channel'];
+					if ( '' === $channel ) {
+						$channel = 'unknown';
+					}
 					if ( ! isset( $by_channel[ $channel ] ) ) {
 						$by_channel[ $channel ] = 0;
 					}
@@ -602,7 +605,7 @@ class AAL_Log_Query {
 	 * @return string
 	 */
 	protected function get_summary_time_bucket_sql( $hourly ) {
-		$offset   = (int) wp_timezone()->getOffset( new DateTimeImmutable( '@' . current_time( 'timestamp' ) ) );
+		$offset   = (int) wp_timezone()->getOffset( new DateTimeImmutable( 'now', wp_timezone() ) );
 		$interval = $hourly ? HOUR_IN_SECONDS : DAY_IN_SECONDS;
 
 		return sprintf(

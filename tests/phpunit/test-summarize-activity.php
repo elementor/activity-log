@@ -109,6 +109,60 @@ class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 		$this->assertSame( 'ability_invalid_input', $result->get_error_code() );
 	}
 
+	/** @dataProvider site_timezone_date_range_provider */
+	public function test_resolve_summary_date_range_in_site_timezone( $timezone_string, $date, $from_iso, $to_iso ) {
+		update_option( 'timezone_string', $timezone_string );
+		$range = AAL_Abilities::resolve_summarize_activity_range(
+			array(
+				'date_from' => $date,
+				'date_to'   => $date,
+			)
+		);
+		$this->assertSame( $from_iso, wp_date( 'c', $range['from_ts'] ) );
+		$this->assertSame( $to_iso, wp_date( 'c', $range['to_ts'] ) );
+	}
+
+	public function site_timezone_date_range_provider() {
+		return array(
+			'asia kolkata' => array(
+				'Asia/Kolkata',
+				'2026-03-10',
+				'2026-03-10T00:00:00+05:30',
+				'2026-03-10T23:59:59+05:30',
+			),
+		);
+	}
+
+	public function test_resolve_summary_today_starts_at_site_midnight() {
+		update_option( 'timezone_string', 'Asia/Kolkata' );
+		$range    = AAL_Abilities::resolve_summarize_activity_range( array( 'period' => 'today' ) );
+		$expected = ( new DateTimeImmutable( 'today', wp_timezone() ) )->setTime( 0, 0, 0 )->getTimestamp();
+		$this->assertSame( $expected, $range['from_ts'] );
+	}
+
+	/** @dataProvider unknown_channel_provider */
+	public function test_summarize_maps_empty_channel_to_unknown( $request_source, $expected_channel ) {
+		$range = $this->fixed_summary_date_range();
+		$this->insert_log(
+			array(
+				'hist_time'      => $this->site_timestamp_for( '2026-03-10 12:00:00' ),
+				'request_source' => $request_source,
+			)
+		);
+
+		$result = $this->run_summarize( $range );
+
+		$this->assertSame( 1, $result['total'] );
+		$this->assertSame( array( $expected_channel => 1 ), $result['by_channel'] );
+	}
+
+	public function unknown_channel_provider() {
+		return array(
+			'empty request source' => array( '', 'unknown' ),
+			'rest channel'         => array( 'rest', 'rest' ),
+		);
+	}
+
 	public function invalid_summary_range_provider() {
 		return array(
 			'from after to' => array(
@@ -127,9 +181,9 @@ class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 	}
 
 	private function site_timestamp_for( $local_date_time ) {
-		$parts = sscanf( $local_date_time, '%d-%d-%d %d:%d:%d' );
+		$dt = DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $local_date_time, wp_timezone() );
 
-		return (int) mktime( $parts[3], $parts[4], $parts[5], $parts[1], $parts[2], $parts[0] );
+		return (int) $dt->getTimestamp();
 	}
 
 	private function fixed_summary_date_range() {

@@ -296,8 +296,9 @@ class AAL_Abilities {
 
 		switch ( $period ) {
 			case 'today':
-				$from_ts = mktime( 0, 0, 0, (int) wp_date( 'n', $now ), (int) wp_date( 'j', $now ), (int) wp_date( 'Y', $now ) );
-				$to_ts   = $now;
+				$now_site = new DateTimeImmutable( 'now', wp_timezone() );
+				$from_ts  = $now_site->setTime( 0, 0, 0 )->getTimestamp();
+				$to_ts    = $now_site->getTimestamp();
 				break;
 			case '24h':
 				$from_ts = $now - DAY_IN_SECONDS;
@@ -335,7 +336,10 @@ class AAL_Abilities {
 			return $parts;
 		}
 
-		return (int) mktime( 0, 0, 0, $parts['month'], $parts['day'], $parts['year'] );
+		$date_time = sprintf( '%04d-%02d-%02d 00:00:00', $parts['year'], $parts['month'], $parts['day'] );
+		$dt        = DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $date_time, wp_timezone() );
+
+		return (int) $dt->getTimestamp();
 	}
 
 	/**
@@ -348,7 +352,10 @@ class AAL_Abilities {
 			return $parts;
 		}
 
-		return (int) mktime( 23, 59, 59, $parts['month'], $parts['day'], $parts['year'] );
+		$date_time = sprintf( '%04d-%02d-%02d 23:59:59', $parts['year'], $parts['month'], $parts['day'] );
+		$dt        = DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $date_time, wp_timezone() );
+
+		return (int) $dt->getTimestamp();
 	}
 
 	/**
