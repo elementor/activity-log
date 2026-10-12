@@ -136,10 +136,7 @@ class AAL_Abilities {
 				'label'               => __( 'Get activity log filters', 'aryo-activity-log' ),
 				'description'         => __( 'Returns available filter values (users, roles, topics, actions, sources) for the current user.', 'aryo-activity-log' ),
 				'category'            => self::CATEGORY,
-				'input_schema'        => array(
-					'type' => 'object',
-					'properties' => array(),
-				),
+				'input_schema'        => self::get_get_filters_input_schema(),
 				'output_schema'       => self::get_filters_output_schema(),
 				'execute_callback'    => array( $this, 'execute_get_filters' ),
 				'permission_callback' => array( $this, 'check_view_permission' ),
@@ -264,9 +261,18 @@ class AAL_Abilities {
 	/**
 	 * @return array<string, mixed>
 	 */
+	public static function get_get_filters_input_schema() {
+		return array(
+			'type'       => 'object',
+			'default'    => array(),
+			'properties' => array(),
+		);
+	}
+
 	public static function get_query_logs_input_schema() {
 		return array(
 			'type'       => 'object',
+			'default'    => array(),
 			'properties' => array(
 				'page'       => array(
 					'type'        => 'integer',
