@@ -148,6 +148,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * New: Read-only Abilities API support for AI agents (WP 6.9+)
 * New: Setting to expose activity log to AI agents
 * Tweak: Exclude IP addresses from ability responses
+* Fix: Reactivation over an older log table no longer breaks logging ([#244](https://github.com/elementor/activity-log/issues/244))
 
 = 2.15.0 - 2026-09-07 =
 * New: Settings page rebuilt with React UI and REST API
