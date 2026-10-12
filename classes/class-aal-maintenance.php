@@ -3,9 +3,12 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class AAL_Maintenance {
 
+	const BASE_DB_VERSION   = '1.0';
 	const TARGET_DB_VERSION = '1.1';
 
 	private static $schema_ready_cache = array();
+
+	private static $schema_mismatch_flagged = false;
 
 	public static function activate( $network_wide ) {
 		global $wpdb;
@@ -56,7 +59,7 @@ class AAL_Maintenance {
 	}
 
 	public static function maybe_upgrade() {
-		$installed_version = get_option( 'activity_log_db_version', '1.0' );
+		$installed_version = get_option( 'activity_log_db_version', self::BASE_DB_VERSION );
 
 		if ( version_compare( $installed_version, self::TARGET_DB_VERSION, '>=' ) ) {
 			return;
@@ -84,7 +87,7 @@ class AAL_Maintenance {
 	}
 
 	public static function run_upgrade_steps() {
-		$installed_version = get_option( 'activity_log_db_version', '1.0' );
+		$installed_version = get_option( 'activity_log_db_version', self::BASE_DB_VERSION );
 
 		$steps = array(
 			'1.1' => 'upgrade_to_1_1',
@@ -177,12 +180,34 @@ class AAL_Maintenance {
 	 * @param string $min_version
 	 * @return bool
 	 */
-	public static function is_schema_ready( $min_version = '1.1' ) {
+	public static function flag_schema_mismatch_from_insert_error( $last_error ) {
+		if ( self::$schema_mismatch_flagged ) {
+			return;
+		}
+
+		if ( false === stripos( $last_error, 'Unknown column' ) ) {
+			return;
+		}
+
+		$installed = get_option( 'activity_log_db_version', self::BASE_DB_VERSION );
+		if ( version_compare( $installed, self::TARGET_DB_VERSION, '<' ) ) {
+			return;
+		}
+
+		self::$schema_mismatch_flagged = true;
+		update_option( 'activity_log_db_version', self::BASE_DB_VERSION, false );
+		self::invalidate_schema_ready_cache();
+	}
+
+	public static function is_schema_ready( $min_version = null ) {
+		if ( null === $min_version ) {
+			$min_version = self::TARGET_DB_VERSION;
+		}
 		if ( isset( self::$schema_ready_cache[ $min_version ] ) ) {
 			return self::$schema_ready_cache[ $min_version ];
 		}
 
-		$installed = get_option( 'activity_log_db_version', '1.0' );
+		$installed = get_option( 'activity_log_db_version', self::BASE_DB_VERSION );
 		$ready = version_compare( $installed, $min_version, '>=' );
 
 		self::$schema_ready_cache[ $min_version ] = $ready;

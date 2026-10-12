@@ -22,10 +22,10 @@ class AAL_Test_Maintenance_Schema extends WP_UnitTestCase {
 		AAL_Maintenance::run_upgrade_steps();
 	}
 
-	public function test_broken_schema_self_heal_then_upgrade_logs_with_source() {
+	public function test_broken_schema_flags_mismatch_then_upgrade_logs_with_source() {
 		global $wpdb;
 
-		update_option( 'activity_log_db_version', '1.1', false );
+		update_option( 'activity_log_db_version', AAL_Maintenance::TARGET_DB_VERSION, false );
 		AAL_Maintenance::invalidate_schema_ready_cache();
 
 		$wpdb->query(
@@ -43,18 +43,19 @@ class AAL_Test_Maintenance_Schema extends WP_UnitTestCase {
 			)
 		);
 
-		$this->assertSame( '1.0', get_option( 'activity_log_db_version' ) );
+		$this->assertSame( AAL_Maintenance::BASE_DB_VERSION, get_option( 'activity_log_db_version' ) );
+		$this->assertFalse( AAL_Maintenance::is_schema_ready() );
 
-		$healed_row = $wpdb->get_row(
+		$missing_row = $wpdb->get_row(
 			$wpdb->prepare(
 				"SELECT `histid` FROM `{$wpdb->activity_log}` WHERE `object_name` = %s",
 				'test-schema-heal-row'
 			)
 		);
-		$this->assertNotEmpty( $healed_row );
+		$this->assertEmpty( $missing_row );
 
 		$this->assertTrue( AAL_Maintenance::run_upgrade_steps() );
-		$this->assertSame( '1.1', get_option( 'activity_log_db_version' ) );
+		$this->assertSame( AAL_Maintenance::TARGET_DB_VERSION, get_option( 'activity_log_db_version' ) );
 
 		aal_insert_log(
 			array(
