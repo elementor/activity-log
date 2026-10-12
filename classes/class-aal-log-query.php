@@ -5,41 +5,33 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class AAL_Log_Query {
 
-	/**
-	 * Convert a site-local instant to stored hist_time (see current_time( 'timestamp' )).
-	 *
-	 * @param DateTimeImmutable $local_datetime
-	 * @return int
-	 */
+	/** Site-local instant to stored hist_time (same space as current_time( 'timestamp' )). */
 	public static function local_datetime_to_hist_time( DateTimeImmutable $local_datetime ) {
 		return $local_datetime->getTimestamp() + wp_timezone()->getOffset( $local_datetime );
 	}
 
-	/**
-	 * Convert stored hist_time to ISO-8601 in the site timezone.
-	 *
-	 * @param int $hist_time
-	 * @return string
-	 */
+	public static function hist_time_to_unix( $hist_time ) {
+		return self::hist_time_to_local_datetime( (int) $hist_time )->getTimestamp();
+	}
+
 	public static function hist_time_to_iso8601( $hist_time ) {
 		return wp_date( 'c', self::hist_time_to_unix( (int) $hist_time ) );
 	}
 
 	/**
-	 * @param int $hist_time Stored hist_time value.
-	 * @return int Real Unix timestamp (UTC).
+	 * Map stored hist_time to a site-timezone DateTimeImmutable (handles DST ambiguity).
 	 */
-	public static function hist_time_to_unix( $hist_time ) {
-		$hist_time = (int) $hist_time;
-		$timezone  = wp_timezone();
-		$unix      = $hist_time - $timezone->getOffset( new DateTimeImmutable( 'now', $timezone ) );
-		$local     = ( new DateTimeImmutable( '@' . $unix ) )->setTimezone( $timezone );
+	protected static function hist_time_to_local_datetime( $hist_time ) {
+		$timezone = wp_timezone();
+		$unix     = $hist_time - $timezone->getOffset( new DateTimeImmutable( 'now', $timezone ) );
+		$local    = ( new DateTimeImmutable( '@' . $unix ) )->setTimezone( $timezone );
 
 		if ( $local->getTimestamp() + $timezone->getOffset( $local ) !== $hist_time ) {
-			$unix = $hist_time - $timezone->getOffset( $local );
+			$unix  = $hist_time - $timezone->getOffset( $local );
+			$local = ( new DateTimeImmutable( '@' . $unix ) )->setTimezone( $timezone );
 		}
 
-		return (int) $unix;
+		return $local;
 	}
 
 	protected $roles = array();
@@ -472,14 +464,162 @@ class AAL_Log_Query {
 	}
 
 	/**
-	 * Summarize activity log entries in a time range (role/cap visibility applied).
-	 *
-	 * @param array $args {
-	 *     @type int $from_ts Range start (inclusive), stored hist_time.
-	 *     @type int $to_ts   Range end (inclusive), stored hist_time.
-	 * }
-	 * @return array
+	 * @param array<string, mixed> $input Ability input (period or date_from/date_to).
+	 * @param int|null             $now   Optional hist_time for period windows (tests).
+	 * @return array<string, mixed>|WP_Error
 	 */
+	public function summarize_activity_from_input( $input, $now = null ) {
+		$range = self::resolve_summarize_activity_range( $input, $now );
+		if ( is_wp_error( $range ) ) {
+			return $range;
+		}
+
+		return $this->summarize_activity( $range );
+	}
+
+	/**
+	 * @param array<string, mixed> $input
+	 * @param int|null             $now
+	 * @return array{from_ts: int, to_ts: int}|WP_Error
+	 */
+	public static function resolve_summarize_activity_range( $input, $now = null ) {
+		$input = is_array( $input ) ? $input : array();
+
+		$has_period = array_key_exists( 'period', $input );
+		$has_from   = array_key_exists( 'date_from', $input );
+		$has_to     = array_key_exists( 'date_to', $input );
+		$has_dates  = $has_from || $has_to;
+
+		if ( $has_dates && $has_period ) {
+			return new WP_Error(
+				'ability_invalid_input',
+				__( 'Provide either period or date_from/date_to, not both.', 'aryo-activity-log' ),
+				array( 'status' => \WP_Http::BAD_REQUEST )
+			);
+		}
+
+		if ( $has_dates ) {
+			if ( ! $has_from || ! $has_to ) {
+				return new WP_Error(
+					'ability_invalid_input',
+					__( 'date_from and date_to must both be set.', 'aryo-activity-log' ),
+					array( 'status' => \WP_Http::BAD_REQUEST )
+				);
+			}
+
+			$from_ts = self::iso_calendar_date_to_hist_time( $input['date_from'], false );
+			$to_ts   = self::iso_calendar_date_to_hist_time( $input['date_to'], true );
+			if ( is_wp_error( $from_ts ) ) {
+				return $from_ts;
+			}
+			if ( is_wp_error( $to_ts ) ) {
+				return $to_ts;
+			}
+
+			if ( $from_ts > $to_ts ) {
+				return new WP_Error(
+					'ability_invalid_input',
+					__( 'date_from must not be after date_to.', 'aryo-activity-log' ),
+					array( 'status' => \WP_Http::BAD_REQUEST )
+				);
+			}
+
+			$range_days = (int) floor( ( $to_ts - $from_ts ) / DAY_IN_SECONDS ) + 1;
+			if ( $range_days > 90 ) {
+				return new WP_Error(
+					'ability_invalid_input',
+					__( 'The date range may not exceed 90 days.', 'aryo-activity-log' ),
+					array( 'status' => \WP_Http::BAD_REQUEST )
+				);
+			}
+
+			return array(
+				'from_ts' => $from_ts,
+				'to_ts'   => $to_ts,
+			);
+		}
+
+		$period = $has_period ? $input['period'] : '24h';
+		$now    = null !== $now ? (int) $now : (int) current_time( 'timestamp' );
+
+		switch ( $period ) {
+			case 'today':
+				$from_ts = self::local_datetime_to_hist_time( self::hist_time_to_local_datetime( $now )->setTime( 0, 0, 0 ) );
+				$to_ts   = $now;
+				break;
+			case '24h':
+				$from_ts = $now - DAY_IN_SECONDS;
+				$to_ts   = $now;
+				break;
+			case '7d':
+				$from_ts = $now - ( 7 * DAY_IN_SECONDS );
+				$to_ts   = $now;
+				break;
+			case '30d':
+				$from_ts = $now - ( 30 * DAY_IN_SECONDS );
+				$to_ts   = $now;
+				break;
+			default:
+				return new WP_Error(
+					'ability_invalid_input',
+					__( 'Invalid period value.', 'aryo-activity-log' ),
+					array( 'status' => \WP_Http::BAD_REQUEST )
+				);
+		}
+
+		return array(
+			'from_ts' => (int) $from_ts,
+			'to_ts'   => (int) $to_ts,
+		);
+	}
+
+	/**
+	 * @param mixed $date Y-m-d calendar date in the site timezone.
+	 * @return int|WP_Error
+	 */
+	protected static function iso_calendar_date_to_hist_time( $date, $end_of_day ) {
+		if ( ! is_string( $date ) || ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $date, $matches ) ) {
+			return new WP_Error(
+				'ability_invalid_input',
+				__( 'Invalid date_from or date_to format.', 'aryo-activity-log' ),
+				array( 'status' => \WP_Http::BAD_REQUEST )
+			);
+		}
+
+		$year  = (int) $matches[1];
+		$month = (int) $matches[2];
+		$day   = (int) $matches[3];
+
+		if ( ! checkdate( $month, $day, $year ) ) {
+			return new WP_Error(
+				'ability_invalid_input',
+				__( 'Invalid date_from or date_to value.', 'aryo-activity-log' ),
+				array( 'status' => \WP_Http::BAD_REQUEST )
+			);
+		}
+
+		$dt = DateTimeImmutable::createFromFormat(
+			'Y-m-d H:i:s',
+			sprintf(
+				'%04d-%02d-%02d %s',
+				$year,
+				$month,
+				$day,
+				$end_of_day ? '23:59:59' : '00:00:00'
+			),
+			wp_timezone()
+		);
+		if ( false === $dt ) {
+			return new WP_Error(
+				'ability_invalid_input',
+				__( 'Invalid date_from or date_to value.', 'aryo-activity-log' ),
+				array( 'status' => \WP_Http::BAD_REQUEST )
+			);
+		}
+
+		return self::local_datetime_to_hist_time( $dt );
+	}
+
 	public function summarize_activity( $args ) {
 		global $wpdb;
 
@@ -608,12 +748,6 @@ class AAL_Log_Query {
 		);
 	}
 
-	/**
-	 * @param string $column      Column name (action|object_type).
-	 * @param string $time_where  Prepared SQL time filter fragment.
-	 * @param string $role_where  Role visibility SQL fragment.
-	 * @return array<string, int>
-	 */
 	protected function summarize_group_counts( $column, $time_where, $role_where ) {
 		global $wpdb;
 
@@ -652,11 +786,6 @@ class AAL_Log_Query {
 		return sprintf( 'FLOOR(`hist_time` / %d) * %d', $interval, $interval );
 	}
 
-	/**
-	 * @param int $from_ts
-	 * @param int $to_ts
-	 * @return array
-	 */
 	protected function empty_activity_summary( $from_ts, $to_ts ) {
 		return array(
 			'range'          => array(

@@ -215,196 +215,8 @@ class AAL_Abilities {
 		return $query->get_filter_options();
 	}
 
-	/**
-	 * @param array<string, mixed> $input
-	 * @param int|null             $now    Optional stored hist_time for period windows (tests).
-	 * @return array<string, mixed>|WP_Error
-	 */
 	public function execute_summarize_activity( $input, $now = null ) {
-		$range = self::resolve_summarize_activity_range( $input, $now );
-		if ( is_wp_error( $range ) ) {
-			return $range;
-		}
-
-		$query = new AAL_Log_Query();
-
-		return $query->summarize_activity( $range );
-	}
-
-	/**
-	 * @param array<string, mixed> $input
-	 * @param int|null $now Stored hist_time for "now" (defaults to current_time( 'timestamp' )).
-	 * @return array{from_ts: int, to_ts: int}|WP_Error
-	 */
-	public static function resolve_summarize_activity_range( $input, $now = null ) {
-		$input = is_array( $input ) ? $input : array();
-
-		$has_period = array_key_exists( 'period', $input );
-		$has_from   = array_key_exists( 'date_from', $input );
-		$has_to     = array_key_exists( 'date_to', $input );
-		$has_dates  = $has_from || $has_to;
-
-		if ( $has_dates && $has_period ) {
-			return new WP_Error(
-				'ability_invalid_input',
-				__( 'Provide either period or date_from/date_to, not both.', 'aryo-activity-log' ),
-				array( 'status' => \WP_Http::BAD_REQUEST )
-			);
-		}
-
-		if ( $has_dates ) {
-			if ( ! $has_from || ! $has_to ) {
-				return new WP_Error(
-					'ability_invalid_input',
-					__( 'date_from and date_to must both be set.', 'aryo-activity-log' ),
-					array( 'status' => \WP_Http::BAD_REQUEST )
-				);
-			}
-
-			$from_ts = self::parse_summary_iso_date_start( $input['date_from'] );
-			$to_ts   = self::parse_summary_iso_date_end( $input['date_to'] );
-			if ( is_wp_error( $from_ts ) ) {
-				return $from_ts;
-			}
-			if ( is_wp_error( $to_ts ) ) {
-				return $to_ts;
-			}
-
-			if ( $from_ts > $to_ts ) {
-				return new WP_Error(
-					'ability_invalid_input',
-					__( 'date_from must not be after date_to.', 'aryo-activity-log' ),
-					array( 'status' => \WP_Http::BAD_REQUEST )
-				);
-			}
-
-			$range_days = (int) floor( ( $to_ts - $from_ts ) / DAY_IN_SECONDS ) + 1;
-			if ( $range_days > 90 ) {
-				return new WP_Error(
-					'ability_invalid_input',
-					__( 'The date range may not exceed 90 days.', 'aryo-activity-log' ),
-					array( 'status' => \WP_Http::BAD_REQUEST )
-				);
-			}
-
-			return array(
-				'from_ts' => $from_ts,
-				'to_ts'   => $to_ts,
-			);
-		}
-
-		$period = $has_period ? $input['period'] : '24h';
-		$now    = null !== $now ? (int) $now : (int) current_time( 'timestamp' );
-
-		switch ( $period ) {
-			case 'today':
-				$local_now   = ( new DateTimeImmutable( '@' . AAL_Log_Query::hist_time_to_unix( $now ) ) )->setTimezone( wp_timezone() );
-				$midnight_dt = $local_now->setTime( 0, 0, 0 );
-				$from_ts     = AAL_Log_Query::local_datetime_to_hist_time( $midnight_dt );
-				$to_ts       = $now;
-				break;
-			case '24h':
-				$from_ts = $now - DAY_IN_SECONDS;
-				$to_ts   = $now;
-				break;
-			case '7d':
-				$from_ts = $now - ( 7 * DAY_IN_SECONDS );
-				$to_ts   = $now;
-				break;
-			case '30d':
-				$from_ts = $now - ( 30 * DAY_IN_SECONDS );
-				$to_ts   = $now;
-				break;
-			default:
-				return new WP_Error(
-					'ability_invalid_input',
-					__( 'Invalid period value.', 'aryo-activity-log' ),
-					array( 'status' => \WP_Http::BAD_REQUEST )
-				);
-		}
-
-		return array(
-			'from_ts' => (int) $from_ts,
-			'to_ts'   => (int) $to_ts,
-		);
-	}
-
-	/**
-	 * @param mixed $date ISO-8601 calendar date (Y-m-d).
-	 * @return int|WP_Error Start of day timestamp in site timezone.
-	 */
-	private static function parse_summary_iso_date_start( $date ) {
-		$parts = self::parse_summary_iso_date_parts( $date );
-		if ( is_wp_error( $parts ) ) {
-			return $parts;
-		}
-
-		$date_time = sprintf( '%04d-%02d-%02d 00:00:00', $parts['year'], $parts['month'], $parts['day'] );
-		$dt        = DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $date_time, wp_timezone() );
-		if ( false === $dt ) {
-			return new WP_Error(
-				'ability_invalid_input',
-				__( 'Invalid date_from or date_to value.', 'aryo-activity-log' ),
-				array( 'status' => \WP_Http::BAD_REQUEST )
-			);
-		}
-
-		return AAL_Log_Query::local_datetime_to_hist_time( $dt );
-	}
-
-	/**
-	 * @param mixed $date ISO-8601 calendar date (Y-m-d).
-	 * @return int|WP_Error End of day timestamp in site timezone.
-	 */
-	private static function parse_summary_iso_date_end( $date ) {
-		$parts = self::parse_summary_iso_date_parts( $date );
-		if ( is_wp_error( $parts ) ) {
-			return $parts;
-		}
-
-		$date_time = sprintf( '%04d-%02d-%02d 23:59:59', $parts['year'], $parts['month'], $parts['day'] );
-		$dt        = DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $date_time, wp_timezone() );
-		if ( false === $dt ) {
-			return new WP_Error(
-				'ability_invalid_input',
-				__( 'Invalid date_from or date_to value.', 'aryo-activity-log' ),
-				array( 'status' => \WP_Http::BAD_REQUEST )
-			);
-		}
-
-		return AAL_Log_Query::local_datetime_to_hist_time( $dt );
-	}
-
-	/**
-	 * @param mixed $date ISO-8601 calendar date (Y-m-d).
-	 * @return array{year: int, month: int, day: int}|WP_Error
-	 */
-	private static function parse_summary_iso_date_parts( $date ) {
-		if ( ! is_string( $date ) || ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $date, $matches ) ) {
-			return new WP_Error(
-				'ability_invalid_input',
-				__( 'Invalid date_from or date_to format.', 'aryo-activity-log' ),
-				array( 'status' => \WP_Http::BAD_REQUEST )
-			);
-		}
-
-		$year  = (int) $matches[1];
-		$month = (int) $matches[2];
-		$day   = (int) $matches[3];
-
-		if ( ! checkdate( $month, $day, $year ) ) {
-			return new WP_Error(
-				'ability_invalid_input',
-				__( 'Invalid date_from or date_to value.', 'aryo-activity-log' ),
-				array( 'status' => \WP_Http::BAD_REQUEST )
-			);
-		}
-
-		return array(
-			'year'  => $year,
-			'month' => $month,
-			'day'   => $day,
-		);
+		return ( new AAL_Log_Query() )->summarize_activity_from_input( $input, $now );
 	}
 
 	/**
@@ -583,9 +395,6 @@ class AAL_Abilities {
 		);
 	}
 
-	/**
-	 * @return array<string, mixed>
-	 */
 	public static function get_summarize_activity_input_schema() {
 		return array(
 			'type'                 => 'object',
@@ -611,54 +420,18 @@ class AAL_Abilities {
 		);
 	}
 
-	/**
-	 * @return array<string, mixed>
-	 */
 	public static function get_summarize_activity_output_schema() {
-		$count_map = array(
-			'type'                 => 'object',
-			'additionalProperties' => array( 'type' => 'integer' ),
-		);
-
 		return array(
 			'type'       => 'object',
 			'properties' => array(
-				'range'          => array(
-					'type'       => 'object',
-					'properties' => array(
-						'from' => array( 'type' => 'string' ),
-						'to'   => array( 'type' => 'string' ),
-					),
-					'required'   => array( 'from', 'to' ),
-				),
+				'range'          => array( 'type' => 'object' ),
 				'total'          => array( 'type' => 'integer' ),
-				'by_action'      => $count_map,
-				'by_object_type' => $count_map,
-				'top_users'      => array(
-					'type'  => 'array',
-					'items' => array(
-						'type'       => 'object',
-						'properties' => array(
-							'user_id' => array( 'type' => 'integer' ),
-							'name'    => array( 'type' => 'string' ),
-							'count'   => array( 'type' => 'integer' ),
-						),
-						'required'   => array( 'user_id', 'name', 'count' ),
-					),
-				),
-				'by_channel'     => $count_map,
-				'by_app_name'    => $count_map,
-				'time_buckets'   => array(
-					'type'  => 'array',
-					'items' => array(
-						'type'       => 'object',
-						'properties' => array(
-							'bucket' => array( 'type' => 'string' ),
-							'count'  => array( 'type' => 'integer' ),
-						),
-						'required'   => array( 'bucket', 'count' ),
-					),
-				),
+				'by_action'      => array( 'type' => 'object' ),
+				'by_object_type' => array( 'type' => 'object' ),
+				'top_users'      => array( 'type' => 'array' ),
+				'by_channel'     => array( 'type' => 'object' ),
+				'by_app_name'    => array( 'type' => 'object' ),
+				'time_buckets'   => array( 'type' => 'array' ),
 			),
 			'required'   => array(
 				'range',
