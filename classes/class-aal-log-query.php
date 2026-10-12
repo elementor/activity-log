@@ -433,4 +433,205 @@ class AAL_Log_Query {
 			'sources' => $sources,
 		);
 	}
+
+	/**
+	 * Summarize activity log entries in a time range (role/cap visibility applied).
+	 *
+	 * @param array $args {
+	 *     @type int $from_ts Range start (inclusive), Unix timestamp (site/local).
+	 *     @type int $to_ts   Range end (inclusive), Unix timestamp (site/local).
+	 * }
+	 * @return array
+	 */
+	public function summarize_activity( $args ) {
+		global $wpdb;
+
+		$from_ts = (int) $args['from_ts'];
+		$to_ts   = (int) $args['to_ts'];
+		$empty   = $this->empty_activity_summary( $from_ts, $to_ts );
+
+		$role_where = $this->get_where_by_role();
+		if ( false === $role_where ) {
+			return $empty;
+		}
+
+		$time_where = $wpdb->prepare(
+			' WHERE `hist_time` >= %d AND `hist_time` <= %d',
+			$from_ts,
+			$to_ts
+		);
+
+		$total = (int) $wpdb->get_var(
+			'SELECT COUNT(`histid`) FROM `' . $wpdb->activity_log . '`'
+			. $time_where . ' ' . $role_where
+		);
+
+		$by_action = $this->summarize_group_counts(
+			'action',
+			$time_where,
+			$role_where
+		);
+
+		$by_object_type = $this->summarize_group_counts(
+			'object_type',
+			$time_where,
+			$role_where
+		);
+
+		$user_rows = $wpdb->get_results(
+			'SELECT `user_id`, COUNT(`histid`) AS `cnt` FROM `' . $wpdb->activity_log . '`'
+			. $time_where . ' ' . $role_where
+			. ' GROUP BY `user_id` ORDER BY `cnt` DESC LIMIT 10'
+		);
+
+		$top_users = array();
+		if ( $user_rows ) {
+			foreach ( $user_rows as $row ) {
+				$user_id = (int) $row->user_id;
+				$name    = __( 'N/A', 'aryo-activity-log' );
+				if ( $user_id > 0 ) {
+					$user = get_user_by( 'id', $user_id );
+					if ( $user ) {
+						$name = $user->display_name;
+					}
+				}
+				$top_users[] = array(
+					'user_id' => $user_id,
+					'name'    => $name,
+					'count'   => (int) $row->cnt,
+				);
+			}
+		}
+
+		$by_channel  = array();
+		$by_app_name = array();
+		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
+			$source_rows = $wpdb->get_results(
+				'SELECT `request_source`, COUNT(`histid`) AS `cnt` FROM `' . $wpdb->activity_log . '`'
+				. $time_where . ' ' . $role_where
+				. ' GROUP BY `request_source`'
+			);
+			if ( $source_rows ) {
+				foreach ( $source_rows as $row ) {
+					$parsed = AAL_API::parse_request_source( $row->request_source );
+					$channel = $parsed['channel'];
+					if ( ! isset( $by_channel[ $channel ] ) ) {
+						$by_channel[ $channel ] = 0;
+					}
+					$by_channel[ $channel ] += (int) $row->cnt;
+
+					$app_name = $parsed['app_name'];
+					if ( '' !== $app_name ) {
+						if ( ! isset( $by_app_name[ $app_name ] ) ) {
+							$by_app_name[ $app_name ] = 0;
+						}
+						$by_app_name[ $app_name ] += (int) $row->cnt;
+					}
+				}
+			}
+		}
+
+		$range_seconds = max( 0, $to_ts - $from_ts );
+		$hourly        = $range_seconds <= ( 48 * HOUR_IN_SECONDS );
+		$bucket_expr   = $this->get_summary_time_bucket_sql( $hourly );
+		$bucket_rows   = $wpdb->get_results(
+			'SELECT ' . $bucket_expr . ' AS `bucket_start`, COUNT(`histid`) AS `cnt` FROM `' . $wpdb->activity_log . '`'
+			. $time_where . ' ' . $role_where
+			. ' GROUP BY `bucket_start` ORDER BY `bucket_start` ASC'
+		);
+
+		$time_buckets = array();
+		if ( $bucket_rows ) {
+			foreach ( $bucket_rows as $row ) {
+				$time_buckets[] = array(
+					'bucket' => wp_date( 'c', (int) $row->bucket_start ),
+					'count'  => (int) $row->cnt,
+				);
+			}
+		}
+
+		return array(
+			'range'          => array(
+				'from' => wp_date( 'c', $from_ts ),
+				'to'   => wp_date( 'c', $to_ts ),
+			),
+			'total'          => $total,
+			'by_action'      => $by_action,
+			'by_object_type' => $by_object_type,
+			'top_users'      => $top_users,
+			'by_channel'     => $by_channel,
+			'by_app_name'    => $by_app_name,
+			'time_buckets'   => $time_buckets,
+		);
+	}
+
+	/**
+	 * @param string $column      Column name (action|object_type).
+	 * @param string $time_where  Prepared SQL time filter fragment.
+	 * @param string $role_where  Role visibility SQL fragment.
+	 * @return array<string, int>
+	 */
+	protected function summarize_group_counts( $column, $time_where, $role_where ) {
+		global $wpdb;
+
+		$allowed = array( 'action', 'object_type' );
+		if ( ! in_array( $column, $allowed, true ) ) {
+			return array();
+		}
+
+		$rows = $wpdb->get_results(
+			'SELECT `' . $column . '`, COUNT(`histid`) AS `cnt` FROM `' . $wpdb->activity_log . '`'
+			. $time_where . ' ' . $role_where
+			. ' GROUP BY `' . $column . '` ORDER BY `' . $column . '` ASC'
+		);
+
+		$counts = array();
+		if ( $rows ) {
+			foreach ( $rows as $row ) {
+				$counts[ (string) $row->$column ] = (int) $row->cnt;
+			}
+		}
+
+		return $counts;
+	}
+
+	/**
+	 * SQL expression for aligning hist_time into site-local hour or day buckets.
+	 *
+	 * @param bool $hourly True for hourly buckets, false for daily.
+	 * @return string
+	 */
+	protected function get_summary_time_bucket_sql( $hourly ) {
+		$offset   = (int) wp_timezone()->getOffset( new DateTimeImmutable( '@' . current_time( 'timestamp' ) ) );
+		$interval = $hourly ? HOUR_IN_SECONDS : DAY_IN_SECONDS;
+
+		return sprintf(
+			'FLOOR((`hist_time` - %d) / %d) * %d + %d',
+			$offset,
+			$interval,
+			$interval,
+			$offset
+		);
+	}
+
+	/**
+	 * @param int $from_ts
+	 * @param int $to_ts
+	 * @return array
+	 */
+	protected function empty_activity_summary( $from_ts, $to_ts ) {
+		return array(
+			'range'          => array(
+				'from' => wp_date( 'c', $from_ts ),
+				'to'   => wp_date( 'c', $to_ts ),
+			),
+			'total'          => 0,
+			'by_action'      => array(),
+			'by_object_type' => array(),
+			'top_users'      => array(),
+			'by_channel'     => array(),
+			'by_app_name'    => array(),
+			'time_buckets'   => array(),
+		);
+	}
 }

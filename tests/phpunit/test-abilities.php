@@ -49,6 +49,7 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		$this->assertTrue( wp_has_ability( AAL_Abilities::ABILITY_QUERY_LOGS ) );
 		$this->assertTrue( wp_has_ability( AAL_Abilities::ABILITY_GET_LOG ) );
 		$this->assertTrue( wp_has_ability( AAL_Abilities::ABILITY_GET_FILTERS ) );
+		$this->assertTrue( wp_has_ability( AAL_Abilities::ABILITY_SUMMARIZE_ACTIVITY ) );
 		$this->assertTrue( wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->get_meta()['annotations']['readonly'] );
 	}
 
@@ -267,6 +268,7 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 				AAL_Abilities::ABILITY_QUERY_LOGS,
 				AAL_Abilities::ABILITY_GET_LOG,
 				AAL_Abilities::ABILITY_GET_FILTERS,
+				AAL_Abilities::ABILITY_SUMMARIZE_ACTIVITY,
 			) as $name
 		) {
 			if ( wp_has_ability( $name ) ) {

@@ -15,7 +15,8 @@ class AAL_Abilities {
 
 	const ABILITY_QUERY_LOGS  = 'activity-log/query-logs';
 	const ABILITY_GET_LOG     = 'activity-log/get-log';
-	const ABILITY_GET_FILTERS = 'activity-log/get-filters';
+	const ABILITY_GET_FILTERS      = 'activity-log/get-filters';
+	const ABILITY_SUMMARIZE_ACTIVITY = 'activity-log/summarize-activity';
 
 	/**
 	 * @var AAL_REST
@@ -109,6 +110,20 @@ class AAL_Abilities {
 				'meta'                => $exposure_meta,
 			)
 		);
+
+		wp_register_ability(
+			self::ABILITY_SUMMARIZE_ACTIVITY,
+			array(
+				'label'               => __( 'Summarize activity', 'aryo-activity-log' ),
+				'description'         => __( 'Returns aggregated activity statistics for a time range (counts by action, type, user, channel, and time buckets).', 'aryo-activity-log' ),
+				'category'            => self::CATEGORY,
+				'input_schema'        => self::get_summarize_activity_input_schema(),
+				'output_schema'       => self::get_summarize_activity_output_schema(),
+				'execute_callback'    => array( $this, 'execute_summarize_activity' ),
+				'permission_callback' => array( $this, 'check_view_permission' ),
+				'meta'                => $exposure_meta,
+			)
+		);
 	}
 
 	/**
@@ -198,6 +213,174 @@ class AAL_Abilities {
 		$query = new AAL_Log_Query();
 
 		return $query->get_filter_options();
+	}
+
+	/**
+	 * @param array<string, mixed> $input
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public function execute_summarize_activity( $input ) {
+		$range = self::resolve_summarize_activity_range( $input );
+		if ( is_wp_error( $range ) ) {
+			return $range;
+		}
+
+		$query = new AAL_Log_Query();
+
+		return $query->summarize_activity( $range );
+	}
+
+	/**
+	 * @param array<string, mixed> $input
+	 * @return array{from_ts: int, to_ts: int}|WP_Error
+	 */
+	public static function resolve_summarize_activity_range( $input ) {
+		$input = is_array( $input ) ? $input : array();
+
+		$has_period = array_key_exists( 'period', $input );
+		$has_from   = array_key_exists( 'date_from', $input );
+		$has_to     = array_key_exists( 'date_to', $input );
+		$has_dates  = $has_from || $has_to;
+
+		if ( $has_dates && $has_period ) {
+			return new WP_Error(
+				'ability_invalid_input',
+				__( 'Provide either period or date_from/date_to, not both.', 'aryo-activity-log' ),
+				array( 'status' => \WP_Http::BAD_REQUEST )
+			);
+		}
+
+		if ( $has_dates ) {
+			if ( ! $has_from || ! $has_to ) {
+				return new WP_Error(
+					'ability_invalid_input',
+					__( 'date_from and date_to must both be set.', 'aryo-activity-log' ),
+					array( 'status' => \WP_Http::BAD_REQUEST )
+				);
+			}
+
+			$from_ts = self::parse_summary_iso_date_start( $input['date_from'] );
+			$to_ts   = self::parse_summary_iso_date_end( $input['date_to'] );
+			if ( is_wp_error( $from_ts ) ) {
+				return $from_ts;
+			}
+			if ( is_wp_error( $to_ts ) ) {
+				return $to_ts;
+			}
+
+			if ( $from_ts > $to_ts ) {
+				return new WP_Error(
+					'ability_invalid_input',
+					__( 'date_from must not be after date_to.', 'aryo-activity-log' ),
+					array( 'status' => \WP_Http::BAD_REQUEST )
+				);
+			}
+
+			$range_days = (int) floor( ( $to_ts - $from_ts ) / DAY_IN_SECONDS ) + 1;
+			if ( $range_days > 90 ) {
+				return new WP_Error(
+					'ability_invalid_input',
+					__( 'The date range may not exceed 90 days.', 'aryo-activity-log' ),
+					array( 'status' => \WP_Http::BAD_REQUEST )
+				);
+			}
+
+			return array(
+				'from_ts' => $from_ts,
+				'to_ts'   => $to_ts,
+			);
+		}
+
+		$period = $has_period ? $input['period'] : '24h';
+		$now    = current_time( 'timestamp' );
+
+		switch ( $period ) {
+			case 'today':
+				$from_ts = mktime( 0, 0, 0, (int) wp_date( 'n', $now ), (int) wp_date( 'j', $now ), (int) wp_date( 'Y', $now ) );
+				$to_ts   = $now;
+				break;
+			case '24h':
+				$from_ts = $now - DAY_IN_SECONDS;
+				$to_ts   = $now;
+				break;
+			case '7d':
+				$from_ts = $now - ( 7 * DAY_IN_SECONDS );
+				$to_ts   = $now;
+				break;
+			case '30d':
+				$from_ts = $now - ( 30 * DAY_IN_SECONDS );
+				$to_ts   = $now;
+				break;
+			default:
+				return new WP_Error(
+					'ability_invalid_input',
+					__( 'Invalid period value.', 'aryo-activity-log' ),
+					array( 'status' => \WP_Http::BAD_REQUEST )
+				);
+		}
+
+		return array(
+			'from_ts' => (int) $from_ts,
+			'to_ts'   => (int) $to_ts,
+		);
+	}
+
+	/**
+	 * @param mixed $date ISO-8601 calendar date (Y-m-d).
+	 * @return int|WP_Error Start of day timestamp in site timezone.
+	 */
+	private static function parse_summary_iso_date_start( $date ) {
+		$parts = self::parse_summary_iso_date_parts( $date );
+		if ( is_wp_error( $parts ) ) {
+			return $parts;
+		}
+
+		return (int) mktime( 0, 0, 0, $parts['month'], $parts['day'], $parts['year'] );
+	}
+
+	/**
+	 * @param mixed $date ISO-8601 calendar date (Y-m-d).
+	 * @return int|WP_Error End of day timestamp in site timezone.
+	 */
+	private static function parse_summary_iso_date_end( $date ) {
+		$parts = self::parse_summary_iso_date_parts( $date );
+		if ( is_wp_error( $parts ) ) {
+			return $parts;
+		}
+
+		return (int) mktime( 23, 59, 59, $parts['month'], $parts['day'], $parts['year'] );
+	}
+
+	/**
+	 * @param mixed $date ISO-8601 calendar date (Y-m-d).
+	 * @return array{year: int, month: int, day: int}|WP_Error
+	 */
+	private static function parse_summary_iso_date_parts( $date ) {
+		if ( ! is_string( $date ) || ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $date, $matches ) ) {
+			return new WP_Error(
+				'ability_invalid_input',
+				__( 'Invalid date_from or date_to format.', 'aryo-activity-log' ),
+				array( 'status' => \WP_Http::BAD_REQUEST )
+			);
+		}
+
+		$year  = (int) $matches[1];
+		$month = (int) $matches[2];
+		$day   = (int) $matches[3];
+
+		if ( ! checkdate( $month, $day, $year ) ) {
+			return new WP_Error(
+				'ability_invalid_input',
+				__( 'Invalid date_from or date_to value.', 'aryo-activity-log' ),
+				array( 'status' => \WP_Http::BAD_REQUEST )
+			);
+		}
+
+		return array(
+			'year'  => $year,
+			'month' => $month,
+			'day'   => $day,
+		);
 	}
 
 	/**
@@ -373,6 +556,97 @@ class AAL_Abilities {
 				'pages' => array( 'type' => 'integer' ),
 			),
 			'required'   => array( 'items', 'total', 'pages' ),
+		);
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	public static function get_summarize_activity_input_schema() {
+		return array(
+			'type'                 => 'object',
+			'default'              => array(),
+			'properties'           => array(
+				'period'    => array(
+					'type'        => 'string',
+					'description' => __( 'Relative time window (default 24h when input is empty).', 'aryo-activity-log' ),
+					'default'     => '24h',
+					'enum'        => array( 'today', '24h', '7d', '30d' ),
+				),
+				'date_from' => array(
+					'type'        => 'string',
+					'description' => __( 'Range start date (ISO-8601 Y-m-d, site timezone).', 'aryo-activity-log' ),
+					'pattern'     => '^\d{4}-\d{2}-\d{2}$',
+				),
+				'date_to'   => array(
+					'type'        => 'string',
+					'description' => __( 'Range end date (ISO-8601 Y-m-d, site timezone). Max 90 days from date_from.', 'aryo-activity-log' ),
+					'pattern'     => '^\d{4}-\d{2}-\d{2}$',
+				),
+			),
+			'additionalProperties' => false,
+		);
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	public static function get_summarize_activity_output_schema() {
+		$count_map = array(
+			'type'                 => 'object',
+			'additionalProperties' => array( 'type' => 'integer' ),
+		);
+
+		return array(
+			'type'       => 'object',
+			'properties' => array(
+				'range'          => array(
+					'type'       => 'object',
+					'properties' => array(
+						'from' => array( 'type' => 'string' ),
+						'to'   => array( 'type' => 'string' ),
+					),
+					'required'   => array( 'from', 'to' ),
+				),
+				'total'          => array( 'type' => 'integer' ),
+				'by_action'      => $count_map,
+				'by_object_type' => $count_map,
+				'top_users'      => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'user_id' => array( 'type' => 'integer' ),
+							'name'    => array( 'type' => 'string' ),
+							'count'   => array( 'type' => 'integer' ),
+						),
+						'required'   => array( 'user_id', 'name', 'count' ),
+					),
+				),
+				'by_channel'     => $count_map,
+				'by_app_name'    => $count_map,
+				'time_buckets'   => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'bucket' => array( 'type' => 'string' ),
+							'count'  => array( 'type' => 'integer' ),
+						),
+						'required'   => array( 'bucket', 'count' ),
+					),
+				),
+			),
+			'required'   => array(
+				'range',
+				'total',
+				'by_action',
+				'by_object_type',
+				'top_users',
+				'by_channel',
+				'by_app_name',
+				'time_buckets',
+			),
 		);
 	}
 
