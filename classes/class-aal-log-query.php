@@ -171,6 +171,35 @@ class AAL_Log_Query {
 	 * }
 	 * @return array { items: object[], total: int, pages: int } or empty on access denied.
 	 */
+	/**
+	 * Fetch one log row by ID, respecting role/cap visibility rules.
+	 *
+	 * @param int $histid Log entry ID.
+	 * @return object|null
+	 */
+	public function get_item( $histid ) {
+		global $wpdb;
+
+		$role_where = $this->get_where_by_role();
+		if ( false === $role_where ) {
+			return null;
+		}
+
+		$histid = (int) $histid;
+		if ( $histid < 1 ) {
+			return null;
+		}
+
+		$item = $wpdb->get_row(
+			$wpdb->prepare(
+				'SELECT * FROM `' . $wpdb->activity_log . '` WHERE `histid` = %d ' . $role_where,
+				$histid
+			)
+		);
+
+		return $item ? $item : null;
+	}
+
 	public function query( $args = array() ) {
 		global $wpdb;
 

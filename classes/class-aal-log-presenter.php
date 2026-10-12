@@ -12,6 +12,45 @@ class AAL_Log_Presenter {
 	 * @param bool   $collect_ip Whether to show IP addresses.
 	 * @return array
 	 */
+	/**
+	 * Present a single DB row for Abilities API / agent consumers.
+	 *
+	 * @param object $item       Raw DB row.
+	 * @param bool   $collect_ip Whether to include IP addresses.
+	 * @return array
+	 */
+	public static function to_ability_json( $item, $collect_ip = true ) {
+		$parsed = AAL_API::parse_request_source( isset( $item->request_source ) ? $item->request_source : '' );
+
+		$data = array(
+			'id'             => (int) $item->histid,
+			'time'           => wp_date( 'c', (int) $item->hist_time ),
+			'timestamp'      => (int) $item->hist_time,
+			'user_id'        => (int) $item->user_id,
+			'user_caps'      => (string) $item->user_caps,
+			'action'         => (string) $item->action,
+			'object_type'    => (string) $item->object_type,
+			'object_subtype' => (string) $item->object_subtype,
+			'object_name'    => (string) $item->object_name,
+			'object_id'      => (int) $item->object_id,
+			'channel'        => $parsed['channel'],
+			'app_name'       => $parsed['app_name'],
+		);
+
+		if ( $collect_ip && ! empty( $item->hist_ip ) ) {
+			$data['ip'] = (string) $item->hist_ip;
+		}
+
+		if ( ! empty( $item->meta ) ) {
+			$decoded = json_decode( $item->meta, true );
+			if ( is_array( $decoded ) ) {
+				$data['meta'] = $decoded;
+			}
+		}
+
+		return $data;
+	}
+
 	public static function to_json( $item, $collect_ip = true ) {
 		$data = array(
 			'id'             => (int) $item->histid,
