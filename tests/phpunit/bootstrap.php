@@ -35,3 +35,5 @@ tests_add_filter(
 tests_add_filter( 'shutdown', 'drop_tables', 999999 );
 
 require "{$_tests_dir}/includes/bootstrap.php";
+
+require_once __DIR__ . '/trait-abilities-test-helper.php';

@@ -642,6 +642,8 @@ class AAL_Log_Query {
 	 * @return string
 	 */
 	protected function get_summary_time_bucket_sql( $hourly ) {
+		// Site-shifted hist_time cannot split the repeated local hour when DST ends;
+		// both passes are counted in one hourly bucket (limit of current_time storage).
 		$interval = $hourly ? HOUR_IN_SECONDS : DAY_IN_SECONDS;
 
 		return sprintf( 'FLOOR(`hist_time` / %d) * %d', $interval, $interval );

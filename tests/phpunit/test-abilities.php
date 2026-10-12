@@ -2,6 +2,8 @@
 
 class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 
+	use AAL_Abilities_Test_Helper;
+
 	private $admin_id;
 
 	public function set_up() {
@@ -233,13 +235,6 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		$this->fail( 'Log item not found in ability response.' );
 	}
 
-	private function reset_settings_cache() {
-		$settings = AAL_Main::instance()->settings;
-		$ref      = new ReflectionProperty( $settings, 'options' );
-		$ref->setAccessible( true );
-		$ref->setValue( $settings, null );
-	}
-
 	private function reset_settings_without_exposure() {
 		update_option(
 			'activity-log-settings',
@@ -260,22 +255,6 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 			array_merge( get_option( 'activity-log-settings', array() ), array( $key => $value ) )
 		);
 		$this->reset_settings_cache();
-	}
-
-	private function reregister_plugin_abilities() {
-		foreach (
-			array(
-				AAL_Abilities::ABILITY_QUERY_LOGS,
-				AAL_Abilities::ABILITY_GET_LOG,
-				AAL_Abilities::ABILITY_GET_FILTERS,
-				AAL_Abilities::ABILITY_SUMMARIZE_ACTIVITY,
-			) as $name
-		) {
-			if ( wp_has_ability( $name ) ) {
-				wp_unregister_ability( $name );
-			}
-		}
-		do_action( 'wp_abilities_api_init' );
 	}
 
 	private function dispatch_ability_rest( $ability_name, $input = array( 'per_page' => 1 ) ) {

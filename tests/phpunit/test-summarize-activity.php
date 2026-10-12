@@ -2,6 +2,10 @@
 
 class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 
+	use AAL_Abilities_Test_Helper;
+
+	const TEST_LOG_IP = '203.0.113.10';
+
 	private $admin_id;
 
 	public function set_up() {
@@ -24,68 +28,373 @@ class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 		$this->reregister_plugin_abilities();
 	}
 
-	/** @dataProvider summary_counts_provider */
-	public function test_summarize_counts_match_inserted_logs( $rows, $expected_total, $expected_by_action ) {
-		$range = $this->fixed_summary_date_range();
-		foreach ( $rows as $row ) {
-			$this->insert_log( $row );
+	/** @dataProvider summarize_window_provider */
+	public function test_summarize_window( $timezone, $input, $now_local, $events, $expected_total, $expected_by_action, $role ) {
+		update_option( 'timezone_string', $timezone );
+		wp_set_current_user( self::factory()->user->create( array( 'role' => $role ) ) );
+
+		$now_shifted    = $this->hist_from_local( $now_local );
+		$expected_range = AAL_Abilities::resolve_summarize_activity_range( $input, $now_shifted );
+		foreach ( $events as $event ) {
+			$this->insert_log(
+				array(
+					'hist_time'   => $this->hist_from_local( $event['local'] ),
+					'object_type' => $event['object_type'],
+					'user_caps'   => $event['user_caps'],
+				)
+			);
 		}
 
-		$result = $this->run_summarize( $range );
+		$result = $this->run_summarize( $input, $now_shifted );
 
 		$this->assertSame( $expected_total, $result['total'] );
 		$this->assertSame( $expected_by_action, $result['by_action'] );
-		$this->assertArrayNotHasKey( 'ip', $result );
+		$this->assertSame( AAL_Log_Query::hist_time_to_iso8601( $expected_range['from_ts'] ), $result['range']['from'] );
+		$this->assertSame( AAL_Log_Query::hist_time_to_iso8601( $expected_range['to_ts'] ), $result['range']['to'] );
+		$this->assertStringNotContainsString( self::TEST_LOG_IP, (string) wp_json_encode( $result ) );
 	}
 
-	public function summary_counts_provider() {
-		$in_range = array( 'hist_time' => $this->site_timestamp_for( '2026-03-10 12:00:00' ) );
+	public function summarize_window_provider() {
+		$day    = '2026-03-10';
+		$event  = array(
+			'object_type' => 'Posts',
+			'user_caps'   => 'administrator',
+		);
+		$events = static function ( $locals ) use ( $event ) {
+			$rows = array();
+			foreach ( $locals as $local ) {
+				$rows[] = array_merge( $event, array( 'local' => $local ) );
+			}
+
+			return $rows;
+		};
 
 		return array(
-			'single action' => array(
+			'action counts in date range' => array(
+				'UTC',
 				array(
-					array_merge( $in_range, array( 'action' => 'created' ) ),
-					array_merge( $in_range, array( 'action' => 'created' ) ),
-					array_merge( $in_range, array( 'action' => 'updated' ) ),
+					'date_from' => $day,
+					'date_to'   => $day,
 				),
+				$day . ' 12:00:00',
+				$events( array( $day . ' 12:00:00', $day . ' 12:00:00', $day . ' 12:01:00' ) ),
 				3,
-				array( 'created' => 2, 'updated' => 1 ),
+				array( 'updated' => 3 ),
+				'administrator',
+			),
+			'excludes earlier calendar day' => array(
+				'UTC',
+				array(
+					'date_from' => $day,
+					'date_to'   => $day,
+				),
+				$day . ' 12:00:00',
+				$events( array( $day . ' 10:00:00', '2026-03-01 10:00:00' ) ),
+				1,
+				array( 'updated' => 1 ),
+				'administrator',
+			),
+			'day boundary jerusalem' => array(
+				'Asia/Jerusalem',
+				array(
+					'date_from' => $day,
+					'date_to'   => $day,
+				),
+				$day . ' 12:00:00',
+				$events( array( $day . ' 00:00:00', '2026-03-09 23:59:59' ) ),
+				1,
+				array( 'updated' => 1 ),
+				'administrator',
+			),
+			'rolling 24h frozen now' => array(
+				'Asia/Jerusalem',
+				array( 'period' => '24h' ),
+				$day . ' 16:44:00',
+				$events( array( $day . ' 16:44:00' ) ),
+				1,
+				array( 'updated' => 1 ),
+				'administrator',
+			),
+			'today frozen now' => array(
+				'Asia/Jerusalem',
+				array( 'period' => 'today' ),
+				$day . ' 10:15:00',
+				$events( array( $day . ' 10:15:00' ) ),
+				1,
+				array( 'updated' => 1 ),
+				'administrator',
+			),
+			'explicit date bounds jerusalem' => array(
+				'Asia/Jerusalem',
+				array(
+					'date_from' => $day,
+					'date_to'   => $day,
+				),
+				$day . ' 12:30:00',
+				$events( array( $day . ' 12:30:00' ) ),
+				1,
+				array( 'updated' => 1 ),
+				'administrator',
+			),
+			'editor role visibility' => array(
+				'UTC',
+				array(
+					'date_from' => $day,
+					'date_to'   => $day,
+				),
+				$day . ' 12:00:00',
+				array(
+					array_merge( $event, array( 'local' => $day . ' 11:00:00', 'user_caps' => 'editor' ) ),
+					array_merge( $event, array( 'local' => $day . ' 12:00:00', 'object_type' => 'Users', 'user_caps' => 'editor' ) ),
+				),
+				1,
+				array( 'updated' => 1 ),
+				'editor',
 			),
 		);
 	}
 
-	public function test_summarize_excludes_rows_outside_date_range() {
-		$range = $this->fixed_summary_date_range();
-		$this->insert_log( array( 'hist_time' => $this->site_timestamp_for( '2026-03-10 10:00:00' ) ) );
-		$this->insert_log( array( 'hist_time' => $this->site_timestamp_for( '2026-03-01 10:00:00' ) ) );
+	/** @dataProvider summarize_aggregation_provider */
+	public function test_summarize_aggregation( $timezone, $input, $events, $expected_total, $expected_by_action, $expected_by_channel, $expected_by_app_name ) {
+		update_option( 'timezone_string', $timezone );
+		foreach ( $events as $event ) {
+			$this->insert_log(
+				array(
+					'hist_time'      => $this->hist_from_local( $event['local'] ),
+					'action'         => $event['action'],
+					'request_source' => $event['request_source'],
+					'user_id'        => $event['user_id'],
+				)
+			);
+		}
 
-		$result = $this->run_summarize( $range );
+		$result = $this->run_summarize( $input, $this->hist_from_local( '2026-03-10 12:00:00' ) );
 
-		$this->assertSame( 1, $result['total'] );
+		$this->assertSame( $expected_total, $result['total'] );
+		$this->assertSame( $expected_by_action, $result['by_action'] );
+		$this->assertSame( $expected_by_channel, $result['by_channel'] );
+		$this->assertSame( $expected_by_app_name, $result['by_app_name'] );
+		$this->assertStringNotContainsString( self::TEST_LOG_IP, (string) wp_json_encode( $result ) );
 	}
 
-	public function test_summarize_respects_role_visibility() {
-		$range = $this->fixed_summary_date_range();
-		$this->insert_log(
+	public function summarize_aggregation_provider() {
+		$range = array(
+			'date_from' => '2026-03-10',
+			'date_to'   => '2026-03-10',
+		);
+		$noon  = '2026-03-10 12:00:00';
+
+		return array(
+			'action counts' => array(
+				'UTC',
+				$range,
+				array(
+					array(
+						'local'          => $noon,
+						'action'         => 'created',
+						'request_source' => 'rest',
+						'user_id'        => 0,
+					),
+					array(
+						'local'          => $noon,
+						'action'         => 'created',
+						'request_source' => 'rest',
+						'user_id'        => 0,
+					),
+					array(
+						'local'          => $noon,
+						'action'         => 'updated',
+						'request_source' => 'rest',
+						'user_id'        => 0,
+					),
+				),
+				3,
+				array(
+					'created' => 2,
+					'updated' => 1,
+				),
+				array( 'rest' => 3 ),
+				array(),
+			),
+			'unknown channel' => array(
+				'UTC',
+				$range,
+				array(
+					array(
+						'local'          => $noon,
+						'action'         => 'updated',
+						'request_source' => '',
+						'user_id'        => 0,
+					),
+				),
+				1,
+				array( 'updated' => 1 ),
+				array( 'unknown' => 1 ),
+				array(),
+			),
+			'app name totals' => array(
+				'UTC',
+				$range,
+				array(
+					array(
+						'local'          => $noon,
+						'action'         => 'updated',
+						'request_source' => 'rest|app:Deploy Bot',
+						'user_id'        => 0,
+					),
+					array(
+						'local'          => $noon,
+						'action'         => 'updated',
+						'request_source' => 'cli|app:Deploy Bot',
+						'user_id'        => 0,
+					),
+				),
+				2,
+				array( 'updated' => 2 ),
+				array(
+					'rest' => 1,
+					'cli'  => 1,
+				),
+				array( 'Deploy Bot' => 2 ),
+			),
+		);
+	}
+
+	/** @dataProvider summarize_dst_provider */
+	public function test_summarize_dst_hourly_buckets( $date, $event_locals, $expected_total, $expected_bucket_count ) {
+		update_option( 'timezone_string', 'Asia/Jerusalem' );
+		foreach ( $event_locals as $local_time ) {
+			$this->insert_log( array( 'hist_time' => $this->hist_from_local( $local_time ) ) );
+		}
+
+		$result = $this->run_summarize(
 			array(
-				'hist_time'   => $this->site_timestamp_for( '2026-03-10 11:00:00' ),
-				'object_type' => 'Posts',
-				'user_caps'   => 'editor',
+				'date_from' => $date,
+				'date_to'   => $date,
+			),
+			$this->hist_from_local( $date . ' 12:00:00' )
+		);
+
+		$first_hist     = $this->hist_from_local( $event_locals[0] );
+		$bucket_shifted = intdiv( $first_hist, HOUR_IN_SECONDS ) * HOUR_IN_SECONDS;
+
+		$this->assertSame( $expected_total, $result['total'] );
+		$this->assertSame(
+			array(
+				array(
+					'bucket' => AAL_Log_Query::hist_time_to_iso8601( $bucket_shifted ),
+					'count'  => $expected_bucket_count,
+				),
+			),
+			$result['time_buckets']
+		);
+	}
+
+	public function summarize_dst_provider() {
+		return array(
+			'spring forward day' => array(
+				'2026-03-27',
+				array( '2026-03-27 03:30:00' ),
+				1,
+				1,
+			),
+			'fall back merged hour' => array(
+				'2026-10-25',
+				array( '2026-10-25 01:30:00', '2026-10-25 01:45:00' ),
+				2,
+				2,
+			),
+		);
+	}
+
+	/** @dataProvider summarize_bucket_granularity_provider */
+	public function test_summarize_bucket_granularity( $input, $event_local, $bucket_interval ) {
+		update_option( 'timezone_string', 'Asia/Jerusalem' );
+		$hist = $this->hist_from_local( $event_local );
+		$this->insert_log( array( 'hist_time' => $hist ) );
+
+		$result         = $this->run_summarize( $input, $this->hist_from_local( '2026-03-10 12:00:00' ) );
+		$bucket_shifted = intdiv( $hist, $bucket_interval ) * $bucket_interval;
+
+		$this->assertSame(
+			array( AAL_Log_Query::hist_time_to_iso8601( $bucket_shifted ) ),
+			wp_list_pluck( $result['time_buckets'], 'bucket' )
+		);
+	}
+
+	public function summarize_bucket_granularity_provider() {
+		return array(
+			'hourly within 48h' => array(
+				array(
+					'date_from' => '2026-03-10',
+					'date_to'   => '2026-03-10',
+				),
+				'2026-03-10 16:44:00',
+				HOUR_IN_SECONDS,
+			),
+			'daily beyond 48h' => array(
+				array(
+					'date_from' => '2026-03-08',
+					'date_to'   => '2026-03-10',
+				),
+				'2026-03-09 14:30:00',
+				DAY_IN_SECONDS,
+			),
+		);
+	}
+
+	public function test_summarize_top_users_order_and_limit() {
+		update_option( 'timezone_string', 'UTC' );
+		$user_ids = array();
+		for ( $i = 1; $i <= 11; $i++ ) {
+			$user_ids[ $i ] = self::factory()->user->create(
+				array(
+					'role'         => 'administrator',
+					'display_name' => 'Summary User ' . $i,
+				)
+			);
+		}
+		$counts = array( 5, 4, 3, 2, 1, 1, 1, 1, 1, 1, 1 );
+		foreach ( $counts as $index => $count ) {
+			for ( $n = 0; $n < $count; $n++ ) {
+				$this->insert_log(
+					array(
+						'hist_time' => $this->hist_from_local( '2026-03-10 12:00:00' ),
+						'user_id'   => $user_ids[ $index + 1 ],
+					)
+				);
+			}
+		}
+
+		$result = $this->run_summarize(
+			array(
+				'date_from' => '2026-03-10',
+				'date_to'   => '2026-03-10',
+			),
+			$this->hist_from_local( '2026-03-10 12:00:00' )
+		);
+
+		$this->assertCount( 10, $result['top_users'] );
+		$this->assertSame( $user_ids[1], $result['top_users'][0]['user_id'] );
+		$this->assertSame( 'Summary User 1', $result['top_users'][0]['name'] );
+		$this->assertSame( 5, $result['top_users'][0]['count'] );
+		$this->assertSame( $user_ids[10], $result['top_users'][9]['user_id'] );
+	}
+
+	public function test_summarize_returns_empty_when_role_filter_denies() {
+		$subscriber_id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		wp_set_current_user( $subscriber_id );
+		$this->insert_log( array( 'hist_time' => current_time( 'timestamp' ) ) );
+
+		$result = ( new AAL_Log_Query() )->summarize_activity(
+			array(
+				'from_ts' => 0,
+				'to_ts'   => PHP_INT_MAX,
 			)
 		);
-		$this->insert_log(
-			array(
-				'hist_time'   => $this->site_timestamp_for( '2026-03-10 12:00:00' ),
-				'object_type' => 'Users',
-				'user_caps'   => 'editor',
-			)
-		);
-		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
 
-		$result = $this->run_summarize( $range );
-
-		$this->assertSame( 1, $result['total'] );
-		$this->assertSame( array( 'Posts' => 1 ), $result['by_object_type'] );
+		$this->assertSame( 0, $result['total'] );
+		$this->assertSame( array(), $result['by_action'] );
 	}
 
 	public function test_summarize_denied_for_subscriber() {
@@ -95,134 +404,22 @@ class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 	}
 
 	public function test_summarize_empty_input_defaults_to_24h_window() {
-		$before = wp_get_ability( AAL_Abilities::ABILITY_SUMMARIZE_ACTIVITY )->execute();
-		$this->insert_log( array( 'hist_time' => current_time( 'timestamp' ) ) );
-		$after = wp_get_ability( AAL_Abilities::ABILITY_SUMMARIZE_ACTIVITY )->execute();
+		$now_shifted = current_time( 'timestamp' );
+		$before      = $this->run_summarize( array(), $now_shifted );
+		$this->insert_log( array( 'hist_time' => $now_shifted ) );
+		$after       = $this->run_summarize( array(), $now_shifted );
 
 		$this->assertSame( $before['total'] + 1, $after['total'] );
 	}
 
-	/** @dataProvider invalid_summary_range_provider */
-	public function test_summarize_rejects_invalid_range( $input ) {
+	/** @dataProvider invalid_summary_input_provider */
+	public function test_summarize_rejects_invalid_input( $input ) {
 		$result = wp_get_ability( AAL_Abilities::ABILITY_SUMMARIZE_ACTIVITY )->execute( $input );
 		$this->assertWPError( $result );
 		$this->assertSame( 'ability_invalid_input', $result->get_error_code() );
 	}
 
-	/** @dataProvider summarize_shifted_range_provider */
-	public function test_summarize_range_respects_shifted_hist_time( $input, $local_event_time, $expected_from_local, $expected_to_local ) {
-		$this->use_asia_jerusalem_timezone();
-		$before    = $this->run_summarize( $input );
-		$hist_time = 'now' === $local_event_time ? current_time( 'timestamp' ) : $this->stored_hist_time_for_local( $local_event_time );
-		$this->insert_log( array( 'hist_time' => $hist_time ) );
-		$result    = $this->run_summarize( $input );
-
-		$this->assertSame( $before['total'] + 1, $result['total'] );
-		$this->assertSame( $this->expected_range_iso( $expected_from_local ), $result['range']['from'] );
-		$this->assertSame( $this->expected_range_iso( $expected_to_local ), $result['range']['to'] );
-	}
-
-	public function summarize_shifted_range_provider() {
-		$date = '2026-03-10';
-
-		return array(
-			'rolling 24h ends at now' => array(
-				array( 'period' => '24h' ),
-				'now',
-				'rolling_from',
-				'now',
-			),
-			'today starts at local midnight' => array(
-				array( 'period' => 'today' ),
-				'now',
-				'today_midnight',
-				'now',
-			),
-			'explicit date range bounds' => array(
-				array(
-					'date_from' => $date,
-					'date_to'   => $date,
-				),
-				'2026-03-10 12:30:00',
-				$date . ' 00:00:00',
-				$date . ' 23:59:59',
-			),
-		);
-	}
-
-	/** @dataProvider summarize_shifted_bucket_provider */
-	public function test_summarize_bucket_labels_use_shifted_hist_time( $input, $local_event_time, $expected_bucket_local ) {
-		$this->use_asia_jerusalem_timezone();
-		$this->insert_log( array( 'hist_time' => $this->stored_hist_time_for_local( $local_event_time ) ) );
-
-		$result = $this->run_summarize( $input );
-
-		$this->assertSame(
-			array( $this->expected_range_iso( $expected_bucket_local ) ),
-			wp_list_pluck( $result['time_buckets'], 'bucket' )
-		);
-	}
-
-	public function summarize_shifted_bucket_provider() {
-		return array(
-			'hourly bucket local hour' => array(
-				array(
-					'date_from' => '2026-03-10',
-					'date_to'   => '2026-03-10',
-				),
-				'2026-03-10 16:44:00',
-				'2026-03-10 16:00:00',
-			),
-			'daily bucket local midnight' => array(
-				array(
-					'date_from' => '2026-03-08',
-					'date_to'   => '2026-03-10',
-				),
-				'2026-03-09 14:30:00',
-				'2026-03-09 00:00:00',
-			),
-		);
-	}
-
-	public function test_summarize_excludes_shifted_hist_time_outside_bounds() {
-		$this->use_asia_jerusalem_timezone();
-		$this->insert_log( array( 'hist_time' => $this->stored_hist_time_for_local( '2026-03-10 10:00:00' ) ) );
-		$this->insert_log( array( 'hist_time' => $this->stored_hist_time_for_local( '2026-03-09 23:59:58' ) ) );
-
-		$result = $this->run_summarize(
-			array(
-				'date_from' => '2026-03-10',
-				'date_to'   => '2026-03-10',
-			)
-		);
-
-		$this->assertSame( 1, $result['total'] );
-	}
-
-	/** @dataProvider unknown_channel_provider */
-	public function test_summarize_maps_empty_channel_to_unknown( $request_source, $expected_channel ) {
-		$range = $this->fixed_summary_date_range();
-		$this->insert_log(
-			array(
-				'hist_time'      => $this->site_timestamp_for( '2026-03-10 12:00:00' ),
-				'request_source' => $request_source,
-			)
-		);
-
-		$result = $this->run_summarize( $range );
-
-		$this->assertSame( 1, $result['total'] );
-		$this->assertSame( array( $expected_channel => 1 ), $result['by_channel'] );
-	}
-
-	public function unknown_channel_provider() {
-		return array(
-			'empty request source' => array( '', 'unknown' ),
-			'rest channel'         => array( 'rest', 'rest' ),
-		);
-	}
-
-	public function invalid_summary_range_provider() {
+	public function invalid_summary_input_provider() {
 		return array(
 			'from after to' => array(
 				array(
@@ -236,57 +433,62 @@ class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 					'date_to'   => '2026-04-15',
 				),
 			),
+			'period and dates' => array(
+				array(
+					'period'    => '24h',
+					'date_from' => '2026-03-10',
+					'date_to'   => '2026-03-10',
+				),
+			),
+			'only date_from' => array(
+				array(
+					'date_from' => '2026-03-10',
+				),
+			),
+			'bad period' => array(
+				array(
+					'period' => '365d',
+				),
+			),
+			'invalid calendar date' => array(
+				array(
+					'date_from' => '2026-02-30',
+					'date_to'   => '2026-03-01',
+				),
+			),
+			'bad date format' => array(
+				array(
+					'date_from' => '10/03/2026',
+					'date_to'   => '2026-03-10',
+				),
+			),
 		);
 	}
 
-	private function site_timestamp_for( $local_date_time ) {
-		return $this->stored_hist_time_for_local( $local_date_time );
+	private function hist_from_local( $local_date_time ) {
+		$dt = DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $local_date_time, wp_timezone() );
+
+		return AAL_Log_Query::local_datetime_to_hist_time( $dt );
 	}
 
-	private function stored_hist_time_for_local( $local_date_time ) {
-		return AAL_Log_Query::local_datetime_to_hist_time( $this->local_datetime( $local_date_time ) );
-	}
+	private function run_summarize( $input, $now_shifted ) {
+		add_filter( 'aal_summarize_activity_hist_now', static function () use ( $now_shifted ) {
+			return $now_shifted;
+		} );
+		$result = wp_get_ability( AAL_Abilities::ABILITY_SUMMARIZE_ACTIVITY )->execute( $input );
+		remove_all_filters( 'aal_summarize_activity_hist_now' );
 
-	private function local_datetime( $local_date_time ) {
-		return DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $local_date_time, wp_timezone() );
-	}
-
-	private function use_asia_jerusalem_timezone() {
-		update_option( 'timezone_string', 'Asia/Jerusalem' );
-	}
-
-	private function expected_range_iso( $local_marker ) {
-		if ( 'now' === $local_marker ) {
-			return wp_date( 'c', time() );
-		}
-		if ( 'rolling_from' === $local_marker ) {
-			return AAL_Log_Query::hist_time_to_iso8601( current_time( 'timestamp' ) - DAY_IN_SECONDS );
-		}
-		if ( 'today_midnight' === $local_marker ) {
-			$midnight = ( new DateTimeImmutable( 'today', wp_timezone() ) )->setTime( 0, 0, 0 );
-
-			return wp_date( 'c', $midnight->getTimestamp() );
-		}
-
-		return wp_date( 'c', $this->local_datetime( $local_marker )->getTimestamp() );
-	}
-
-	private function fixed_summary_date_range() {
-		return array(
-			'date_from' => '2026-03-10',
-			'date_to'   => '2026-03-10',
-		);
-	}
-
-	private function run_summarize( $input ) {
-		return wp_get_ability( AAL_Abilities::ABILITY_SUMMARIZE_ACTIVITY )->execute( $input );
+		return $result;
 	}
 
 	private function dispatch_summarize_rest() {
 		$request = new WP_REST_Request( 'GET', '/wp-abilities/v1/abilities/' . AAL_Abilities::ABILITY_SUMMARIZE_ACTIVITY . '/run' );
 		$request->set_query_params(
 			array(
-				'input' => $this->fixed_summary_date_range(),
+				'input' => array(
+					'date_from' => '2026-03-10',
+					'date_to'   => '2026-03-10',
+				),
 			)
 		);
 		rest_get_server()->check_authentication();
@@ -304,8 +506,8 @@ class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 				'object_id'      => 1,
 				'user_id'        => $this->admin_id,
 				'user_caps'      => 'administrator',
-				'hist_ip'        => '203.0.113.10',
-				'hist_time'      => time(),
+				'hist_ip'        => self::TEST_LOG_IP,
+				'hist_time'      => current_time( 'timestamp' ),
 				'request_source' => 'rest|app:Summary Agent',
 				'meta'           => '',
 			),
@@ -313,28 +515,5 @@ class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 		);
 		$wpdb->insert( $wpdb->activity_log, $row, array( '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%d', '%s', '%s' ) );
 		return (int) $wpdb->insert_id;
-	}
-
-	private function reset_settings_cache() {
-		$settings = AAL_Main::instance()->settings;
-		$ref      = new ReflectionProperty( $settings, 'options' );
-		$ref->setAccessible( true );
-		$ref->setValue( $settings, null );
-	}
-
-	private function reregister_plugin_abilities() {
-		foreach (
-			array(
-				AAL_Abilities::ABILITY_QUERY_LOGS,
-				AAL_Abilities::ABILITY_GET_LOG,
-				AAL_Abilities::ABILITY_GET_FILTERS,
-				AAL_Abilities::ABILITY_SUMMARIZE_ACTIVITY,
-			) as $name
-		) {
-			if ( wp_has_ability( $name ) ) {
-				wp_unregister_ability( $name );
-			}
-		}
-		do_action( 'wp_abilities_api_init' );
 	}
 }

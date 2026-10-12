@@ -220,7 +220,7 @@ class AAL_Abilities {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public function execute_summarize_activity( $input ) {
-		$range = self::resolve_summarize_activity_range( $input );
+		$range = self::resolve_summarize_activity_range( $input, self::get_summarize_activity_hist_now() );
 		if ( is_wp_error( $range ) ) {
 			return $range;
 		}
@@ -232,9 +232,10 @@ class AAL_Abilities {
 
 	/**
 	 * @param array<string, mixed> $input
+	 * @param int|null $now Stored hist_time for "now" (defaults to current_time( 'timestamp' )).
 	 * @return array{from_ts: int, to_ts: int}|WP_Error
 	 */
-	public static function resolve_summarize_activity_range( $input ) {
+	public static function resolve_summarize_activity_range( $input, $now = null ) {
 		$input = is_array( $input ) ? $input : array();
 
 		$has_period = array_key_exists( 'period', $input );
@@ -292,11 +293,12 @@ class AAL_Abilities {
 		}
 
 		$period = $has_period ? $input['period'] : '24h';
-		$now    = current_time( 'timestamp' );
+		$now    = null !== $now ? (int) $now : self::get_summarize_activity_hist_now();
 
 		switch ( $period ) {
 			case 'today':
-				$midnight_dt = ( new DateTimeImmutable( 'today', wp_timezone() ) )->setTime( 0, 0, 0 );
+				$local_now   = ( new DateTimeImmutable( '@' . AAL_Log_Query::hist_time_to_unix( $now ) ) )->setTimezone( wp_timezone() );
+				$midnight_dt = $local_now->setTime( 0, 0, 0 );
 				$from_ts     = AAL_Log_Query::local_datetime_to_hist_time( $midnight_dt );
 				$to_ts       = $now;
 				break;
@@ -402,6 +404,15 @@ class AAL_Abilities {
 			'month' => $month,
 			'day'   => $day,
 		);
+	}
+
+	/**
+	 * @return int Stored hist_time used as "now" for summarize period windows.
+	 */
+	public static function get_summarize_activity_hist_now() {
+		$now = apply_filters( 'aal_summarize_activity_hist_now', null );
+
+		return null !== $now ? (int) $now : (int) current_time( 'timestamp' );
 	}
 
 	/**
@@ -591,7 +602,6 @@ class AAL_Abilities {
 				'period'    => array(
 					'type'        => 'string',
 					'description' => __( 'Relative time window (default 24h when input is empty).', 'aryo-activity-log' ),
-					'default'     => '24h',
 					'enum'        => array( 'today', '24h', '7d', '30d' ),
 				),
 				'date_from' => array(
