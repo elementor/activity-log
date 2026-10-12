@@ -99,7 +99,7 @@ final class AAL_Main {
 		$this->settings      = new AAL_Settings();
 		$this->api           = new AAL_API();
 		$this->rest          = new AAL_REST();
-		$this->abilities       = new AAL_Abilities( $this->rest );
+		$this->abilities     = new AAL_Abilities( $this->rest );
 
 		new AAL_Export();
 		new AAL_Privacy();

@@ -6,6 +6,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 class AAL_Log_Presenter {
 
 	/**
+	 * Meta keys allowed in ability JSON output.
+	 *
+	 * @var string[]
+	 */
+	private static $ability_meta_allowlist = array(
+		'ability',
+	);
+
+	/**
 	 * Present a single DB row for Abilities API / agent consumers.
 	 *
 	 * IP addresses are intentionally omitted from ability output.
@@ -34,7 +43,15 @@ class AAL_Log_Presenter {
 		if ( ! empty( $item->meta ) ) {
 			$decoded = json_decode( $item->meta, true );
 			if ( is_array( $decoded ) ) {
-				$data['meta'] = $decoded;
+				$filtered = array();
+				foreach ( self::$ability_meta_allowlist as $meta_key ) {
+					if ( array_key_exists( $meta_key, $decoded ) ) {
+						$filtered[ $meta_key ] = $decoded[ $meta_key ];
+					}
+				}
+				if ( ! empty( $filtered ) ) {
+					$data['meta'] = $filtered;
+				}
 			}
 		}
 

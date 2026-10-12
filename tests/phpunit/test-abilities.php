@@ -61,6 +61,10 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		do_action( 'wp_abilities_api_init' );
 	}
 
+	private function with_agent_exposure_enabled() {
+		$this->enable_agent_exposure();
+	}
+
 	private function enable_agent_exposure() {
 		update_option(
 			'activity-log-settings',
@@ -172,6 +176,12 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 			'request_source' => 'rest|app:Test Agent',
 		);
 
+		$meta = null;
+		if ( array_key_exists( 'meta', $overrides ) ) {
+			$meta = $overrides['meta'];
+			unset( $overrides['meta'] );
+		}
+
 		$row = array_merge( $defaults, $overrides );
 
 		$wpdb->insert(
@@ -180,7 +190,21 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 			array( '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%d', '%s' )
 		);
 
-		return (int) $wpdb->insert_id;
+		$insert_id = (int) $wpdb->insert_id;
+
+		if ( null !== $meta && $insert_id > 0 ) {
+			$wpdb->update(
+				$wpdb->activity_log,
+				array(
+					'meta' => is_array( $meta ) ? wp_json_encode( $meta ) : $meta,
+				),
+				array( 'histid' => $insert_id ),
+				array( '%s' ),
+				array( '%d' )
+			);
+		}
+
+		return $insert_id;
 	}
 
 	public function test_abilities_api_unavailable_is_noop() {
@@ -308,6 +332,8 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 	public function test_query_logs_returns_agent_json_shape() {
 		$this->require_abilities_api();
 
+		$this->with_agent_exposure_enabled();
+
 		$log_id = $this->insert_sample_log();
 
 		$ability = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS );
@@ -346,6 +372,8 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 	public function test_ability_output_never_includes_ip() {
 		$this->require_abilities_api();
 
+		$this->with_agent_exposure_enabled();
+
 		$log_id = $this->insert_sample_log( array( 'hist_ip' => '198.51.100.42' ) );
 
 		$result = wp_get_ability( AAL_Abilities::ABILITY_GET_LOG )->execute( array( 'id' => $log_id ) );
@@ -356,6 +384,8 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 
 	public function test_get_log_by_id() {
 		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
 
 		$log_id = $this->insert_sample_log( array( 'object_name' => 'ability-get-log-target' ) );
 
@@ -370,6 +400,8 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 	public function test_get_log_not_found() {
 		$this->require_abilities_api();
 
+		$this->with_agent_exposure_enabled();
+
 		$ability = wp_get_ability( AAL_Abilities::ABILITY_GET_LOG );
 		$result  = $ability->execute( array( 'id' => 999999999 ) );
 
@@ -379,6 +411,8 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 
 	public function test_get_filters_returns_expected_keys() {
 		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
 
 		$this->insert_sample_log();
 
@@ -395,6 +429,8 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 	public function test_query_logs_without_input_direct_execute() {
 		$this->require_abilities_api();
 
+		$this->with_agent_exposure_enabled();
+
 		$this->insert_sample_log();
 		wp_set_current_user( $this->admin_id );
 
@@ -407,6 +443,8 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 	public function test_get_filters_without_input_direct_execute() {
 		$this->require_abilities_api();
 
+		$this->with_agent_exposure_enabled();
+
 		$this->insert_sample_log();
 		wp_set_current_user( $this->admin_id );
 
@@ -418,6 +456,8 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 
 	public function test_get_log_without_input_still_requires_id() {
 		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
 
 		wp_set_current_user( $this->admin_id );
 
@@ -468,7 +508,7 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 
 		$response = $this->dispatch_ability_rest_request( AAL_Abilities::ABILITY_QUERY_LOGS, false );
 
-		$this->assertErrorResponse( 'rest_ability_cannot_execute', $response, rest_authorization_required_code() );
+		$this->assertErrorResponse( 'rest_forbidden', $response, rest_authorization_required_code() );
 	}
 
 	public function test_anonymous_get_filters_without_input_via_rest_gets_auth_error_not_invalid_input() {
@@ -479,7 +519,7 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 
 		$response = $this->dispatch_ability_rest_request( AAL_Abilities::ABILITY_GET_FILTERS, false );
 
-		$this->assertErrorResponse( 'rest_ability_cannot_execute', $response, rest_authorization_required_code() );
+		$this->assertErrorResponse( 'rest_forbidden', $response, rest_authorization_required_code() );
 	}
 
 	public function test_anonymous_query_logs_without_input_direct_execute_gets_permission_error() {
@@ -543,6 +583,8 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 	public function test_editor_can_execute_query_logs() {
 		$this->require_abilities_api();
 
+		$this->with_agent_exposure_enabled();
+
 		$this->insert_sample_log();
 
 		$editor = self::factory()->user->create( array( 'role' => 'editor' ) );
@@ -556,6 +598,8 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 
 	public function test_administrator_can_execute_query_logs() {
 		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
 
 		$this->insert_sample_log();
 		wp_set_current_user( $this->admin_id );
@@ -574,7 +618,7 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 
 		$response = $this->dispatch_ability_rest( AAL_Abilities::ABILITY_QUERY_LOGS );
 
-		$this->assertErrorResponse( 'rest_ability_cannot_execute', $response, rest_authorization_required_code() );
+		$this->assertErrorResponse( 'rest_forbidden', $response, rest_authorization_required_code() );
 	}
 
 	public function test_subscriber_cannot_execute_via_abilities_rest_with_exposure_on() {
@@ -587,7 +631,7 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 
 		$response = $this->dispatch_ability_rest( AAL_Abilities::ABILITY_QUERY_LOGS );
 
-		$this->assertErrorResponse( 'rest_ability_cannot_execute', $response, rest_authorization_required_code() );
+		$this->assertErrorResponse( 'rest_forbidden', $response, \WP_Http::FORBIDDEN );
 	}
 
 	public function test_editor_can_execute_via_abilities_rest_with_exposure_on() {
@@ -646,7 +690,7 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 			$this->basic_auth_header_for_user( $subscriber, $password )
 		);
 
-		$this->assertErrorResponse( 'rest_ability_cannot_execute', $response, rest_authorization_required_code() );
+		$this->assertErrorResponse( 'rest_forbidden', $response, \WP_Http::FORBIDDEN );
 	}
 
 	public function test_exposure_on_does_not_bypass_permission_callback() {
@@ -658,15 +702,17 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		$this->assertTrue( $ability->get_meta_item( 'show_in_rest' ) );
 
 		wp_set_current_user( 0 );
-		$this->assertFalse( $ability->check_permissions( array( 'per_page' => 1 ) ) );
+		$this->assertNotTrue( $ability->check_permissions( array( 'per_page' => 1 ) ) );
 
 		$subscriber = self::factory()->user->create( array( 'role' => 'subscriber' ) );
 		wp_set_current_user( $subscriber );
-		$this->assertFalse( $ability->check_permissions( array( 'per_page' => 1 ) ) );
+		$this->assertNotTrue( $ability->check_permissions( array( 'per_page' => 1 ) ) );
 	}
 
 	public function test_ability_execution_attributes_abilities_channel() {
 		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
 
 		global $wpdb;
 
@@ -708,6 +754,215 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		$meta = json_decode( $row->meta, true );
 		$this->assertIsArray( $meta );
 		$this->assertSame( AAL_Abilities::ABILITY_QUERY_LOGS, $meta['ability'] );
+	}
+
+	public function test_admin_cannot_execute_when_agent_exposure_disabled() {
+		$this->require_abilities_api();
+
+		update_option(
+			'activity-log-settings',
+			array_merge(
+				get_option( 'activity-log-settings', array() ),
+				array( 'abilities_agent_exposure' => 'no' )
+			)
+		);
+		$this->reset_settings_cache();
+		$this->reregister_plugin_abilities();
+
+		wp_set_current_user( $this->admin_id );
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 1 ) );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'ability_invalid_permissions', $result->get_error_code() );
+	}
+
+	public function test_ability_query_search_does_not_match_ip_addresses() {
+		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
+
+		$marker = 'ip-inference-' . wp_generate_password( 6, false );
+		$this->insert_sample_log(
+			array(
+				'object_name' => $marker,
+				'hist_ip'     => '198.51.100.77',
+			)
+		);
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute(
+			array(
+				's'        => '198.51.100',
+				'per_page' => 50,
+			)
+		);
+
+		$this->assertIsArray( $result );
+		$this->assertSame( 0, $result['total'] );
+	}
+
+	public function test_ability_query_rejects_unknown_input_properties_for_ip_inference() {
+		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
+
+		$this->insert_sample_log( array( 'hist_ip' => '203.0.113.55' ) );
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute(
+			array(
+				'filter_ip' => '203.0.113.55',
+				'per_page'  => 1,
+			)
+		);
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'ability_invalid_input', $result->get_error_code() );
+	}
+
+	public function test_ability_query_rejects_orderby_hist_ip() {
+		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute(
+			array(
+				'orderby'  => 'hist_ip',
+				'per_page' => 1,
+			)
+		);
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'ability_invalid_input', $result->get_error_code() );
+	}
+
+	public function test_ability_meta_output_is_allowlisted() {
+		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
+
+		$log_id = $this->insert_sample_log(
+			array(
+				'meta' => array(
+					'ability' => AAL_Abilities::ABILITY_GET_LOG,
+					'secret'  => 'must-not-leak',
+				),
+			)
+		);
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_GET_LOG )->execute( array( 'id' => $log_id ) );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'meta', $result );
+		$this->assertSame( AAL_Abilities::ABILITY_GET_LOG, $result['meta']['ability'] );
+		$this->assertArrayNotHasKey( 'secret', $result['meta'] );
+	}
+
+	public function test_ability_query_rejects_per_page_above_schema_maximum() {
+		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 200 ) );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'ability_invalid_input', $result->get_error_code() );
+	}
+
+	public function test_ability_query_rejects_page_zero() {
+		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute(
+			array(
+				'page'     => 0,
+				'per_page' => 1,
+			)
+		);
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'ability_invalid_input', $result->get_error_code() );
+	}
+
+	public function test_ability_query_rejects_non_integer_usershow() {
+		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute(
+			array(
+				'usershow' => 'not-a-user-id',
+				'per_page' => 1,
+			)
+		);
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'ability_invalid_input', $result->get_error_code() );
+	}
+
+	public function test_editor_cannot_get_log_entry_outside_role_visibility() {
+		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
+
+		$log_id = $this->insert_sample_log(
+			array(
+				'object_type' => 'Users',
+				'user_caps'   => 'administrator',
+				'object_name' => 'admin-only-log-entry',
+			)
+		);
+
+		$editor = self::factory()->user->create( array( 'role' => 'editor' ) );
+		wp_set_current_user( $editor );
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_GET_LOG )->execute( array( 'id' => $log_id ) );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'aal_log_not_found', $result->get_error_code() );
+	}
+
+	public function test_view_all_aryo_activity_log_capability_allows_ability_query() {
+		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
+
+		$this->insert_sample_log();
+
+		$user_id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$user    = new WP_User( $user_id );
+		$user->add_cap( 'view_all_aryo_activity_log' );
+		wp_set_current_user( $user_id );
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 1 ) );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'items', $result );
+	}
+
+	public function test_aal_menu_page_capability_filter_allows_ability_query() {
+		$this->require_abilities_api();
+
+		$this->with_agent_exposure_enabled();
+
+		$this->insert_sample_log();
+
+		add_filter( 'aal_menu_page_capability', static function () {
+			return 'read';
+		} );
+
+		$user_id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$user    = new WP_User( $user_id );
+		$user->add_cap( 'read' );
+		$user->add_cap( 'view_all_aryo_activity_log' );
+		wp_set_current_user( $user_id );
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( array( 'per_page' => 1 ) );
+
+		remove_all_filters( 'aal_menu_page_capability' );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'items', $result );
 	}
 
 	public function tear_down() {

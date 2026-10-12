@@ -153,25 +153,6 @@ class AAL_Log_Query {
 	}
 
 	/**
-	 * Query activity log rows.
-	 *
-	 * @param array $args {
-	 *     @type string $typeshow    Filter by object_type.
-	 *     @type string $showaction  Filter by action.
-	 *     @type string $filter_ip   Filter by IP.
-	 *     @type int    $usershow    Filter by user_id.
-	 *     @type string $capshow     Filter by user_caps.
-	 *     @type string $sourceshow  Filter by request_source channel.
-	 *     @type string $dateshow    Date filter: today|yesterday|week (last 7 days)|month (last 30 days)|dd/mm/yyyy.
-	 *     @type string $s           Search term.
-	 *     @type string $orderby     Column to sort by (hist_time|hist_ip). Default hist_time.
-	 *     @type string $order       ASC or DESC. Default DESC.
-	 *     @type int    $page        1-indexed page number.
-	 *     @type int    $per_page    Items per page (max 100).
-	 * }
-	 * @return array { items: object[], total: int, pages: int } or empty on access denied.
-	 */
-	/**
 	 * Fetch one log row by ID, respecting role/cap visibility rules.
 	 *
 	 * @param int $histid Log entry ID.
@@ -200,6 +181,26 @@ class AAL_Log_Query {
 		return $item ? $item : null;
 	}
 
+	/**
+	 * Query activity log rows.
+	 *
+	 * @param array $args {
+	 *     @type string $typeshow    Filter by object_type.
+	 *     @type string $showaction  Filter by action.
+	 *     @type string $filter_ip   Filter by IP.
+	 *     @type int    $usershow    Filter by user_id.
+	 *     @type string $capshow     Filter by user_caps.
+	 *     @type string $sourceshow  Filter by request_source channel.
+	 *     @type string $dateshow    Date filter: today|yesterday|week (last 7 days)|month (last 30 days)|dd/mm/yyyy.
+	 *     @type string $s           Search term.
+	 *     @type string $orderby     Column to sort by (hist_time|hist_ip). Default hist_time.
+	 *     @type string $order       ASC or DESC. Default DESC.
+	 *     @type int    $page        1-indexed page number.
+	 *     @type int    $per_page    Items per page (max 100).
+	 *     @type bool   $exclude_ip  When true, omit IP from search filters and restrict orderby to hist_time.
+	 * }
+	 * @return array { items: object[], total: int, pages: int } or empty on access denied.
+	 */
 	public function query( $args = array() ) {
 		global $wpdb;
 
@@ -225,6 +226,7 @@ class AAL_Log_Query {
 			'order'      => 'DESC',
 			'page'       => 1,
 			'per_page'   => 50,
+			'exclude_ip' => false,
 		) );
 
 		$where = ' WHERE 1 = 1';
@@ -237,7 +239,7 @@ class AAL_Log_Query {
 			$where .= $wpdb->prepare( ' AND `action` = %s', sanitize_text_field( $args['showaction'] ) );
 		}
 
-		if ( '' !== $args['filter_ip'] && ! empty( $args['filter_ip'] ) ) {
+		if ( empty( $args['exclude_ip'] ) && '' !== $args['filter_ip'] && ! empty( $args['filter_ip'] ) ) {
 			$where .= $wpdb->prepare( ' AND `hist_ip` = %s', sanitize_text_field( $args['filter_ip'] ) );
 		}
 
@@ -294,15 +296,23 @@ class AAL_Log_Query {
 
 		if ( ! empty( $args['s'] ) ) {
 			$search_like = '%' . $wpdb->esc_like( $args['s'] ) . '%';
-			$where .= $wpdb->prepare(
-				' AND (`object_name` LIKE %s OR `object_subtype` LIKE %s OR `hist_ip` LIKE %s)',
-				$search_like,
-				$search_like,
-				$search_like
-			);
+			if ( ! empty( $args['exclude_ip'] ) ) {
+				$where .= $wpdb->prepare(
+					' AND (`object_name` LIKE %s OR `object_subtype` LIKE %s)',
+					$search_like,
+					$search_like
+				);
+			} else {
+				$where .= $wpdb->prepare(
+					' AND (`object_name` LIKE %s OR `object_subtype` LIKE %s OR `hist_ip` LIKE %s)',
+					$search_like,
+					$search_like,
+					$search_like
+				);
+			}
 		}
 
-		$allowed_orderby = array( 'hist_time', 'hist_ip' );
+		$allowed_orderby = ! empty( $args['exclude_ip'] ) ? array( 'hist_time' ) : array( 'hist_time', 'hist_ip' );
 		$items_orderby   = in_array( $args['orderby'], $allowed_orderby, true ) ? $args['orderby'] : 'hist_time';
 		$items_order     = 'ASC' === strtoupper( $args['order'] ) ? 'ASC' : 'DESC';
 

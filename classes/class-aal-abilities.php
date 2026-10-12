@@ -5,6 +5,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Registers read-only WordPress Abilities for AI agents (WP 6.9+).
+ *
+ * Agent exposure must be enabled in settings (or via the default filter) for abilities to run,
+ * including direct {@see WP_Ability::execute()} calls. REST/MCP visibility uses the same flag.
  */
 class AAL_Abilities {
 
@@ -170,17 +173,17 @@ class AAL_Abilities {
 	 * @return bool|WP_Error
 	 */
 	public function check_view_permission( $input = null ) {
-		if ( ! is_user_logged_in() || get_current_user_id() < 1 ) {
+		if ( ! self::is_agent_exposure_enabled() ) {
 			return false;
 		}
 
 		$allowed = $this->rest->check_permissions();
 
 		if ( is_wp_error( $allowed ) ) {
-			return false;
+			return $allowed;
 		}
 
-		return true;
+		return (bool) $allowed;
 	}
 
 	/**
@@ -190,22 +193,32 @@ class AAL_Abilities {
 	public function execute_query_logs( $input ) {
 		$query = new AAL_Log_Query();
 
-		$per_page = isset( $input['per_page'] ) ? min( (int) $input['per_page'], 100 ) : 50;
+		$per_page = isset( $input['per_page'] ) ? min( max( 1, (int) $input['per_page'] ), 100 ) : 50;
+		$page     = isset( $input['page'] ) ? max( 1, (int) $input['page'] ) : 1;
+		$order    = isset( $input['order'] ) ? strtoupper( (string) $input['order'] ) : 'DESC';
+		if ( ! in_array( $order, array( 'ASC', 'DESC' ), true ) ) {
+			$order = 'DESC';
+		}
+
+		$usershow = '';
+		if ( isset( $input['usershow'] ) && (int) $input['usershow'] > 0 ) {
+			$usershow = (int) $input['usershow'];
+		}
 
 		$result = $query->query(
 			array(
-				'typeshow'   => isset( $input['typeshow'] ) ? $input['typeshow'] : '',
-				'showaction' => isset( $input['showaction'] ) ? $input['showaction'] : '',
-				'filter_ip'  => isset( $input['filter_ip'] ) ? $input['filter_ip'] : '',
-				'usershow'   => isset( $input['usershow'] ) ? $input['usershow'] : '',
-				'capshow'    => isset( $input['capshow'] ) ? $input['capshow'] : '',
-				'sourceshow' => isset( $input['sourceshow'] ) ? $input['sourceshow'] : '',
-				'dateshow'   => isset( $input['dateshow'] ) ? $input['dateshow'] : '',
-				's'          => isset( $input['s'] ) ? $input['s'] : '',
-				'orderby'    => isset( $input['orderby'] ) ? $input['orderby'] : 'hist_time',
-				'order'      => isset( $input['order'] ) ? $input['order'] : 'DESC',
-				'page'       => isset( $input['page'] ) ? $input['page'] : 1,
+				'typeshow'   => isset( $input['typeshow'] ) ? (string) $input['typeshow'] : '',
+				'showaction' => isset( $input['showaction'] ) ? (string) $input['showaction'] : '',
+				'usershow'   => $usershow,
+				'capshow'    => isset( $input['capshow'] ) ? (string) $input['capshow'] : '',
+				'sourceshow' => isset( $input['sourceshow'] ) ? (string) $input['sourceshow'] : '',
+				'dateshow'   => isset( $input['dateshow'] ) ? (string) $input['dateshow'] : '',
+				's'          => isset( $input['s'] ) ? (string) $input['s'] : '',
+				'orderby'    => 'hist_time',
+				'order'      => $order,
+				'page'       => $page,
 				'per_page'   => $per_page,
+				'exclude_ip' => true,
 			)
 		);
 
@@ -263,10 +276,15 @@ class AAL_Abilities {
 	 */
 	public static function get_get_filters_input_schema() {
 		return array(
-			'type'       => 'object',
-			'default'    => array(),
-			'properties' => array(),
+			'type'                  => 'object',
+			'default'               => array(),
+			'properties'            => array(),
+			'additionalProperties'  => false,
 		);
+	}
+
+	public static function get_query_logs_source_filter_values() {
+		return array( 'abilities', 'rest', 'xmlrpc', 'cli', 'cron', 'app_password' );
 	}
 
 	public static function get_query_logs_input_schema() {
@@ -279,6 +297,7 @@ class AAL_Abilities {
 					'description' => __( 'Page number (1-based).', 'aryo-activity-log' ),
 					'default'     => 1,
 					'minimum'     => 1,
+					'maximum'     => 100000,
 				),
 				'per_page'   => array(
 					'type'        => 'integer',
@@ -286,12 +305,6 @@ class AAL_Abilities {
 					'default'     => 50,
 					'minimum'     => 1,
 					'maximum'     => 100,
-				),
-				'orderby'    => array(
-					'type'        => 'string',
-					'description' => __( 'Column to sort by.', 'aryo-activity-log' ),
-					'default'     => 'hist_time',
-					'enum'        => array( 'hist_time', 'hist_ip' ),
 				),
 				'order'      => array(
 					'type'        => 'string',
@@ -302,36 +315,49 @@ class AAL_Abilities {
 				'typeshow'   => array(
 					'type'        => 'string',
 					'description' => __( 'Filter by object_type.', 'aryo-activity-log' ),
+					'maxLength'   => 191,
 				),
 				'showaction' => array(
 					'type'        => 'string',
 					'description' => __( 'Filter by action.', 'aryo-activity-log' ),
-				),
-				'filter_ip'  => array(
-					'type'        => 'string',
-					'description' => __( 'Filter by IP address.', 'aryo-activity-log' ),
+					'maxLength'   => 191,
 				),
 				'usershow'   => array(
-					'type'        => 'string',
+					'type'        => 'integer',
 					'description' => __( 'Filter by user ID.', 'aryo-activity-log' ),
+					'minimum'     => 1,
 				),
 				'capshow'    => array(
 					'type'        => 'string',
 					'description' => __( 'Filter by user role/cap slug stored in user_caps.', 'aryo-activity-log' ),
+					'maxLength'   => 191,
 				),
 				'sourceshow' => array(
 					'type'        => 'string',
-					'description' => __( 'Filter by request channel (e.g. rest, abilities, app_password).', 'aryo-activity-log' ),
+					'description' => __( 'Filter by request channel.', 'aryo-activity-log' ),
+					'enum'        => self::get_query_logs_source_filter_values(),
 				),
 				'dateshow'   => array(
-					'type'        => 'string',
 					'description' => __( 'Date filter: today, yesterday, week, month, or dd/mm/yyyy.', 'aryo-activity-log' ),
+					'oneOf'       => array(
+						array(
+							'type' => 'string',
+							'enum' => array( 'today', 'yesterday', 'week', 'month' ),
+						),
+						array(
+							'type'      => 'string',
+							'pattern'   => '^\d{2}/\d{2}/\d{4}$',
+							'maxLength' => 10,
+						),
+					),
 				),
 				's'          => array(
 					'type'        => 'string',
-					'description' => __( 'Search object name, subtype, or IP.', 'aryo-activity-log' ),
+					'description' => __( 'Search object name or subtype.', 'aryo-activity-log' ),
+					'maxLength'   => 500,
 				),
 			),
+			'additionalProperties' => false,
 		);
 	}
 
@@ -348,7 +374,8 @@ class AAL_Abilities {
 					'minimum'     => 1,
 				),
 			),
-			'required'   => array( 'id' ),
+			'required'             => array( 'id' ),
+			'additionalProperties' => false,
 		);
 	}
 
