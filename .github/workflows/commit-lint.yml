@@ -6,6 +6,9 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
 
+permissions:
+  contents: read
+
 jobs:
   commit-lint:
     runs-on: ubuntu-latest
@@ -23,10 +26,16 @@ jobs:
         run: npm install --no-save @commitlint/cli @commitlint/config-conventional
 
       - name: Lint commits
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            npx commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.sha }}"
-            echo "${{ github.event.pull_request.title }}" | npx commitlint
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            npx commitlint --from "$BASE_SHA" --to "$HEAD_SHA"
+            printf '%s\n' "$PR_TITLE" | npx commitlint
           else
-            echo "${{ github.event.head_commit.message }}" | npx commitlint
+            printf '%s\n' "$COMMIT_MSG" | npx commitlint
           fi
