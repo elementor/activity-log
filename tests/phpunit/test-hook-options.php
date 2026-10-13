@@ -29,12 +29,9 @@ class AAL_Test_Hook_Options extends WP_UnitTestCase {
 	}
 
 	public function whitelisted_core_options() {
-		global $wpdb;
-
 		return array(
 			array( 'disallowed_keys' ),
 			array( 'gmt_offset' ),
-			array( $wpdb->prefix . 'user_roles' ),
 		);
 	}
 }

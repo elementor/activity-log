@@ -161,9 +161,6 @@ __( 'tag_base', 'aryo-activity-log' );
 // Privacy
 __( 'wp_page_for_privacy_policy', 'aryo-activity-log' );
 
-// Users
-__( 'wp_user_roles', 'aryo-activity-log' );
-
 // Export
 __( 'Export', 'aryo-activity-log' );
 __( 'downloaded', 'aryo-activity-log' );

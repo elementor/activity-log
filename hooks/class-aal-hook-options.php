@@ -4,8 +4,6 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 class AAL_Hook_Options extends AAL_Hook_Base {
 
 	public function hooks_updated_option( $option, $oldvalue, $_newvalue ) {
-		global $wpdb;
-
 		$whitelist_options = apply_filters( 'aal_whitelist_options', array(
 			// General
 			'blogname',
@@ -93,9 +91,6 @@ class AAL_Hook_Options extends AAL_Hook_Base {
 
 			// Privacy
 			'wp_page_for_privacy_policy',
-
-			// Users
-			$wpdb->prefix . 'user_roles',
 
 			// Widgets
 			'sidebars_widgets',
