@@ -16,7 +16,23 @@ class AAL_Abilities {
 	const ABILITY_QUERY_LOGS  = 'activity-log/query-logs';
 	const ABILITY_GET_LOG     = 'activity-log/get-log';
 	const ABILITY_GET_FILTERS      = 'activity-log/get-filters';
-	const ABILITY_SUMMARIZE_ACTIVITY = 'activity-log/summarize-activity';
+	const ABILITY_SUMMARIZE_ACTIVITY   = 'activity-log/summarize-activity';
+	const ABILITY_DETECT_SUSPICIOUS    = 'activity-log/detect-suspicious-events';
+
+	const FAILED_LOGIN_THRESHOLD = 5;
+	const SUSPICIOUS_ROW_LIMIT   = 500;
+
+	const SENSITIVE_OPTIONS = array( 'siteurl', 'home', 'admin_email', 'users_can_register', 'default_role' );
+	const WORK_HOURS        = array( 8, 20 );
+
+	const SUSPICIOUS_RULES = array(
+		'failed_login_burst'   => 'high',
+		'login_after_failures' => 'high',
+		'new_admin'            => 'high',
+		'plugin_activated'     => 'medium',
+		'sensitive_option'     => 'high',
+		'agent_off_hours'      => 'medium',
+	);
 
 	/**
 	 * @var AAL_REST
@@ -124,6 +140,20 @@ class AAL_Abilities {
 				'meta'                => $exposure_meta,
 			)
 		);
+
+		wp_register_ability(
+			self::ABILITY_DETECT_SUSPICIOUS,
+			array(
+				'label'               => __( 'Detect suspicious events', 'aryo-activity-log' ),
+				'description'         => __( 'Scans activity log entries for suspicious patterns (failed login bursts, sensitive options, off-hours agent activity).', 'aryo-activity-log' ),
+				'category'            => self::CATEGORY,
+				'input_schema'        => self::get_detect_suspicious_input_schema(),
+				'output_schema'       => self::get_detect_suspicious_output_schema(),
+				'execute_callback'    => array( $this, 'execute_detect_suspicious_events' ),
+				'permission_callback' => array( $this, 'check_view_permission' ),
+				'meta'                => $exposure_meta,
+			)
+		);
 	}
 
 	/**
@@ -217,6 +247,22 @@ class AAL_Abilities {
 
 	public function execute_summarize_activity( $input, $now = null ) {
 		return ( new AAL_Log_Query() )->summarize_activity_from_input( $input, $now );
+	}
+
+	/**
+	 * @param array<string, mixed> $input
+	 * @param int|null             $now
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public function execute_detect_suspicious_events( $input, $now = null ) {
+		$range = AAL_Log_Query::resolve_summarize_activity_range( $input, $now );
+		if ( is_wp_error( $range ) ) {
+			return $range;
+		}
+
+		$rules = array_key_exists( 'rules', $input ) ? (array) $input['rules'] : array_keys( self::SUSPICIOUS_RULES );
+
+		return ( new AAL_Log_Query() )->detect_suspicious_events( $range['from_ts'], $range['to_ts'], $rules );
 	}
 
 	/**
@@ -444,6 +490,56 @@ class AAL_Abilities {
 				'by_app_name',
 				'time_buckets',
 			),
+		);
+	}
+
+	public static function get_detect_suspicious_input_schema() {
+		$schema = self::get_summarize_activity_input_schema();
+		$schema['properties']['rules'] = array(
+			'type'        => 'array',
+			'description' => __( 'Suspicious rule keys to evaluate (default: all).', 'aryo-activity-log' ),
+			'items'       => array(
+				'type' => 'string',
+				'enum' => array_keys( self::SUSPICIOUS_RULES ),
+			),
+		);
+
+		return $schema;
+	}
+
+	public static function get_detect_suspicious_output_schema() {
+		return array(
+			'type'       => 'object',
+			'properties' => array(
+				'range'     => array( 'type' => 'object' ),
+				'findings'  => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'rule'       => array( 'type' => 'string' ),
+							'severity'   => array( 'type' => 'string' ),
+							'first_time' => array(
+								'type'        => 'string',
+								'description' => __( 'First matching event time in ISO-8601 format (site timezone).', 'aryo-activity-log' ),
+							),
+							'last_time'  => array(
+								'type'        => 'string',
+								'description' => __( 'Last matching event time in ISO-8601 format (site timezone).', 'aryo-activity-log' ),
+							),
+							'actor'      => array( 'type' => 'string' ),
+							'count'      => array( 'type' => 'integer' ),
+							'log_ids'    => array(
+								'type'  => 'array',
+								'items' => array( 'type' => 'integer' ),
+							),
+						),
+						'required'   => array( 'rule', 'severity', 'first_time', 'last_time', 'actor', 'count', 'log_ids' ),
+					),
+				),
+				'truncated' => array( 'type' => 'boolean' ),
+			),
+			'required'   => array( 'range', 'findings', 'truncated' ),
 		);
 	}
 

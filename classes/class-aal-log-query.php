@@ -802,4 +802,283 @@ class AAL_Log_Query {
 			$values
 		);
 	}
+
+	/**
+	 * @param int                  $from_ts
+	 * @param int                  $to_ts
+	 * @param array<int, string>   $rules
+	 * @return array<string, mixed>
+	 */
+	public function detect_suspicious_events( $from_ts, $to_ts, $rules ) {
+		global $wpdb;
+
+		$from_ts    = (int) $from_ts;
+		$to_ts      = (int) $to_ts;
+		$rules      = array_values( array_intersect( $rules, array_keys( AAL_Abilities::SUSPICIOUS_RULES ) ) );
+		$range      = array(
+			'from' => self::hist_time_to_iso8601( $from_ts ),
+			'to'   => self::hist_time_to_iso8601( $to_ts ),
+		);
+		$findings   = array();
+		$truncated  = false;
+		$role_where = $this->get_where_by_role();
+		$groups     = array();
+
+		if ( false === $role_where || empty( $rules ) ) {
+			return array( 'range' => $range, 'findings' => $findings, 'truncated' => $truncated );
+		}
+
+		$want_burst = in_array( 'failed_login_burst', $rules, true );
+		$want_after = in_array( 'login_after_failures', $rules, true );
+		$row_rules  = array_intersect( $rules, array( 'new_admin', 'plugin_activated', 'sensitive_option', 'agent_off_hours' ) );
+		$burst_rows = array();
+		$first_fail = array();
+
+		if ( $want_burst || $want_after ) {
+			$burst_sql  = $this->prepare_summary_sql(
+				$role_where,
+				'SELECT `hist_ip`, COUNT(`histid`) AS `cnt`, MIN(`hist_time`) AS `min_time`, MAX(`hist_time`) AS `max_time`, GROUP_CONCAT(`histid` ORDER BY `histid` DESC) AS `ids`, MAX(`object_name`) AS `actor` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d AND `action` = %s',
+				' GROUP BY `hist_ip` HAVING `cnt` >= %d ORDER BY `cnt` DESC LIMIT 50',
+				array( $wpdb->activity_log, $from_ts, $to_ts, 'failed_login', AAL_Abilities::FAILED_LOGIN_THRESHOLD )
+			);
+			$burst_rows = $wpdb->get_results( $burst_sql );
+		}
+
+		if ( $want_burst && $burst_rows ) {
+			foreach ( $burst_rows as $row ) {
+				$key = 'failed_login_burst:' . $row->hist_ip;
+				$this->merge_suspicious_group(
+					$groups,
+					$key,
+					'failed_login_burst',
+					(string) $row->actor,
+					(int) $row->min_time,
+					(int) $row->max_time,
+					(int) $row->cnt,
+					(string) $row->ids
+				);
+			}
+		}
+
+		if ( $want_after && $burst_rows ) {
+			$ips = wp_list_pluck( $burst_rows, 'hist_ip' );
+			foreach ( $burst_rows as $row ) {
+				$first_fail[ $row->hist_ip ] = (int) $row->min_time;
+			}
+			$placeholders = implode( ', ', array_fill( 0, count( $ips ), '%s' ) );
+			$login_sql    = $this->prepare_summary_sql(
+				$role_where,
+				'SELECT `histid`, `user_id`, `action`, `object_type`, `object_name`, `object_id`, `hist_time`, `request_source`, `hist_ip` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d AND `action` = %s AND `hist_ip` IN (' . $placeholders . ')',
+				' ORDER BY `hist_time` DESC LIMIT 50',
+				array_merge( array( $wpdb->activity_log, $from_ts, $to_ts, 'logged_in' ), $ips )
+			);
+			$login_rows   = $wpdb->get_results( $login_sql );
+			if ( $login_rows ) {
+				foreach ( $login_rows as $login ) {
+					$ip = $login->hist_ip;
+					if ( ! isset( $first_fail[ $ip ] ) || (int) $login->hist_time <= $first_fail[ $ip ] ) {
+						continue;
+					}
+					$key = 'login_after_failures:' . $ip;
+					$this->merge_suspicious_group(
+						$groups,
+						$key,
+						'login_after_failures',
+						(string) $login->object_name,
+						(int) $login->hist_time,
+						(int) $login->hist_time,
+						1,
+						(string) $login->histid
+					);
+				}
+			}
+		}
+
+		if ( ! empty( $row_rules ) ) {
+			$parts       = array();
+			$parts_args  = array();
+			if ( in_array( 'new_admin', $row_rules, true ) ) {
+				$parts[] = "(`object_type` = 'Users' AND `action` = 'registered')";
+			}
+			if ( in_array( 'plugin_activated', $row_rules, true ) ) {
+				$parts[] = "(`object_type` = 'Plugins' AND `action` = 'activated')";
+			}
+			if ( in_array( 'sensitive_option', $row_rules, true ) ) {
+				$option_placeholders = implode( ', ', array_fill( 0, count( AAL_Abilities::SENSITIVE_OPTIONS ), '%s' ) );
+				$parts[]             = "(`object_type` = 'Options' AND `action` = 'updated' AND `object_name` IN ($option_placeholders))";
+				$parts_args          = array_merge( $parts_args, AAL_Abilities::SENSITIVE_OPTIONS );
+			}
+			if ( in_array( 'agent_off_hours', $row_rules, true ) ) {
+				$parts[] = "(`request_source` LIKE 'abilities%' OR `request_source` LIKE '%|app:%' OR `request_source` LIKE 'app:%')";
+			}
+
+			$row_sql   = $this->prepare_summary_sql(
+				$role_where,
+				'SELECT `histid`, `user_id`, `action`, `object_type`, `object_name`, `object_id`, `hist_time`, `request_source` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d AND (' . implode( ' OR ', $parts ) . ')',
+				' ORDER BY `hist_time` DESC LIMIT %d',
+				array_merge( array( $wpdb->activity_log, $from_ts, $to_ts ), $parts_args, array( AAL_Abilities::SUSPICIOUS_ROW_LIMIT ) )
+			);
+			$row_rows  = $wpdb->get_results( $row_sql );
+			$truncated = $row_rows && count( $row_rows ) >= AAL_Abilities::SUSPICIOUS_ROW_LIMIT;
+			$admin_ids = array();
+			if ( in_array( 'new_admin', $row_rules, true ) && $row_rows ) {
+				$candidate_ids = array();
+				foreach ( $row_rows as $row ) {
+					if ( 'Users' === $row->object_type && 'registered' === $row->action ) {
+						$candidate_ids[] = (int) $row->object_id;
+					}
+				}
+				if ( ! empty( $candidate_ids ) ) {
+					$admin_ids = array_map(
+						'intval',
+						get_users(
+							array(
+								'include' => array_values( array_unique( $candidate_ids ) ),
+								'role'    => 'administrator',
+								'fields'  => 'ID',
+							)
+						)
+					);
+				}
+			}
+
+			if ( $row_rows ) {
+				foreach ( $row_rows as $row ) {
+					$rule = $this->classify_row( $row, $admin_ids );
+					if ( null === $rule || ! in_array( $rule, $row_rules, true ) ) {
+						continue;
+					}
+					$actor = $this->suspicious_actor_from_row( $row );
+					$key   = $rule . ':' . $actor;
+					$this->merge_suspicious_group(
+						$groups,
+						$key,
+						$rule,
+						$actor,
+						(int) $row->hist_time,
+						(int) $row->hist_time,
+						1,
+						(string) $row->histid
+					);
+				}
+			}
+		}
+
+		foreach ( $groups as $group ) {
+			$findings[] = $this->build_suspicious_finding( $group );
+		}
+
+		return array( 'range' => $range, 'findings' => $findings, 'truncated' => $truncated );
+	}
+
+	/**
+	 * @param object          $row
+	 * @param array<int, int> $admin_ids
+	 * @return string|null
+	 */
+	private function classify_row( $row, $admin_ids ) {
+		if ( 'Users' === $row->object_type && 'registered' === $row->action && in_array( (int) $row->object_id, $admin_ids, true ) ) {
+			return 'new_admin';
+		}
+		if ( 'Plugins' === $row->object_type && 'activated' === $row->action ) {
+			return 'plugin_activated';
+		}
+		if ( 'Options' === $row->object_type && 'updated' === $row->action && in_array( $row->object_name, AAL_Abilities::SENSITIVE_OPTIONS, true ) ) {
+			return 'sensitive_option';
+		}
+		if ( $this->is_agent_request_source( $row->request_source ) && $this->is_off_hours_hist_time( (int) $row->hist_time ) ) {
+			return 'agent_off_hours';
+		}
+
+		return null;
+	}
+
+	/**
+	 * @param array<string, array<string, mixed>> $groups
+	 * @param string                              $key
+	 * @param string                              $rule
+	 * @param string                              $actor
+	 * @param int                                 $hist_time
+	 * @param int                                 $hist_time_end
+	 * @param int                                 $count_delta
+	 * @param string                              $ids_csv
+	 */
+	private function merge_suspicious_group( &$groups, $key, $rule, $actor, $hist_time, $hist_time_end, $count_delta, $ids_csv ) {
+		if ( ! isset( $groups[ $key ] ) ) {
+			$groups[ $key ] = array(
+				'rule'       => $rule,
+				'severity'   => AAL_Abilities::SUSPICIOUS_RULES[ $rule ],
+				'first_time' => $hist_time,
+				'last_time'  => $hist_time_end,
+				'actor'      => $actor,
+				'count'      => 0,
+				'ids_csv'    => '',
+			);
+		}
+
+		$groups[ $key ]['first_time'] = min( $groups[ $key ]['first_time'], $hist_time );
+		$groups[ $key ]['last_time']  = max( $groups[ $key ]['last_time'], $hist_time_end );
+		$groups[ $key ]['count']      += $count_delta;
+		if ( '' !== $ids_csv ) {
+			if ( '' !== $groups[ $key ]['ids_csv'] ) {
+				$groups[ $key ]['ids_csv'] .= ',';
+			}
+			$groups[ $key ]['ids_csv'] .= $ids_csv;
+		}
+	}
+
+	private function is_agent_request_source( $request_source ) {
+		return 0 === strpos( (string) $request_source, 'abilities' )
+			|| false !== strpos( (string) $request_source, '|app:' )
+			|| 0 === strpos( (string) $request_source, 'app:' );
+	}
+
+	private function is_off_hours_hist_time( $hist_time ) {
+		$hour  = (int) wp_date( 'G', self::hist_time_to_unix( $hist_time ) );
+		$start = AAL_Abilities::WORK_HOURS[0];
+		$end   = AAL_Abilities::WORK_HOURS[1];
+
+		return $hour < $start || $hour >= $end;
+	}
+
+	/**
+	 * @param object $row
+	 * @return string
+	 */
+	private function suspicious_actor_from_row( $row ) {
+		$user_id = (int) $row->user_id;
+		if ( $user_id > 0 ) {
+			$user = get_user_by( 'id', $user_id );
+			if ( $user ) {
+				return $user->user_nicename;
+			}
+		}
+
+		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
+			$parsed = AAL_API::parse_request_source( $row->request_source );
+			if ( '' !== $parsed['app_name'] ) {
+				return $parsed['app_name'];
+			}
+		}
+
+		return __( 'N/A', 'aryo-activity-log' );
+	}
+
+	/**
+	 * @param array<string, mixed> $group
+	 * @return array<string, mixed>
+	 */
+	private function build_suspicious_finding( $group ) {
+		$ids = array_slice( array_map( 'intval', array_filter( explode( ',', (string) $group['ids_csv'] ) ) ), 0, 5 );
+
+		return array(
+			'rule'       => $group['rule'],
+			'severity'   => $group['severity'],
+			'first_time' => self::hist_time_to_iso8601( (int) $group['first_time'] ),
+			'last_time'  => self::hist_time_to_iso8601( (int) $group['last_time'] ),
+			'actor'      => $group['actor'],
+			'count'      => (int) $group['count'],
+			'log_ids'    => $ids,
+		);
+	}
 }
