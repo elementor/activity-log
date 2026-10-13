@@ -143,6 +143,9 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
+= 2.16.1 - unreleased =
+* Tweak: Added more core settings to the options activity log
+
 = 2.16.0 - 2026-10-12 =
 * New: Suspicious events detection ability for AI agents
 * New: Activity summary ability for AI agents

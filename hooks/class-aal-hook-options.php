@@ -4,6 +4,8 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 class AAL_Hook_Options extends AAL_Hook_Base {
 
 	public function hooks_updated_option( $option, $oldvalue, $_newvalue ) {
+		global $wpdb;
+
 		$whitelist_options = apply_filters( 'aal_whitelist_options', array(
 			// General
 			'blogname',
@@ -11,13 +13,16 @@ class AAL_Hook_Options extends AAL_Hook_Base {
 			'siteurl',
 			'home',
 			'admin_email',
+			'new_admin_email',
 			'users_can_register',
 			'default_role',
 			'WPLANG',
 			'timezone_string',
+			'gmt_offset',
 			'date_format',
 			'time_format',
 			'start_of_week',
+			'site_icon',
 
 			// Writing
 			'use_smilies',
@@ -57,9 +62,12 @@ class AAL_Hook_Options extends AAL_Hook_Base {
 			'moderation_notify',
 			'comment_moderation',
 			'comment_whitelist',
+			'comment_previously_approved',
 			'comment_max_links',
 			'moderation_keys',
 			'blacklist_keys',
+			'disallowed_keys',
+			'show_comments_cookies_opt_in',
 			'show_avatars',
 			'avatar_rating',
 			'avatar_default',
@@ -70,9 +78,13 @@ class AAL_Hook_Options extends AAL_Hook_Base {
 			'thumbnail_crop',
 			'medium_size_w',
 			'medium_size_h',
+			'medium_large_size_w',
+			'medium_large_size_h',
 			'large_size_w',
 			'large_size_h',
 			'uploads_use_yearmonth_folders',
+			'upload_path',
+			'upload_url_path',
 
 			// Permalinks
 			'permalink_structure',
@@ -81,6 +93,9 @@ class AAL_Hook_Options extends AAL_Hook_Base {
 
 			// Privacy
 			'wp_page_for_privacy_policy',
+
+			// Users
+			$wpdb->prefix . 'user_roles',
 
 			// Widgets
 			'sidebars_widgets',
