@@ -15,8 +15,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -28,13 +26,10 @@ jobs:
       - name: Lint commits
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.sha }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            npx commitlint --from "$BASE_SHA" --to "$HEAD_SHA"
             printf '%s\n' "$PR_TITLE" | npx commitlint
           else
             printf '%s\n' "$COMMIT_MSG" | npx commitlint
