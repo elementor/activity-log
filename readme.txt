@@ -155,6 +155,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * New: Setting to expose activity log to AI agents
 * Tweak: Exclude IP addresses from ability responses
 * Tweak: Added schema and ISO-8601 time to the REST logs endpoint
+* Tweak: Added more core settings to the options activity log
 * Fix: Reactivation over an older log table no longer breaks logging ([#244](https://github.com/elementor/activity-log/issues/244))
 
 = 2.15.0 - 2026-09-07 =
