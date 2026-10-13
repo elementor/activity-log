@@ -1,15 +1,15 @@
 ---
-description: Always run PHPUnit before considering a coding task finished
+description: Run lint and targeted tests before committing or finishing
 alwaysApply: true
 ---
 
 # Run tests before finishing
 
-Before declaring any coding task complete (including refactors, bug fixes, and new features):
+Before committing or declaring any coding task complete:
 
-1. Ensure the WordPress test suite is available (`WP_TESTS_DIR` / `bin/install-wp-tests.sh` if missing).
-2. Run `composer test` (or `./vendor/bin/phpunit`) from the plugin root.
-3. If tests fail, fix the failures (or the harness) before finishing — do not stop at "implementation done".
-4. In the final response, briefly report that tests were run and the result (pass/fail + relevant filter if used).
+1. Run `composer lint` from the plugin root.
+2. Run the changed or added tests: `vendor/bin/phpunit --filter <TestClassOrMethod>`.
+3. If either command fails, fix the failures or stop and report — never commit failing code.
+4. The full PHP version matrix is left to CI; do not run the entire suite locally unless the task requires it.
 
-Skip only if the change cannot affect PHP/runtime behavior (e.g. docs-only or pure `.mdc`/README wording with no code/config impact) — say so explicitly.
+Skip only when the change cannot affect PHP/runtime behavior (e.g. docs-only or pure `.mdc` wording with no code/config impact).

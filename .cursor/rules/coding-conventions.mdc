@@ -1,0 +1,13 @@
+---
+description: PHP and test conventions for this plugin
+alwaysApply: true
+---
+
+# Coding conventions
+
+- Code must be compatible with **PHP 7.4+**.
+- Prefer the minimal fix that reuses existing code paths. Do not add new abstractions or WordPress filters unless asked.
+- Tests stay short: use data providers with literal values; no `if`/`else` in tests.
+- Do not modify `phpunit.xml`.
+- Do not bump the plugin version unless asked.
+- Do not rename symbols, files, or APIs unless asked.

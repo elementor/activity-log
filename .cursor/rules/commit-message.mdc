@@ -1,0 +1,44 @@
+---
+description: Commit message format and conventions
+alwaysApply: true
+---
+
+# Commit Message Convention
+
+Every commit message **must** follow this format:
+
+```
+Type: Subject
+```
+
+## Allowed Types
+
+`Feature`, `CI`, `New`, `Tweak`, `Fix`, `Experiment`, `Deprecate`, `Deprecated`, `Revert`, `Internal`
+
+## Rules
+
+- **Subject** must start with an uppercase letter (sentence-case).
+- **Header** (the full first line) must be at most **100 characters**. Exception: if the subject contains "Cherry-pick", the limit is **110 characters**.
+- **Body** and **footer** are optional; separate them from the header with a blank line.
+- Do **not** end the subject with a period.
+
+## Examples
+
+Good:
+
+- `Feature: Add playlist download support`
+- `Fix: Resolve crash when URL field is empty`
+- `Tweak: Improve progress bar responsiveness`
+- `CI: Add commit message linting workflow`
+- `Internal: Refactor download manager threading`
+
+Bad:
+
+- `feature: add playlist support` — type and subject must be sentence-case
+- `Added new feature` — missing `Type: ` prefix
+- `Fix: resolve crash` — subject must start uppercase
+- `Fix: This is a very long commit message that exceeds the one hundred character limit for the header line` — too long
+
+## Changelog and PR title
+
+Every user-facing change adds one short line `* Type: Subject` to BOTH `changelog.txt` and `readme.txt`, under the top version section in each. The PR title equals that changelog line without the leading `* `.

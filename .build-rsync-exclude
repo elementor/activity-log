@@ -2,6 +2,7 @@
 .gitignore
 .github/
 .cursor/
+commitlint.config.js
 .DS_Store
 .phpunit.result*
 .build-rsync-exclude
