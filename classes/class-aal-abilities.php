@@ -145,7 +145,7 @@ class AAL_Abilities {
 			self::ABILITY_DETECT_SUSPICIOUS,
 			array(
 				'label'               => __( 'Detect suspicious events', 'aryo-activity-log' ),
-				'description'         => __( 'Scans activity log entries for suspicious patterns (failed login bursts, privilege changes, sensitive options, off-hours agent activity).', 'aryo-activity-log' ),
+				'description'         => __( 'Scans activity log entries for suspicious patterns (failed login bursts, sensitive options, off-hours agent activity).', 'aryo-activity-log' ),
 				'category'            => self::CATEGORY,
 				'input_schema'        => self::get_detect_suspicious_input_schema(),
 				'output_schema'       => self::get_detect_suspicious_output_schema(),
@@ -512,7 +512,31 @@ class AAL_Abilities {
 			'type'       => 'object',
 			'properties' => array(
 				'range'     => array( 'type' => 'object' ),
-				'findings'  => array( 'type' => 'array' ),
+				'findings'  => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'rule'       => array( 'type' => 'string' ),
+							'severity'   => array( 'type' => 'string' ),
+							'first_time' => array(
+								'type'        => 'string',
+								'description' => __( 'First matching event time in ISO-8601 format (site timezone).', 'aryo-activity-log' ),
+							),
+							'last_time'  => array(
+								'type'        => 'string',
+								'description' => __( 'Last matching event time in ISO-8601 format (site timezone).', 'aryo-activity-log' ),
+							),
+							'actor'      => array( 'type' => 'string' ),
+							'count'      => array( 'type' => 'integer' ),
+							'log_ids'    => array(
+								'type'  => 'array',
+								'items' => array( 'type' => 'integer' ),
+							),
+						),
+						'required'   => array( 'rule', 'severity', 'first_time', 'last_time', 'actor', 'count', 'log_ids' ),
+					),
+				),
 				'truncated' => array( 'type' => 'boolean' ),
 			),
 			'required'   => array( 'range', 'findings', 'truncated' ),

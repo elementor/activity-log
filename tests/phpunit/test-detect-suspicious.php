@@ -40,41 +40,41 @@ class AAL_Test_Detect_Suspicious extends WP_Test_REST_TestCase {
 	}
 
 	public function detect_suspicious_provider() {
-		$burst_rows = array();
-		for ( $i = 0; $i < 5; $i++ ) {
-			$burst_rows[] = array(
-				'hist_time'   => self::FROZEN_NOW,
-				'action'      => 'failed_login',
-				'object_type' => 'Users',
-				'object_name' => 'intruder',
-			);
-		}
-		$after_rows = array_merge(
-			$burst_rows,
-			array(
-				array(
-					'hist_time'   => self::FROZEN_NOW + 60,
-					'action'      => 'logged_in',
-					'object_type' => 'Users',
-					'object_name' => 'intruder',
-				),
-			)
+		$failed_login_row = array(
+			'hist_time'   => self::FROZEN_NOW,
+			'action'      => 'failed_login',
+			'object_type' => 'Users',
+			'object_name' => 'intruder',
 		);
 
 		return array(
-			'failed_login_burst'   => array( $burst_rows, array( 'failed_login_burst' ), array( array( 'rule' => 'failed_login_burst', 'count' => 5 ) ) ),
-			'login_after_failures' => array( $after_rows, array( 'login_after_failures' ), array( array( 'rule' => 'login_after_failures', 'count' => 1 ) ) ),
-			'new_admin'            => array(
+			'failed_login_burst'   => array(
 				array(
+					$failed_login_row,
+					$failed_login_row,
+					$failed_login_row,
+					$failed_login_row,
+					$failed_login_row,
+				),
+				array( 'failed_login_burst' ),
+				array( array( 'rule' => 'failed_login_burst', 'count' => 5 ) ),
+			),
+			'login_after_failures' => array(
+				array(
+					$failed_login_row,
+					$failed_login_row,
+					$failed_login_row,
+					$failed_login_row,
+					$failed_login_row,
 					array(
-						'hist_time'   => self::FROZEN_NOW,
-						'action'      => 'registered',
+						'hist_time'   => self::FROZEN_NOW + 60,
+						'action'      => 'logged_in',
 						'object_type' => 'Users',
-						'object_id'   => self::factory()->user->create( array( 'role' => 'administrator' ) ),
+						'object_name' => 'intruder',
 					),
 				),
-				array( 'new_admin' ),
-				array( array( 'rule' => 'new_admin', 'count' => 1 ) ),
+				array( 'login_after_failures' ),
+				array( array( 'rule' => 'login_after_failures', 'count' => 1 ) ),
 			),
 			'plugin_activated'     => array(
 				array(
@@ -118,16 +118,60 @@ class AAL_Test_Detect_Suspicious extends WP_Test_REST_TestCase {
 		);
 	}
 
-	public function test_detect_suspicious_hides_ip() {
+	public function test_detect_suspicious_new_admin_uses_registered_user() {
+		$new_admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		$this->insert_log(
 			array(
 				'hist_time'   => self::FROZEN_NOW,
-				'action'      => 'failed_login',
+				'action'      => 'registered',
 				'object_type' => 'Users',
-				'object_name' => 'intruder',
+				'object_id'   => $new_admin_id,
 			)
 		);
-		$result = AAL_Main::instance()->abilities->execute_detect_suspicious_events( self::DAY_RANGE, self::FROZEN_NOW );
+		$result = AAL_Main::instance()->abilities->execute_detect_suspicious_events(
+			array_merge( self::DAY_RANGE, array( 'rules' => array( 'new_admin' ) ) ),
+			self::FROZEN_NOW
+		);
+		$this->assertSame( 1, $result['findings'][0]['count'] );
+		$this->assertSame( 'new_admin', $result['findings'][0]['rule'] );
+	}
+
+	public function test_detect_suspicious_groups_repeated_plugin_activations() {
+		$row = array(
+			'hist_time'   => self::FROZEN_NOW,
+			'action'      => 'activated',
+			'object_type' => 'Plugins',
+			'object_name' => 'hello.php',
+		);
+		$this->insert_log( $row );
+		$this->insert_log( $row );
+		$this->insert_log( $row );
+		$result = AAL_Main::instance()->abilities->execute_detect_suspicious_events(
+			array_merge( self::DAY_RANGE, array( 'rules' => array( 'plugin_activated' ) ) ),
+			self::FROZEN_NOW
+		);
+		$this->assertCount( 1, $result['findings'] );
+		$this->assertSame( 3, $result['findings'][0]['count'] );
+	}
+
+	public function test_detect_suspicious_hides_ip() {
+		$row = array(
+			'hist_time'   => self::FROZEN_NOW,
+			'action'      => 'failed_login',
+			'object_type' => 'Users',
+			'object_name' => 'intruder',
+		);
+		$this->insert_log( $row );
+		$this->insert_log( $row );
+		$this->insert_log( $row );
+		$this->insert_log( $row );
+		$this->insert_log( $row );
+		$result = AAL_Main::instance()->abilities->execute_detect_suspicious_events(
+			array_merge( self::DAY_RANGE, array( 'rules' => array( 'failed_login_burst' ) ) ),
+			self::FROZEN_NOW
+		);
+		$this->assertCount( 1, $result['findings'] );
+		$this->assertSame( 5, $result['findings'][0]['count'] );
 		$this->assertStringNotContainsString( self::TEST_LOG_IP, (string) wp_json_encode( $result ) );
 	}
 
