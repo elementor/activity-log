@@ -51,6 +51,7 @@ If you have more than a handful of users, keeping track of who did what by hand 
 * <strong>Options</strong> - Extended custom settings for 3rd party plugins
 * <strong>Export</strong> - Exported activity log file
 * <strong>Request Source</strong> - WP Admin, REST API, WP-CLI, WP-Cron, XML-RPC, WP Abilities, and Application Password name when used
+* <strong>AI Agents</strong> - Read-only access for AI agents (WP 6.9+, opt-in in settings): query logs, summarize activity, and detect suspicious events such as repeated failed logins, new admins, and sensitive setting changes. IP addresses are never exposed.
 * <strong>WooCommerce</strong> - Track products, orders, customers, and more
 * <strong>bbPress</strong> - Forums, topics, replies, taxonomies, and other actions
 * <strong>Emails sent from WordPress site</strong> - Sending successful, sending failed
@@ -82,7 +83,7 @@ Uninstalling the plugin removes all of its data from your database automatically
 * <em>“Activity Log lets you track a huge range of activities. Overall, very easy to use and setup”</em> - [ElegantThemes.com](https://www.elegantthemes.com/blog/tips-tricks/5-best-ways-to-monitor-wordpress-activity-via-the-dashboard)
 
 <h3>Contributions:</h3>
-<strong>Would you like to contribute to this plugin?</strong> You’re more than welcome to submit your pull requests on the [GitHub repo](https://github.com/pojome/activity-log). And, if you have any notes about the code, please open a ticket on the issue tracker.
+<strong>Would you like to contribute to this plugin?</strong> You’re more than welcome to submit your pull requests on the [GitHub repo](https://github.com/elementor/activity-log). And, if you have any notes about the code, please open a ticket on the issue tracker.
 
 == Installation ==
 
@@ -116,6 +117,10 @@ You can easily export logs with Activity Log. We also support exporting filtered
 = Can I see where a change came from? =
 
 Yes. Each log entry records its Request Source, so you can tell whether a change was made through the WP Admin, the REST API, WP-CLI, WP-Cron, XML-RPC, or the WP Abilities API. If the request was authenticated with an Application Password, its name is shown as well. Use the Source filter on the log screen to narrow results down to a specific channel.
+
+= Can AI agents read my activity log? =
+
+Yes, if you enable it in the settings. On WordPress 6.9+, Activity Log exposes read-only abilities through the WordPress Abilities API, so AI agents can query logs, summarize activity, and flag suspicious events. IP addresses are excluded from these responses.
 
 = How long are logs kept? =
 
