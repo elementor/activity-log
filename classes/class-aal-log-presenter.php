@@ -154,6 +154,7 @@ class AAL_Log_Presenter {
 			'date'      => date_i18n( get_option( 'date_format' ), $item->hist_time ),
 			'time'      => date_i18n( get_option( 'time_format' ), $item->hist_time ),
 			'timestamp' => (int) $item->hist_time,
+			'iso8601'   => AAL_Log_Query::hist_time_to_iso8601( (int) $item->hist_time ),
 			'dateshow'  => date( 'd/m/Y', $item->hist_time ),
 		);
 	}

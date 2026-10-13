@@ -17,6 +17,7 @@ class AAL_REST {
 			'callback'            => array( $this, 'get_logs' ),
 			'permission_callback' => array( $this, 'check_permissions' ),
 			'args'                => $this->get_logs_args(),
+			'schema'              => array( $this, 'get_item_schema' ),
 		) );
 
 		register_rest_route( self::NAMESPACE_V1, '/logs/filters', array(
@@ -250,6 +251,41 @@ class AAL_REST {
 		AAL_Main::instance()->api->erase_all_items();
 
 		return rest_ensure_response( array( 'success' => true ) );
+	}
+
+	public function get_item_schema() {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'activity-log-logs',
+			'type'       => 'object',
+			'properties' => array(
+				'items' => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'id'     => array( 'type' => 'integer' ),
+							'date'   => array(
+								'type'       => 'object',
+								'properties' => array(
+									'iso8601'   => array( 'type' => 'string', 'format' => 'date-time' ),
+									'timestamp' => array( 'type' => 'integer' ),
+								),
+							),
+							'source' => array(
+								'type'       => 'object',
+								'properties' => array(
+									'channel'  => array( 'type' => 'string' ),
+									'app_name' => array( 'type' => 'string' ),
+								),
+							),
+						),
+					),
+				),
+				'total' => array( 'type' => 'integer' ),
+				'pages' => array( 'type' => 'integer' ),
+			),
+		);
 	}
 
 	private function get_logs_args() {
