@@ -117,24 +117,27 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		);
 	}
 
-	/** @dataProvider view_cap_provider */
-	public function test_view_cap_grants_read_not_settings( $case, $expected_status ) {
+	public function test_view_cap_allows_query_logs() {
 		$this->insert_sample_log();
 		$user_id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
 		$user    = new WP_User( $user_id );
 		$user->add_cap( 'view_all_aryo_activity_log' );
 		wp_set_current_user( $user_id );
-		$response = match ( $case ) {
-			'query-logs' => $this->dispatch_ability_rest( AAL_Abilities::ABILITY_QUERY_LOGS ),
-			'settings'   => rest_get_server()->dispatch( new WP_REST_Request( 'GET', '/activity-log/v1/settings' ) ),
-		};
-		$this->assertSame( $expected_status, $response->get_status() );
+		$this->assertSame(
+			200,
+			$this->dispatch_ability_rest( AAL_Abilities::ABILITY_QUERY_LOGS )->get_status()
+		);
 	}
 
-	public function view_cap_provider() {
-		return array(
-			'query-logs' => array( 'query-logs', 200 ),
-			'settings'   => array( 'settings', 403 ),
+	public function test_view_cap_denies_settings() {
+		$this->insert_sample_log();
+		$user_id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$user    = new WP_User( $user_id );
+		$user->add_cap( 'view_all_aryo_activity_log' );
+		wp_set_current_user( $user_id );
+		$this->assertSame(
+			403,
+			rest_get_server()->dispatch( new WP_REST_Request( 'GET', '/activity-log/v1/settings' ) )->get_status()
 		);
 	}
 
