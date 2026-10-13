@@ -802,4 +802,227 @@ class AAL_Log_Query {
 			$values
 		);
 	}
+
+	/**
+	 * @param int                  $from_ts
+	 * @param int                  $to_ts
+	 * @param array<int, string>   $rules
+	 * @return array<string, mixed>
+	 */
+	public function detect_suspicious_events( $from_ts, $to_ts, $rules ) {
+		global $wpdb;
+
+		$from_ts    = (int) $from_ts;
+		$to_ts      = (int) $to_ts;
+		$rules      = array_values( array_intersect( $rules, array_keys( AAL_Abilities::SUSPICIOUS_RULES ) ) );
+		$range      = array(
+			'from' => self::hist_time_to_iso8601( $from_ts ),
+			'to'   => self::hist_time_to_iso8601( $to_ts ),
+		);
+		$findings   = array();
+		$truncated  = false;
+		$role_where = $this->get_where_by_role();
+
+		if ( false === $role_where || empty( $rules ) ) {
+			return array( 'range' => $range, 'findings' => $findings, 'truncated' => $truncated );
+		}
+
+		$want_burst   = in_array( 'failed_login_burst', $rules, true );
+		$want_after   = in_array( 'login_after_failures', $rules, true );
+		$row_rules    = array_intersect( $rules, array( 'new_admin', 'plugin_activated', 'sensitive_option', 'agent_off_hours' ) );
+		$burst_rows   = array();
+		$first_fail   = array();
+
+		if ( $want_burst || $want_after ) {
+			$burst_sql  = $this->prepare_summary_sql(
+				$role_where,
+				'SELECT `hist_ip`, COUNT(`histid`) AS `cnt`, MIN(`hist_time`) AS `min_time`, MAX(`hist_time`) AS `max_time`, GROUP_CONCAT(`histid` ORDER BY `histid` DESC) AS `ids`, MAX(`object_name`) AS `actor` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d AND `action` = %s',
+				' GROUP BY `hist_ip` HAVING `cnt` >= %d ORDER BY `cnt` DESC LIMIT 50',
+				array( $wpdb->activity_log, $from_ts, $to_ts, 'failed_login', AAL_Abilities::FAILED_LOGIN_THRESHOLD )
+			);
+			$burst_rows = $wpdb->get_results( $burst_sql );
+		}
+
+		if ( $want_burst && $burst_rows ) {
+			foreach ( $burst_rows as $row ) {
+				$findings[] = $this->build_suspicious_finding(
+					'failed_login_burst',
+					AAL_Abilities::SUSPICIOUS_RULES['failed_login_burst'],
+					(int) $row->max_time,
+					(string) $row->actor,
+					(int) $row->cnt,
+					(string) $row->ids
+				);
+			}
+		}
+
+		if ( $want_after && $burst_rows ) {
+			$ips = wp_list_pluck( $burst_rows, 'hist_ip' );
+			foreach ( $burst_rows as $row ) {
+				$first_fail[ $row->hist_ip ] = (int) $row->min_time;
+			}
+			$placeholders = implode( ', ', array_fill( 0, count( $ips ), '%s' ) );
+			$login_sql    = $this->prepare_summary_sql(
+				$role_where,
+				'SELECT `histid`, `user_id`, `action`, `object_type`, `object_name`, `object_id`, `hist_time`, `request_source`, `hist_ip` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d AND `action` = %s AND `hist_ip` IN (' . $placeholders . ')',
+				' ORDER BY `hist_time` DESC LIMIT 50',
+				array_merge( array( $wpdb->activity_log, $from_ts, $to_ts, 'logged_in' ), $ips )
+			);
+			$login_rows   = $wpdb->get_results( $login_sql );
+			if ( $login_rows ) {
+				foreach ( $login_rows as $login ) {
+					$ip = $login->hist_ip;
+					if ( ! isset( $first_fail[ $ip ] ) || (int) $login->hist_time <= $first_fail[ $ip ] ) {
+						continue;
+					}
+					$findings[] = $this->build_suspicious_finding(
+						'login_after_failures',
+						AAL_Abilities::SUSPICIOUS_RULES['login_after_failures'],
+						(int) $login->hist_time,
+						(string) $login->object_name,
+						1,
+						(string) $login->histid
+					);
+				}
+			}
+		}
+
+		if ( ! empty( $row_rules ) ) {
+			$parts = array();
+			if ( in_array( 'new_admin', $row_rules, true ) ) {
+				$parts[] = "(`object_type` = 'Users' AND `action` = 'registered')";
+			}
+			if ( in_array( 'plugin_activated', $row_rules, true ) ) {
+				$parts[] = "(`object_type` = 'Plugins' AND `action` = 'activated')";
+			}
+			if ( in_array( 'sensitive_option', $row_rules, true ) ) {
+				$quoted  = array();
+				foreach ( AAL_Abilities::SENSITIVE_OPTIONS as $option_name ) {
+					$quoted[] = "'" . esc_sql( $option_name ) . "'";
+				}
+				$parts[] = "(`object_type` = 'Options' AND `action` = 'updated' AND `object_name` IN (" . implode( ', ', $quoted ) . '))';
+			}
+			if ( in_array( 'agent_off_hours', $row_rules, true ) ) {
+				$parts[] = "(`request_source` LIKE 'abilities%' OR `request_source` LIKE '%|app:%' OR `request_source` LIKE 'app:%')";
+			}
+
+			$row_sql  = $this->prepare_summary_sql(
+				$role_where,
+				'SELECT `histid`, `user_id`, `action`, `object_type`, `object_name`, `object_id`, `hist_time`, `request_source` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d AND (' . implode( ' OR ', $parts ) . ')',
+				' ORDER BY `hist_time` DESC LIMIT %d',
+				array( $wpdb->activity_log, $from_ts, $to_ts, AAL_Abilities::SUSPICIOUS_ROW_LIMIT )
+			);
+			$row_rows = $wpdb->get_results( $row_sql );
+			$truncated = $row_rows && count( $row_rows ) >= AAL_Abilities::SUSPICIOUS_ROW_LIMIT;
+			$admin_ids = in_array( 'new_admin', $row_rules, true )
+				? array_map( 'intval', get_users( array( 'role' => 'administrator', 'fields' => 'ID' ) ) )
+				: array();
+
+			if ( $row_rows ) {
+				foreach ( $row_rows as $row ) {
+					$rule = $this->classify_row( $row, $admin_ids );
+					if ( null === $rule || ! in_array( $rule, $row_rules, true ) ) {
+						continue;
+					}
+					$findings[] = $this->build_suspicious_finding(
+						$rule,
+						AAL_Abilities::SUSPICIOUS_RULES[ $rule ],
+						(int) $row->hist_time,
+						$this->suspicious_actor_from_row( $row ),
+						1,
+						(string) $row->histid
+					);
+				}
+			}
+		}
+
+		return array( 'range' => $range, 'findings' => $findings, 'truncated' => $truncated );
+	}
+
+	/**
+	 * @param object               $row
+	 * @param array<int, int>      $admin_ids
+	 * @return string|null
+	 */
+	private function classify_row( $row, $admin_ids ) {
+		foreach ( array_keys( AAL_Abilities::SUSPICIOUS_RULES ) as $rule ) {
+			switch ( $rule ) {
+				case 'new_admin':
+					if ( 'Users' === $row->object_type && 'registered' === $row->action && in_array( (int) $row->object_id, $admin_ids, true ) ) {
+						return $rule;
+					}
+					break;
+				case 'plugin_activated':
+					if ( 'Plugins' === $row->object_type && 'activated' === $row->action ) {
+						return $rule;
+					}
+					break;
+				case 'sensitive_option':
+					if ( 'Options' === $row->object_type && 'updated' === $row->action && in_array( $row->object_name, AAL_Abilities::SENSITIVE_OPTIONS, true ) ) {
+						return $rule;
+					}
+					break;
+				case 'agent_off_hours':
+					if ( $this->is_agent_request_source( $row->request_source ) && $this->is_off_hours_hist_time( (int) $row->hist_time ) ) {
+						return $rule;
+					}
+					break;
+			}
+		}
+
+		return null;
+	}
+
+	private function is_agent_request_source( $request_source ) {
+		return 0 === strpos( (string) $request_source, 'abilities' )
+			|| false !== strpos( (string) $request_source, '|app:' )
+			|| 0 === strpos( (string) $request_source, 'app:' );
+	}
+
+	private function is_off_hours_hist_time( $hist_time ) {
+		$hour  = (int) wp_date( 'G', self::hist_time_to_unix( $hist_time ) );
+		$start = AAL_Abilities::WORK_HOURS[0];
+		$end   = AAL_Abilities::WORK_HOURS[1];
+
+		return $hour < $start || $hour >= $end;
+	}
+
+	/**
+	 * @param object $row
+	 * @return string
+	 */
+	private function suspicious_actor_from_row( $row ) {
+		$user_id = (int) $row->user_id;
+		if ( $user_id > 0 ) {
+			$user = get_user_by( 'id', $user_id );
+			if ( $user ) {
+				return $user->user_nicename;
+			}
+		}
+
+		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
+			$parsed = AAL_API::parse_request_source( $row->request_source );
+			if ( '' !== $parsed['app_name'] ) {
+				return $parsed['app_name'];
+			}
+		}
+
+		return __( 'N/A', 'aryo-activity-log' );
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function build_suspicious_finding( $rule, $severity, $hist_time, $actor, $count, $ids_csv ) {
+		$ids = array_slice( array_map( 'intval', array_filter( explode( ',', (string) $ids_csv ) ) ), 0, 5 );
+
+		return array(
+			'rule'     => $rule,
+			'severity' => $severity,
+			'time'     => self::hist_time_to_iso8601( $hist_time ),
+			'actor'    => $actor,
+			'count'    => $count,
+			'log_ids'  => $ids,
+		);
+	}
 }

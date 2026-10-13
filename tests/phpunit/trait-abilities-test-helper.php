@@ -16,6 +16,7 @@ trait AAL_Abilities_Test_Helper {
 				AAL_Abilities::ABILITY_GET_LOG,
 				AAL_Abilities::ABILITY_GET_FILTERS,
 				AAL_Abilities::ABILITY_SUMMARIZE_ACTIVITY,
+				AAL_Abilities::ABILITY_DETECT_SUSPICIOUS,
 			) as $name
 		) {
 			if ( wp_has_ability( $name ) ) {

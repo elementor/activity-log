@@ -144,6 +144,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 == Changelog ==
 
 = 2.16.0 - 2026-10-12 =
+* New: Suspicious events detection ability for AI agents
 * New: Activity summary ability for AI agents
 * New: Read-only Abilities API support for AI agents (WP 6.9+)
 * New: Setting to expose activity log to AI agents
