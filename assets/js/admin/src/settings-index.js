@@ -1,5 +1,5 @@
 import { createRoot } from '@wordpress/element';
-import Settings from './settings';
+import Settings from './settings/settings';
 
 const container = document.getElementById( 'aal-settings-root' );
 if ( container ) {

@@ -6,7 +6,8 @@ import {
 	Spinner,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { fetchSettings, saveSettings, eraseLogs } from './api';
+import { fetchSettings, saveSettings, eraseLogs } from '../api';
+import EraseLogsRow from './erase-logs-row';
 
 export default function Settings() {
 	const [ schema, setSchema ] = useState( null );
@@ -216,25 +217,7 @@ export default function Settings() {
 					) }
 
 					{ canEraseLogs && (
-						<tr>
-							<th scope="row">
-								{ __( 'Delete Log Activities', 'aryo-activity-log' ) }
-							</th>
-							<td>
-								<Button
-									variant="secondary"
-									isDestructive
-									onClick={ handleErase }
-									isBusy={ erasing }
-									disabled={ erasing }
-								>
-									{ __( 'Reset Database', 'aryo-activity-log' ) }
-								</Button>
-								<p className="description">
-									{ __( 'Warning: Clicking this will delete all activities from the database.', 'aryo-activity-log' ) }
-								</p>
-							</td>
-						</tr>
+						<EraseLogsRow erasing={ erasing } onErase={ handleErase } />
 					) }
 				</tbody>
 			</table>
