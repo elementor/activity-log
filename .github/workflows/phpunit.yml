@@ -63,7 +63,13 @@ jobs:
           WP_CORE_DIR: /tmp/wordpress
         run: |
           bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 ${{ matrix.wp-version }} || {
-            git clone --depth=1 --branch=trunk https://github.com/WordPress/wordpress-develop.git /tmp/wordpress-develop
+            if [ "${{ matrix.wp-version }}" = "latest" ]; then
+              DEVELOP_BRANCH=$(curl -fsSL http://api.wordpress.org/core/version-check/1.7/ | grep -o '"version":"[0-9.]*' | head -1 | sed 's/"version":"//' | cut -d. -f1,2)
+            else
+              DEVELOP_BRANCH="${{ matrix.wp-version }}"
+            fi
+            echo "Primary install failed. Falling back to WordPress develop branch ${DEVELOP_BRANCH}."
+            git clone --depth=1 --branch="$DEVELOP_BRANCH" https://github.com/WordPress/wordpress-develop.git /tmp/wordpress-develop
             mkdir -p /tmp/wordpress-tests-lib
             cp -r /tmp/wordpress-develop/tests/phpunit/* /tmp/wordpress-tests-lib/
 
