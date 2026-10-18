@@ -1,7 +1,6 @@
-export const FILTER_KEYS = [
-	'dateshow', 'capshow', 'usershow', 'typeshow',
-	'showaction', 'sourceshow', 'filter_ip', 's',
-];
+import { FILTER_KEYS } from '../filter-keys';
+
+export { FILTER_KEYS };
 
 const config = window.aalAdmin || {};
 

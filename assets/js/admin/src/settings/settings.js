@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from '@wordpress/element';
 import {
 	Button,
+	SelectControl,
 	Notice,
 	Spinner,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { fetchSettings, saveSettings, eraseLogs } from '../api';
-import SettingRow from './setting-row';
 import EraseLogsRow from './erase-logs-row';
 
 export default function Settings() {
@@ -108,36 +108,114 @@ export default function Settings() {
 
 			<table className="form-table" role="presentation">
 				<tbody>
-					<SettingRow
-						id="aal-logs-lifespan"
-						schema={ schema.logs_lifespan }
-						value={ values.logs_lifespan }
-						onChange={ ( v ) => updateValue( 'logs_lifespan', v ) }
-					/>
-					<SettingRow
-						id="aal-logs-failed-login"
-						schema={ schema.logs_failed_login }
-						value={ values.logs_failed_login }
-						onChange={ ( v ) => updateValue( 'logs_failed_login', v ) }
-					/>
-					<SettingRow
-						id="aal-logs-email"
-						schema={ schema.logs_email }
-						value={ values.logs_email }
-						onChange={ ( v ) => updateValue( 'logs_email', v ) }
-					/>
-					<SettingRow
-						id="aal-log-visitor-ip-source"
-						schema={ schema.log_visitor_ip_source }
-						value={ values.log_visitor_ip_source }
-						onChange={ ( v ) => updateValue( 'log_visitor_ip_source', v ) }
-					/>
-					<SettingRow
-						id="aal-abilities-agent-exposure"
-						schema={ schema.abilities_agent_exposure }
-						value={ values.abilities_agent_exposure }
-						onChange={ ( v ) => updateValue( 'abilities_agent_exposure', v ) }
-					/>
+					{ schema.logs_lifespan && (
+						<tr>
+							<th scope="row">
+								<label htmlFor="aal-logs-lifespan">
+									{ schema.logs_lifespan.label }
+								</label>
+							</th>
+							<td>
+								<input
+									id="aal-logs-lifespan"
+									type="number"
+									min="1"
+									step="1"
+									className="small-text"
+									value={ values.logs_lifespan || '' }
+									onChange={ ( e ) => updateValue( 'logs_lifespan', e.target.value ) }
+								/>
+								{ ' ' }
+								<span>{ schema.logs_lifespan.suffix }</span>
+								{ schema.logs_lifespan.description && (
+									<p className="description">{ schema.logs_lifespan.description }</p>
+								) }
+							</td>
+						</tr>
+					) }
+
+					{ schema.logs_failed_login && (
+						<tr>
+							<th scope="row">
+								<label htmlFor="aal-logs-failed-login">
+									{ schema.logs_failed_login.label }
+								</label>
+							</th>
+							<td>
+								<SelectControl
+									id="aal-logs-failed-login"
+									value={ values.logs_failed_login || 'yes' }
+									options={ schema.logs_failed_login.options }
+									onChange={ ( v ) => updateValue( 'logs_failed_login', v ) }
+									__nextHasNoMarginBottom
+								/>
+							</td>
+						</tr>
+					) }
+
+					{ schema.logs_email && (
+						<tr>
+							<th scope="row">
+								<label htmlFor="aal-logs-email">
+									{ schema.logs_email.label }
+								</label>
+							</th>
+							<td>
+								<SelectControl
+									id="aal-logs-email"
+									value={ values.logs_email || 'yes' }
+									options={ schema.logs_email.options }
+									onChange={ ( v ) => updateValue( 'logs_email', v ) }
+									__nextHasNoMarginBottom
+								/>
+							</td>
+						</tr>
+					) }
+
+					{ schema.log_visitor_ip_source && (
+						<tr>
+							<th scope="row">
+								<label htmlFor="aal-log-visitor-ip-source">
+									{ schema.log_visitor_ip_source.label }
+								</label>
+							</th>
+							<td>
+								<SelectControl
+									id="aal-log-visitor-ip-source"
+									value={ values.log_visitor_ip_source || 'REMOTE_ADDR' }
+									options={ schema.log_visitor_ip_source.options }
+									onChange={ ( v ) => updateValue( 'log_visitor_ip_source', v ) }
+									__nextHasNoMarginBottom
+								/>
+								{ schema.log_visitor_ip_source.description && (
+									<p className="description">{ schema.log_visitor_ip_source.description }</p>
+								) }
+							</td>
+						</tr>
+					) }
+
+					{ schema.abilities_agent_exposure && (
+						<tr>
+							<th scope="row">
+								<label htmlFor="aal-abilities-agent-exposure">
+									{ schema.abilities_agent_exposure.label }
+								</label>
+							</th>
+							<td>
+								<SelectControl
+									id="aal-abilities-agent-exposure"
+									value={ values.abilities_agent_exposure || 'no' }
+									options={ schema.abilities_agent_exposure.options }
+									onChange={ ( v ) => updateValue( 'abilities_agent_exposure', v ) }
+									__nextHasNoMarginBottom
+								/>
+								{ schema.abilities_agent_exposure.description && (
+									<p className="description">{ schema.abilities_agent_exposure.description }</p>
+								) }
+							</td>
+						</tr>
+					) }
+
 					{ canEraseLogs && (
 						<EraseLogsRow erasing={ erasing } onErase={ handleErase } />
 					) }

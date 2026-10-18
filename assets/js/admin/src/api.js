@@ -1,5 +1,5 @@
 import apiFetch from '@wordpress/api-fetch';
-import { FILTER_KEYS } from './logs/query';
+import { FILTER_KEYS } from './filter-keys';
 
 const config = window.aalAdmin || {};
 

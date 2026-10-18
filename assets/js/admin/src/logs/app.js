@@ -67,18 +67,13 @@ export default function App() {
 
 	const resetFilters = () => {
 		setSearchInput( '' );
-		setParams( ( prev ) => ( {
-			...prev,
-			dateshow: '',
-			capshow: '',
-			usershow: '',
-			typeshow: '',
-			showaction: '',
-			sourceshow: '',
-			filter_ip: '',
-			s: '',
-			page: 1,
-		} ) );
+		setParams( ( prev ) => {
+			const cleared = { ...prev, page: 1 };
+			FILTER_KEYS.forEach( ( key ) => {
+				cleared[ key ] = '';
+			} );
+			return cleared;
+		} );
 	};
 
 	const hasActiveFilters = FILTER_KEYS.some( ( key ) => params[ key ] !== '' );
