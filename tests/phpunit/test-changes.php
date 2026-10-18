@@ -156,4 +156,30 @@ class AAL_Test_Changes extends WP_UnitTestCase {
 		$this->assertSame( array( 'true', 'false' ), $result['changes']['flag'] );
 		$this->assertSame( array( 'x', null ), $result['changes']['gone'] );
 	}
+
+	/**
+	 * @dataProvider diff_provider
+	 */
+	public function test_diff_cases( $old, $new, $expected_field, $expected_pair ) {
+		$result = AAL_Changes::diff( $old, $new );
+		$this->assertSame( $expected_pair, $result['changes'][ $expected_field ] );
+	}
+
+	public function diff_provider() {
+		$base = str_repeat( 'x', 200 );
+		return array(
+			'nested depth-2 secret is redacted' => array(
+				array( 'settings' => array( 'smtp' => array( 'password' => 'old-pw', 'host' => 'a' ) ) ),
+				array( 'settings' => array( 'smtp' => array( 'password' => 'new-pw', 'host' => 'a' ) ) ),
+				'settings[smtp]',
+				array( '[redacted]', '[redacted]' ),
+			),
+			'values differing only after char 200 are detected' => array(
+				array( 'field' => $base . 'A' ),
+				array( 'field' => $base . 'B' ),
+				'field',
+				array( $base . '…', $base . '…' ),
+			),
+		);
+	}
 }

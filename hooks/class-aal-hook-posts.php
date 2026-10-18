@@ -61,9 +61,11 @@ class AAL_Hook_Posts extends AAL_Hook_Base {
 			'object_name'    => $this->_draft_or_post_title( $post->ID ),
 		);
 
-		$diff = $this->build_post_changes( $post );
-		if ( ! empty( $diff ) ) {
-			$args['meta'] = $diff;
+		if ( 'updated' === $action ) {
+			$diff = $this->build_post_changes( $post );
+			if ( ! empty( $diff ) ) {
+				$args['meta'] = $diff;
+			}
 		}
 
 		aal_insert_log( $args );

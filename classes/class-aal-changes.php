@@ -11,15 +11,19 @@ final class AAL_Changes {
 		$flat_new = self::flatten( $new );
 		$changes  = array();
 		foreach ( array_unique( array_merge( array_keys( $flat_old ), array_keys( $flat_new ) ) ) as $field ) {
-			$old_norm = self::normalize( array_key_exists( $field, $flat_old ) ? $flat_old[ $field ] : null );
-			$new_norm = self::normalize( array_key_exists( $field, $flat_new ) ? $flat_new[ $field ] : null );
+			$old_raw = array_key_exists( $field, $flat_old ) ? $flat_old[ $field ] : null;
+			$new_raw = array_key_exists( $field, $flat_new ) ? $flat_new[ $field ] : null;
+			$old_norm = self::normalize( $old_raw );
+			$new_norm = self::normalize( $new_raw );
 			if ( $old_norm === $new_norm ) {
 				continue;
 			}
-			$secret = self::is_secret( $field );
+			$secret = self::is_secret( $field )
+				|| self::has_nested_secret( $old_raw )
+				|| self::has_nested_secret( $new_raw );
 			$changes[ $field ] = array(
-				( $secret && null !== $old_norm && '' !== $old_norm ) ? '[redacted]' : $old_norm,
-				( $secret && null !== $new_norm && '' !== $new_norm ) ? '[redacted]' : $new_norm,
+				( $secret && null !== $old_norm && '' !== $old_norm ) ? '[redacted]' : self::truncate( $old_norm ),
+				( $secret && null !== $new_norm && '' !== $new_norm ) ? '[redacted]' : self::truncate( $new_norm ),
 			);
 		}
 		$result = array();
@@ -60,7 +64,29 @@ final class AAL_Changes {
 		} else {
 			$value = (string) $value;
 		}
+		return $value;
+	}
+
+	private static function truncate( $value ) {
+		if ( null === $value ) {
+			return null;
+		}
 		return mb_strlen( $value ) > self::MAX_LENGTH ? mb_substr( $value, 0, self::MAX_LENGTH ) . '…' : $value;
+	}
+
+	private static function has_nested_secret( $value ) {
+		if ( ! is_array( $value ) && ! is_object( $value ) ) {
+			return false;
+		}
+		foreach ( (array) $value as $key => $nested ) {
+			if ( is_string( $key ) && self::is_secret( $key ) ) {
+				return true;
+			}
+			if ( ( is_array( $nested ) || is_object( $nested ) ) && self::has_nested_secret( $nested ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static function is_secret( $field ) {

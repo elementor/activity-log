@@ -90,6 +90,44 @@ class AAL_Test_Hook_Posts extends WP_UnitTestCase {
 		$this->assertSame( array( '[redacted]', '[redacted]' ), $meta['changes']['post_password'] );
 	}
 
+	/**
+	 * @dataProvider created_post_provider
+	 */
+	public function test_created_post_has_no_changes( $status ) {
+		$post_id = self::factory()->post->create(
+			array(
+				'post_title'  => 'New Post',
+				'post_status' => 'auto-draft',
+			)
+		);
+
+		global $wpdb;
+		$wpdb->query( "DELETE FROM `{$wpdb->activity_log}` WHERE `object_id` = {$post_id}" );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => $status,
+				'post_title'  => 'Published Post',
+			)
+		);
+
+		$row = $this->get_latest_post_log( $post_id );
+		$this->assertNotEmpty( $row );
+		$this->assertSame( 'created', $row->action );
+
+		if ( ! empty( $row->meta ) ) {
+			$meta = json_decode( $row->meta, true );
+			$this->assertTrue( empty( $meta['changes'] ) );
+		}
+	}
+
+	public function created_post_provider() {
+		return array(
+			'publish' => array( 'publish' ),
+		);
+	}
+
 	public function test_noop_save_has_no_changes() {
 		$post_id = self::factory()->post->create(
 			array(
