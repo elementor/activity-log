@@ -1,4 +1,5 @@
 import apiFetch from '@wordpress/api-fetch';
+import { FILTER_KEYS } from './logs/query';
 
 const config = window.aalAdmin || {};
 
@@ -34,14 +35,9 @@ export function buildExportUrl( filters ) {
 		return '';
 	}
 
-	const EXPORT_FILTER_KEYS = [
-		'dateshow', 'capshow', 'usershow', 'typeshow',
-		'showaction', 'sourceshow', 'filter_ip', 's',
-	];
-
 	const url = new URL( base, window.location.origin );
 
-	EXPORT_FILTER_KEYS.forEach( ( key ) => {
+	FILTER_KEYS.forEach( ( key ) => {
 		if ( filters[ key ] ) {
 			url.searchParams.set( key, filters[ key ] );
 		}
