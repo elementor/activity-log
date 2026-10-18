@@ -38,6 +38,45 @@ class Test_AAL_Logs_REST extends WP_UnitTestCase {
 		$this->assertSame( 'date-time', $iso8601['format'] );
 	}
 
+	public function test_get_logs_includes_changes() {
+		$this->insert_sample_log(
+			array(
+				'meta' => wp_json_encode(
+					array(
+						'changes'         => array( 'blogname' => array( 'Old', 'New' ) ),
+						'changes_omitted' => 2,
+					),
+					JSON_UNESCAPED_UNICODE
+				),
+			)
+		);
+
+		$response = rest_get_server()->dispatch( new WP_REST_Request( 'GET', '/activity-log/v1/logs' ) );
+		$item     = $response->get_data()['items'][0];
+
+		$this->assertSame( array( 'Old', 'New' ), $item['changes']['blogname'] );
+		$this->assertSame( 2, $item['changes_omitted'] );
+	}
+
+	public function test_get_logs_omits_changes_for_old_rows() {
+		$this->insert_sample_log( array( 'meta' => '' ) );
+
+		$response = rest_get_server()->dispatch( new WP_REST_Request( 'GET', '/activity-log/v1/logs' ) );
+		$item     = $response->get_data()['items'][0];
+
+		$this->assertArrayNotHasKey( 'changes', $item );
+		$this->assertArrayNotHasKey( 'changes_omitted', $item );
+	}
+
+	public function test_logs_schema_includes_changes() {
+		$handler = rest_get_server()->get_routes()['/activity-log/v1/logs'][0];
+		$schema  = call_user_func( $handler['schema'] );
+		$props   = $schema['properties']['items']['items']['properties'];
+
+		$this->assertArrayHasKey( 'changes', $props );
+		$this->assertArrayHasKey( 'changes_omitted', $props );
+	}
+
 	private function insert_sample_log( $overrides = array() ) {
 		global $wpdb;
 		$row = array_merge(

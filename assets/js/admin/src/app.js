@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from '@wordpress/element';
 import {
 	Button,
+	Modal,
 	SelectControl,
 	SearchControl,
 	Spinner,
@@ -31,12 +32,13 @@ const styles = {
 	loading: { textAlign: 'center', padding: '40px 0' },
 	pagination: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, justifyContent: 'flex-end' },
 	paginationInfo: { fontSize: 13, color: '#50575e' },
-	badgeBase: { display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 'inherit', lineHeight: '14px', textDecoration: 'none' },
+	badgeBase: { display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 'inherit', lineHeight: '14px', textDecoration: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' },
 	badgeChannel: { background: '#e7f0f7', color: '#1e4d78' },
 	badgeApp: { background: '#f0e7f7', color: '#4d1e78' },
 	noItems: { textAlign: 'center', padding: 20, color: '#646970' },
 	promotionNotice: { margin: '8px 0' },
 	activeFilter: { fontWeight: 600, background: '#e5f5fa', borderRadius: 3, padding: '1px 4px', display: 'inline-flex', alignItems: 'center', gap: 2 },
+	changesCell: { maxInlineSize: 280, overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' },
 };
 
 function getInitialState() {
@@ -489,92 +491,167 @@ export default function App() {
 	);
 }
 
+function formatChangeValue( value, other ) {
+	if ( null === value && null === other ) {
+		return __( 'changed', 'aryo-activity-log' );
+	}
+	if ( null === value ) {
+		return '—';
+	}
+	return String( value );
+}
+
+function ChangesModal( { changes, omitted, onClose } ) {
+	return (
+		<Modal
+			title={ __( 'Changes', 'aryo-activity-log' ) }
+			onRequestClose={ onClose }
+			size="large"
+		>
+			{ omitted > 0 && (
+				<p>
+					{ omitted }{ ' ' }
+					{ __( 'more fields were not stored.', 'aryo-activity-log' ) }
+				</p>
+			) }
+			<table className="widefat striped" style={ { margin: 0 } }>
+				<thead>
+					<tr>
+						<th>{ __( 'Field', 'aryo-activity-log' ) }</th>
+						<th>{ __( 'Before', 'aryo-activity-log' ) }</th>
+						<th>{ __( 'After', 'aryo-activity-log' ) }</th>
+					</tr>
+				</thead>
+				<tbody>
+					{ Object.entries( changes ).map( ( [ field, pair ] ) => {
+						const before = formatChangeValue( pair[ 0 ], pair[ 1 ] );
+						const after = formatChangeValue( pair[ 1 ], pair[ 0 ] );
+						return (
+							<tr key={ field }>
+								<td>{ field }</td>
+								<td style={ styles.changesCell }>{ before }</td>
+								<td style={ styles.changesCell }>{ after }</td>
+							</tr>
+						);
+					} ) }
+				</tbody>
+			</table>
+		</Modal>
+	);
+}
+
 function LogRow( { item, params, onFilter } ) {
-	const { date, author, source, type, label, description, action } = item;
+	const [ changesOpen, setChangesOpen ] = useState( false );
+	const { date, author, source, type, label, description, action, changes, changes_omitted: omitted } = item;
+	const changeCount = changes ? Object.keys( changes ).length : 0;
 
 	return (
-		<tr>
-			<td>
-				<strong>{ date.relative }</strong>
-				<br />
-				<FilterLink filterKey="dateshow" value={ date.dateshow } params={ params } onFilter={ onFilter }>
-					{ date.date }
-				</FilterLink>
-				<br />
-				{ date.time }
-			</td>
-			<td>
-				{ author.id > 0 ? (
-					<FilterLink filterKey="usershow" value={ String( author.id ) } params={ params } onFilter={ onFilter }>
-						{ author.avatar && (
-							<img
-								src={ author.avatar }
-								alt=""
-								width="40"
-								height="40"
-								className="avatar"
-								style={ { verticalAlign: 'middle', marginRight: 4, borderRadius: '50%' } }
-							/>
-						) }
-						<span style={ { verticalAlign: 'middle' } }>{ author.name }</span>
+		<>
+			<tr>
+				<td>
+					<strong>{ date.relative }</strong>
+					<br />
+					<FilterLink filterKey="dateshow" value={ date.dateshow } params={ params } onFilter={ onFilter }>
+						{ date.date }
 					</FilterLink>
-				) : (
-					<span>{ author.name }</span>
-				) }
-				{ author.role && <br /> }
-				{ author.role && <small>{ author.role }</small> }
-				{ source.app_name && (
-					<>
-						<br />
-						<small><SourceBadge type="app">{ source.app_name }</SourceBadge></small>
-					</>
-				) }
-			</td>
-			<td>
-				{ source.channel_label && (
-					<>
-						<SourceBadge
-							type="channel"
-							onClick={ ( e ) => {
-								e.preventDefault();
-								onFilter( 'sourceshow', source.channel );
-							} }
-						>
-							{ source.channel_label }
-						</SourceBadge>
-						<br />
-					</>
-				) }
-				{ source.ip && (
-					<FilterLink filterKey="filter_ip" value={ source.ip } params={ params } onFilter={ onFilter }>
-						{ source.ip }
+					<br />
+					{ date.time }
+				</td>
+				<td>
+					{ author.id > 0 ? (
+						<FilterLink filterKey="usershow" value={ String( author.id ) } params={ params } onFilter={ onFilter }>
+							{ author.avatar && (
+								<img
+									src={ author.avatar }
+									alt=""
+									width="40"
+									height="40"
+									className="avatar"
+									style={ { verticalAlign: 'middle', marginInlineEnd: 4, borderRadius: '50%' } }
+								/>
+							) }
+							<span style={ { verticalAlign: 'middle' } }>{ author.name }</span>
+						</FilterLink>
+					) : (
+						<span>{ author.name }</span>
+					) }
+					{ author.role && <br /> }
+					{ author.role && <small>{ author.role }</small> }
+					{ source.app_name && (
+						<>
+							<br />
+							<small><SourceBadge type="app">{ source.app_name }</SourceBadge></small>
+						</>
+					) }
+				</td>
+				<td>
+					{ source.channel_label && (
+						<>
+							<SourceBadge
+								type="channel"
+								onClick={ ( e ) => {
+									e.preventDefault();
+									onFilter( 'sourceshow', source.channel );
+								} }
+							>
+								{ source.channel_label }
+							</SourceBadge>
+							<br />
+						</>
+					) }
+					{ source.ip && (
+						<FilterLink filterKey="filter_ip" value={ source.ip } params={ params } onFilter={ onFilter }>
+							{ source.ip }
+						</FilterLink>
+					) }
+				</td>
+				<td>
+					<FilterLink filterKey="typeshow" value={ type.value } params={ params } onFilter={ onFilter }>
+						{ type.label }
 					</FilterLink>
-				) }
-			</td>
-			<td>
-				<FilterLink filterKey="typeshow" value={ type.value } params={ params } onFilter={ onFilter }>
-					{ type.label }
-				</FilterLink>
-			</td>
-			<td>{ label.label }</td>
-			<td>
-				{ description.text }
-				{ Object.keys( description.actions ).length > 0 && (
-					<div className="row-actions">
-						{ Object.entries( description.actions ).map( ( [ key, url ], i ) => (
-							<span key={ key } className={ key }>
-								{ i > 0 && ' | ' }
-								<a href={ url }>{ key.charAt( 0 ).toUpperCase() + key.slice( 1 ) }</a>
-							</span>
-						) ) }
-					</div>
-				) }
-			</td>
-			<td>
-				<FilterLink filterKey="showaction" value={ action.value } params={ params } onFilter={ onFilter }>
-					{ action.label }
-				</FilterLink>
-			</td>
-		</tr>
+				</td>
+				<td>{ label.label }</td>
+				<td>
+					{ description.text }
+					{ changeCount > 0 && (
+						<div className="row-actions" style={ { position: 'static', marginBlockStart: 4 } }>
+							<a
+								href="#"
+								onClick={ ( event ) => {
+									event.preventDefault();
+									setChangesOpen( true );
+								} }
+							>
+								{ changeCount }{ ' ' }
+								{ __( 'changes', 'aryo-activity-log' ) }
+								{ omitted ? ` +${ omitted }` : '' }
+							</a>
+						</div>
+					) }
+					{ Object.keys( description.actions ).length > 0 && (
+						<div className="row-actions">
+							{ Object.entries( description.actions ).map( ( [ key, url ], i ) => (
+								<span key={ key } className={ key }>
+									{ i > 0 && ' | ' }
+									<a href={ url }>{ key.charAt( 0 ).toUpperCase() + key.slice( 1 ) }</a>
+								</span>
+							) ) }
+						</div>
+					) }
+				</td>
+				<td>
+					<FilterLink filterKey="showaction" value={ action.value } params={ params } onFilter={ onFilter }>
+						{ action.label }
+					</FilterLink>
+				</td>
+			</tr>
+			{ changesOpen && changeCount > 0 && (
+				<ChangesModal
+					changes={ changes }
+					omitted={ omitted }
+					onClose={ () => setChangesOpen( false ) }
+				/>
+			) }
+		</>
 	);
 }

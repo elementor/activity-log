@@ -12,6 +12,8 @@ class AAL_Log_Presenter {
 	 */
 	private static $ability_meta_allowlist = array(
 		'ability',
+		'changes',
+		'changes_omitted',
 	);
 
 	/**
@@ -70,7 +72,36 @@ class AAL_Log_Presenter {
 			'action'         => self::format_action( $item ),
 		);
 
+		$changes_meta = self::get_changes( $item );
+		if ( ! empty( $changes_meta['changes'] ) ) {
+			$data['changes'] = $changes_meta['changes'];
+		}
+		if ( ! empty( $changes_meta['changes_omitted'] ) ) {
+			$data['changes_omitted'] = (int) $changes_meta['changes_omitted'];
+		}
+
 		return $data;
+	}
+
+	public static function get_changes( $item ) {
+		if ( empty( $item->meta ) ) {
+			return array();
+		}
+
+		$decoded = json_decode( $item->meta, true );
+		if ( ! is_array( $decoded ) || empty( $decoded['changes'] ) || ! is_array( $decoded['changes'] ) ) {
+			return array();
+		}
+
+		$result = array(
+			'changes' => $decoded['changes'],
+		);
+
+		if ( ! empty( $decoded['changes_omitted'] ) ) {
+			$result['changes_omitted'] = (int) $decoded['changes_omitted'];
+		}
+
+		return $result;
 	}
 
 	/**
@@ -132,10 +163,35 @@ class AAL_Log_Presenter {
 				case 'description':
 					$row[ $column ] = $item->object_name;
 					break;
+
+				case 'changes':
+					$row[ $column ] = self::format_changes_export( $item );
+					break;
 			}
 		}
 
 		return $row;
+	}
+
+	private static function format_changes_export( $item ) {
+		$meta = self::get_changes( $item );
+		if ( empty( $meta['changes'] ) ) {
+			return '';
+		}
+
+		$parts = array();
+		foreach ( $meta['changes'] as $field => $pair ) {
+			$old = array_key_exists( 0, $pair ) && null !== $pair[0] ? $pair[0] : '';
+			$new = array_key_exists( 1, $pair ) && null !== $pair[1] ? $pair[1] : '';
+			$parts[] = $field . ': ' . $old . ' → ' . $new;
+		}
+
+		$text = implode( '; ', $parts );
+		if ( ! empty( $meta['changes_omitted'] ) ) {
+			$text .= '; +' . (int) $meta['changes_omitted'] . ' omitted';
+		}
+
+		return $text;
 	}
 
 	public static function get_action_label( $action ) {

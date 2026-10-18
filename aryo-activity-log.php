@@ -30,6 +30,7 @@ define( 'ACTIVITY_LOG__FILE__', __FILE__ );
 define( 'ACTIVITY_LOG_BASE', plugin_basename( ACTIVITY_LOG__FILE__ ) );
 
 include( 'classes/class-aal-maintenance.php' );
+include( 'classes/class-aal-changes.php' );
 include( 'classes/class-aal-log-query.php' );
 include( 'classes/class-aal-log-presenter.php' );
 include( 'classes/class-aal-admin-ui.php' );

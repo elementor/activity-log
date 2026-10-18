@@ -54,16 +54,34 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		) );
 	}
 
-	public function hooks_profile_update( $user_id ) {
+	public function hooks_profile_update( $user_id, $old_user_data = null ) {
 		$user = get_user_by( 'id', $user_id );
 
-		aal_insert_log( array(
-			'action' => 'updated',
-			'object_type' => 'Users',
+		$args = array(
+			'action'         => 'updated',
+			'object_type'    => 'Users',
 			'object_subtype' => 'Profile',
-			'object_id' => $user->ID,
-			'object_name' => $user->user_nicename,
-		) );
+			'object_id'      => $user->ID,
+			'object_name'    => $user->user_nicename,
+		);
+
+		if ( $old_user_data instanceof WP_User ) {
+			$fields = array( 'user_email', 'display_name', 'user_url', 'user_nicename' );
+			$old    = array();
+			$new    = array();
+
+			foreach ( $fields as $field ) {
+				$old[ $field ] = $old_user_data->$field;
+				$new[ $field ] = $user->$field;
+			}
+
+			$diff = AAL_Changes::diff( $old, $new );
+			if ( ! empty( $diff ) ) {
+				$args['meta'] = $diff;
+			}
+		}
+
+		aal_insert_log( $args );
 	}
 
 	public function hooks_wrong_password( $username ) {
@@ -86,7 +104,7 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		add_action( 'clear_auth_cookie', array( &$this, 'hooks_clear_auth_cookie' ) );
 		add_action( 'delete_user', array( &$this, 'hooks_delete_user' ) );
 		add_action( 'user_register', array( &$this, 'hooks_user_register' ) );
-		add_action( 'profile_update', array( &$this, 'hooks_profile_update' ) );
+		add_action( 'profile_update', array( &$this, 'hooks_profile_update' ), 10, 2 );
 		add_filter( 'wp_login_failed', array( &$this, 'hooks_wrong_password' ) );
 
 		parent::__construct();
