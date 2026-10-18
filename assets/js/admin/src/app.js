@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from '@wordpress/element';
 import {
 	Button,
+	Modal,
 	SelectControl,
 	SearchControl,
 	Spinner,
@@ -34,12 +35,10 @@ const styles = {
 	badgeBase: { display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 'inherit', lineHeight: '14px', textDecoration: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' },
 	badgeChannel: { background: '#e7f0f7', color: '#1e4d78' },
 	badgeApp: { background: '#f0e7f7', color: '#4d1e78' },
-	badgeChanges: { background: '#f0f0f1', color: '#2c3338' },
 	noItems: { textAlign: 'center', padding: 20, color: '#646970' },
 	promotionNotice: { margin: '8px 0' },
 	activeFilter: { fontWeight: 600, background: '#e5f5fa', borderRadius: 3, padding: '1px 4px', display: 'inline-flex', alignItems: 'center', gap: 2 },
-	changesCell: { maxInlineSize: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-	changesWrap: { paddingBlock: 8, paddingInline: 12 },
+	changesCell: { maxInlineSize: 280, overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' },
 };
 
 function getInitialState() {
@@ -502,41 +501,47 @@ function formatChangeValue( value, other ) {
 	return String( value );
 }
 
-function ChangesRow( { changes } ) {
+function ChangesModal( { changes, omitted, onClose } ) {
 	return (
-		<tr className="aal-changes-row">
-			<td colSpan={ 7 }>
-				<div style={ styles.changesWrap }>
-					<table className="widefat striped" style={ { margin: 0 } }>
-						<thead>
-							<tr>
-								<th>{ __( 'Field', 'aryo-activity-log' ) }</th>
-								<th>{ __( 'Before', 'aryo-activity-log' ) }</th>
-								<th>{ __( 'After', 'aryo-activity-log' ) }</th>
+		<Modal
+			title={ __( 'Changes', 'aryo-activity-log' ) }
+			onRequestClose={ onClose }
+			size="large"
+		>
+			{ omitted > 0 && (
+				<p>
+					{ omitted }{ ' ' }
+					{ __( 'more fields were not stored.', 'aryo-activity-log' ) }
+				</p>
+			) }
+			<table className="widefat striped" style={ { margin: 0 } }>
+				<thead>
+					<tr>
+						<th>{ __( 'Field', 'aryo-activity-log' ) }</th>
+						<th>{ __( 'Before', 'aryo-activity-log' ) }</th>
+						<th>{ __( 'After', 'aryo-activity-log' ) }</th>
+					</tr>
+				</thead>
+				<tbody>
+					{ Object.entries( changes ).map( ( [ field, pair ] ) => {
+						const before = formatChangeValue( pair[ 0 ], pair[ 1 ] );
+						const after = formatChangeValue( pair[ 1 ], pair[ 0 ] );
+						return (
+							<tr key={ field }>
+								<td>{ field }</td>
+								<td style={ styles.changesCell }>{ before }</td>
+								<td style={ styles.changesCell }>{ after }</td>
 							</tr>
-						</thead>
-						<tbody>
-							{ Object.entries( changes ).map( ( [ field, pair ] ) => {
-								const before = formatChangeValue( pair[ 0 ], pair[ 1 ] );
-								const after = formatChangeValue( pair[ 1 ], pair[ 0 ] );
-								return (
-									<tr key={ field }>
-										<td>{ field }</td>
-										<td style={ styles.changesCell } title={ before }>{ before }</td>
-										<td style={ styles.changesCell } title={ after }>{ after }</td>
-									</tr>
-								);
-							} ) }
-						</tbody>
-					</table>
-				</div>
-			</td>
-		</tr>
+						);
+					} ) }
+				</tbody>
+			</table>
+		</Modal>
 	);
 }
 
 function LogRow( { item, params, onFilter } ) {
-	const [ expanded, setExpanded ] = useState( false );
+	const [ changesOpen, setChangesOpen ] = useState( false );
 	const { date, author, source, type, label, description, action, changes, changes_omitted: omitted } = item;
 	const changeCount = changes ? Object.keys( changes ).length : 0;
 
@@ -609,19 +614,19 @@ function LogRow( { item, params, onFilter } ) {
 				<td>
 					{ description.text }
 					{ changeCount > 0 && (
-						<>
-							{ ' ' }
-							<button
-								type="button"
-								aria-expanded={ expanded }
-								style={ { ...styles.badgeBase, ...styles.badgeChanges } }
-								onClick={ () => setExpanded( ( prev ) => ! prev ) }
+						<div className="row-actions" style={ { position: 'static', marginBlockStart: 4 } }>
+							<a
+								href="#"
+								onClick={ ( event ) => {
+									event.preventDefault();
+									setChangesOpen( true );
+								} }
 							>
 								{ changeCount }{ ' ' }
 								{ __( 'changes', 'aryo-activity-log' ) }
 								{ omitted ? ` +${ omitted }` : '' }
-							</button>
-						</>
+							</a>
+						</div>
 					) }
 					{ Object.keys( description.actions ).length > 0 && (
 						<div className="row-actions">
@@ -640,7 +645,13 @@ function LogRow( { item, params, onFilter } ) {
 					</FilterLink>
 				</td>
 			</tr>
-			{ expanded && changeCount > 0 && <ChangesRow changes={ changes } /> }
+			{ changesOpen && changeCount > 0 && (
+				<ChangesModal
+					changes={ changes }
+					omitted={ omitted }
+					onClose={ () => setChangesOpen( false ) }
+				/>
+			) }
 		</>
 	);
 }
