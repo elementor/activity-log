@@ -1,13 +1,11 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
-/** Diff old/new field maps into a capped, redacted changes payload for log meta. */
 final class AAL_Changes {
 
 	const MAX_FIELDS = 20;
 	const MAX_LENGTH = 200;
 
-	/** @return array{changes?: array<string, array{0:?string, 1:?string}>, changes_omitted?: int} */
 	public static function diff( array $old, array $new ) {
 		$flat_old = self::flatten( $old );
 		$flat_new = self::flatten( $new );
@@ -36,7 +34,6 @@ final class AAL_Changes {
 		return $result;
 	}
 
-	/** Expand one-level associative arrays as field[key]; lists stay whole. */
 	private static function flatten( array $map ) {
 		$flat = array();
 		foreach ( $map as $field => $value ) {
@@ -52,7 +49,6 @@ final class AAL_Changes {
 		return $flat;
 	}
 
-	/** @return string|null */
 	private static function normalize( $value ) {
 		if ( null === $value ) {
 			return null;
@@ -67,7 +63,6 @@ final class AAL_Changes {
 		return mb_strlen( $value ) > self::MAX_LENGTH ? mb_substr( $value, 0, self::MAX_LENGTH ) . '…' : $value;
 	}
 
-	/** Stream-style secret detection on the field name and any parent/nested parts. */
 	private static function is_secret( $field ) {
 		$parts = array( $field );
 		if ( preg_match( '/^(.+)\[([^\]]+)\]$/', $field, $matches ) ) {

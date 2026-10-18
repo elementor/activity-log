@@ -300,7 +300,6 @@ class AAL_API {
 	}
 
 	/**
-	 * @param array $args Insert args, may include a 'meta' array.
 	 * @return array|null Meta array or null if nothing to store.
 	 */
 	private function build_meta( $args ) {

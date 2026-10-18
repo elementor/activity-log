@@ -3,7 +3,6 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class AAL_Hook_Posts extends AAL_Hook_Base {
 
-	/** @var array<int, WP_Post> Snapshots keyed by post ID. */
 	private $before = array();
 
 	protected function _draft_or_post_title( $post = 0 ) {
@@ -70,10 +69,6 @@ class AAL_Hook_Posts extends AAL_Hook_Base {
 		aal_insert_log( $args );
 	}
 
-	/**
-	 * @param WP_Post $post
-	 * @return array
-	 */
 	private function build_post_changes( $post ) {
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return array();
@@ -105,7 +100,6 @@ class AAL_Hook_Posts extends AAL_Hook_Base {
 
 		$diff = AAL_Changes::diff( $old, $new );
 
-		// Content values are not stored; both null means "changed".
 		if ( $before->post_content !== $post->post_content ) {
 			if ( empty( $diff['changes'] ) ) {
 				$diff['changes'] = array();

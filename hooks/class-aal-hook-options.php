@@ -4,7 +4,6 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 class AAL_Hook_Options extends AAL_Hook_Base {
 
 	public function hooks_updated_option( $option, $oldvalue, $_newvalue ) {
-		// Handled by hooks_aal_options to avoid double-logging values.
 		if ( 'activity-log-settings' === $option ) {
 			return;
 		}

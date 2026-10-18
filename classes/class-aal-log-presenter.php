@@ -83,12 +83,6 @@ class AAL_Log_Presenter {
 		return $data;
 	}
 
-	/**
-	 * Decode changes from a log row's meta JSON.
-	 *
-	 * @param object $item Raw DB row.
-	 * @return array{changes?: array, changes_omitted?: int}
-	 */
 	public static function get_changes( $item ) {
 		if ( empty( $item->meta ) ) {
 			return array();
@@ -179,10 +173,6 @@ class AAL_Log_Presenter {
 		return $row;
 	}
 
-	/**
-	 * @param object $item Raw DB row.
-	 * @return string
-	 */
 	private static function format_changes_export( $item ) {
 		$meta = self::get_changes( $item );
 		if ( empty( $meta['changes'] ) ) {

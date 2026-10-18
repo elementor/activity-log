@@ -3,7 +3,6 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class AAL_Hook_Comments extends AAL_Hook_Base {
 
-	/** @var array<int, WP_Comment> Snapshots keyed by comment ID. */
 	private $before = array();
 
 	protected function _add_comment_log( $id, $action, $comment = null ) {
