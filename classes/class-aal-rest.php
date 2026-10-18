@@ -279,6 +279,18 @@ class AAL_REST {
 									'app_name' => array( 'type' => 'string' ),
 								),
 							),
+							'changes' => array(
+								'type'                 => 'object',
+								'additionalProperties' => array(
+									'type'  => 'array',
+									'items' => array(
+										'type' => array( 'string', 'null' ),
+									),
+								),
+							),
+							'changes_omitted' => array(
+								'type' => 'integer',
+							),
 						),
 					),
 				),

@@ -209,6 +209,30 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		$this->assertArrayNotHasKey( 'secret', $result['meta'] );
 	}
 
+	public function test_meta_includes_changes_allowlist() {
+		$log_id = $this->insert_sample_log(
+			array(
+				'meta' => wp_json_encode(
+					array(
+						'changes'         => array( 'blogname' => array( 'Old', 'New' ) ),
+						'changes_omitted' => 1,
+						'secret'          => 'must-not-leak',
+					)
+				),
+			)
+		);
+		$result = wp_get_ability( AAL_Abilities::ABILITY_GET_LOG )->execute( array( 'id' => $log_id ) );
+		$this->assertSame( array( 'Old', 'New' ), $result['meta']['changes']['blogname'] );
+		$this->assertSame( 1, $result['meta']['changes_omitted'] );
+		$this->assertArrayNotHasKey( 'secret', $result['meta'] );
+	}
+
+	public function test_meta_omits_changes_for_old_rows() {
+		$log_id = $this->insert_sample_log( array( 'meta' => '' ) );
+		$result = wp_get_ability( AAL_Abilities::ABILITY_GET_LOG )->execute( array( 'id' => $log_id ) );
+		$this->assertArrayNotHasKey( 'meta', $result );
+	}
+
 	/** @dataProvider invalid_query_input_provider */
 	public function test_query_logs_schema_rejects_invalid_input( $input ) {
 		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute( $input );

@@ -72,6 +72,7 @@ class AAL_Export {
 			'label'       => __( 'Context', 'aryo-activity-log' ),
 			'description' => __( 'Meta', 'aryo-activity-log' ),
 			'action'      => __( 'Action', 'aryo-activity-log' ),
+			'changes'     => __( 'Changes', 'aryo-activity-log' ),
 		);
 		$columns = $this->add_export_ip_column( $columns );
 

@@ -164,4 +164,29 @@ class AAL_Test_Export extends WP_UnitTestCase {
 
 		$this->assertSame( '', $row['app_password'] );
 	}
+
+	public function test_export_row_changes_column() {
+		$columns = [ 'changes' => 'Changes' ];
+		$item    = (object) [
+			'meta' => wp_json_encode(
+				array(
+					'changes'         => array( 'blogname' => array( 'Old', 'New' ) ),
+					'changes_omitted' => 3,
+				)
+			),
+		];
+
+		$row = AAL_Log_Presenter::to_export_row( $item, $columns );
+
+		$this->assertSame( 'blogname: Old → New; +3 omitted', $row['changes'] );
+	}
+
+	public function test_export_row_changes_empty_for_old_rows() {
+		$columns = [ 'changes' => 'Changes' ];
+		$item    = (object) [ 'meta' => '' ];
+
+		$row = AAL_Log_Presenter::to_export_row( $item, $columns );
+
+		$this->assertSame( '', $row['changes'] );
+	}
 }

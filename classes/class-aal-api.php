@@ -116,6 +116,7 @@ class AAL_API {
 				'object_id'      => '',
 				'hist_ip'        => $this->_get_ip_address(),
 				'hist_time'      => current_time( 'timestamp' ),
+				'meta'           => array(),
 			)
 		);
 
@@ -174,9 +175,9 @@ class AAL_API {
 			$formats[] = '%s';
 			$args['request_source'] = $request_source;
 
-			$meta = $this->build_meta();
+			$meta = $this->build_meta( $args );
 			if ( null !== $meta ) {
-				$row['meta'] = wp_json_encode( $meta );
+				$row['meta'] = wp_json_encode( $meta, JSON_UNESCAPED_UNICODE );
 				$formats[] = '%s';
 				$args['meta'] = $meta;
 			}
@@ -299,10 +300,15 @@ class AAL_API {
 	}
 
 	/**
+	 * @param array $args Insert args, may include a 'meta' array.
 	 * @return array|null Meta array or null if nothing to store.
 	 */
-	private function build_meta() {
+	private function build_meta( $args ) {
 		$meta = array();
+
+		if ( ! empty( $args['meta'] ) && is_array( $args['meta'] ) ) {
+			$meta = $args['meta'];
+		}
 
 		if ( ! empty( $this->ability_stack ) ) {
 			$meta['ability'] = end( $this->ability_stack );

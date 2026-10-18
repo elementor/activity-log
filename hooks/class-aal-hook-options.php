@@ -4,6 +4,11 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 class AAL_Hook_Options extends AAL_Hook_Base {
 
 	public function hooks_updated_option( $option, $oldvalue, $_newvalue ) {
+		// Handled by hooks_aal_options to avoid double-logging values.
+		if ( 'activity-log-settings' === $option ) {
+			return;
+		}
+
 		$whitelist_options = apply_filters( 'aal_whitelist_options', array(
 			// General
 			'blogname',
@@ -103,17 +108,27 @@ class AAL_Hook_Options extends AAL_Hook_Base {
 			return;
 		}
 
-		$this->insert_log( $option );
+		$this->insert_log( $option, '', $oldvalue, $_newvalue );
 	}
 
-	private function insert_log( $option_name, $context = '' ) {
-		// TODO: need to think about save old & new values.
-		aal_insert_log( array(
-			'action' => 'updated',
-			'object_type' => 'Options',
-			'object_name' => $option_name,
+	private function insert_log( $option_name, $context = '', $old = null, $new = null ) {
+		$args = array(
+			'action'         => 'updated',
+			'object_type'    => 'Options',
+			'object_name'    => $option_name,
 			'object_subtype' => $context,
-		) );
+		);
+
+		$diff = AAL_Changes::diff(
+			array( $option_name => $old ),
+			array( $option_name => $new )
+		);
+
+		if ( ! empty( $diff ) ) {
+			$args['meta'] = $diff;
+		}
+
+		aal_insert_log( $args );
 	}
 
 	public function hooks_aal_options( $old_values, $new_values ) {
@@ -124,7 +139,7 @@ class AAL_Hook_Options extends AAL_Hook_Base {
 				continue;
 			}
 
-			$this->insert_log( $option_key, 'Activity Log' );
+			$this->insert_log( $option_key, 'Activity Log', $old_value, $new_values[ $option_key ] );
 		}
 	}
 
