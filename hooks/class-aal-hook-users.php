@@ -99,12 +99,43 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		) );
 	}
 
+	public function hooks_set_user_role( $user_id, $role, $old_roles ) {
+		if ( empty( $old_roles ) ) {
+			return;
+		}
+
+		$user = get_user_by( 'id', $user_id );
+
+		if ( ! $user instanceof WP_User ) {
+			return;
+		}
+
+		$old = array_values( (array) $old_roles );
+		sort( $old );
+
+		$new = ( is_string( $role ) && '' !== $role ) ? array( $role ) : array();
+
+		if ( $old === $new ) {
+			return;
+		}
+
+		aal_insert_log( array(
+			'action'         => 'updated',
+			'object_type'    => 'Users',
+			'object_subtype' => 'Role',
+			'object_id'      => $user->ID,
+			'object_name'    => $user->user_nicename,
+			'meta'           => AAL_Changes::diff( array( 'roles' => $old ), array( 'roles' => $new ) ),
+		) );
+	}
+
 	public function __construct() {
 		add_action( 'wp_login', array( &$this, 'hooks_wp_login' ), 10, 2 );
 		add_action( 'clear_auth_cookie', array( &$this, 'hooks_clear_auth_cookie' ) );
 		add_action( 'delete_user', array( &$this, 'hooks_delete_user' ) );
 		add_action( 'user_register', array( &$this, 'hooks_user_register' ) );
 		add_action( 'profile_update', array( &$this, 'hooks_profile_update' ), 10, 2 );
+		add_action( 'set_user_role', array( &$this, 'hooks_set_user_role' ), 10, 3 );
 		add_filter( 'wp_login_failed', array( &$this, 'hooks_wrong_password' ) );
 
 		parent::__construct();

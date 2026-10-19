@@ -149,6 +149,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 == Changelog ==
 
 = 2.17.0 =
+* New: Log user role changes with old and new values
 * New: Show old and new values for settings, posts, users and comments changes
 
 = 2.16.0 - 2026-10-12 =
