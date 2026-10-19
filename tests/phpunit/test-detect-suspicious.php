@@ -110,6 +110,58 @@ class AAL_Test_Detect_Suspicious extends WP_Test_REST_TestCase {
 				array( 'agent_off_hours' ),
 				array( array( 'rule' => 'agent_off_hours', 'count' => 1 ) ),
 			),
+			'role_promoted_to_admin' => array(
+				array(
+					array(
+						'hist_time'      => self::FROZEN_NOW,
+						'action'         => 'updated',
+						'object_type'    => 'Users',
+						'object_subtype' => 'Role',
+						'meta'           => '{"changes":{"roles":["[\\"editor\\",\\"subscriber\\"]","[\\"administrator\\"]"]}}',
+					),
+				),
+				array( 'new_admin' ),
+				array( array( 'rule' => 'new_admin', 'count' => 1 ) ),
+			),
+			'role_demoted_from_admin' => array(
+				array(
+					array(
+						'hist_time'      => self::FROZEN_NOW,
+						'action'         => 'updated',
+						'object_type'    => 'Users',
+						'object_subtype' => 'Role',
+						'meta'           => '{"changes":{"roles":["[\\"administrator\\"]","[\\"editor\\"]"]}}',
+					),
+				),
+				array( 'new_admin' ),
+				array(),
+			),
+			'role_already_admin' => array(
+				array(
+					array(
+						'hist_time'      => self::FROZEN_NOW,
+						'action'         => 'updated',
+						'object_type'    => 'Users',
+						'object_subtype' => 'Role',
+						'meta'           => '{"changes":{"roles":["[\\"administrator\\",\\"editor\\"]","[\\"administrator\\"]"]}}',
+					),
+				),
+				array( 'new_admin' ),
+				array(),
+			),
+			'role_shop_administrator' => array(
+				array(
+					array(
+						'hist_time'      => self::FROZEN_NOW,
+						'action'         => 'updated',
+						'object_type'    => 'Users',
+						'object_subtype' => 'Role',
+						'meta'           => '{"changes":{"roles":["[\\"editor\\"]","[\\"shop_administrator\\"]"]}}',
+					),
+				),
+				array( 'new_admin' ),
+				array(),
+			),
 			'negative'             => array(
 				array( array( 'hist_time' => self::FROZEN_NOW, 'action' => 'updated', 'object_type' => 'Posts' ) ),
 				array_keys( AAL_Abilities::SUSPICIOUS_RULES ),
@@ -134,6 +186,34 @@ class AAL_Test_Detect_Suspicious extends WP_Test_REST_TestCase {
 		);
 		$this->assertSame( 1, $result['findings'][0]['count'] );
 		$this->assertSame( 'new_admin', $result['findings'][0]['rule'] );
+	}
+
+	public function test_detect_suspicious_new_admin_groups_registration_and_promotion() {
+		$new_admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$this->insert_log(
+			array(
+				'hist_time'   => self::FROZEN_NOW,
+				'action'      => 'registered',
+				'object_type' => 'Users',
+				'object_id'   => $new_admin_id,
+			)
+		);
+		$this->insert_log(
+			array(
+				'hist_time'      => self::FROZEN_NOW,
+				'action'         => 'updated',
+				'object_type'    => 'Users',
+				'object_subtype' => 'Role',
+				'meta'           => '{"changes":{"roles":["[\\"editor\\",\\"subscriber\\"]","[\\"administrator\\"]"]}}',
+			)
+		);
+		$result = AAL_Main::instance()->abilities->execute_detect_suspicious_events(
+			array_merge( self::DAY_RANGE, array( 'rules' => array( 'new_admin' ) ) ),
+			self::FROZEN_NOW
+		);
+		$this->assertCount( 1, $result['findings'] );
+		$this->assertSame( 'new_admin', $result['findings'][0]['rule'] );
+		$this->assertSame( 2, $result['findings'][0]['count'] );
 	}
 
 	public function test_detect_suspicious_groups_repeated_plugin_activations() {
