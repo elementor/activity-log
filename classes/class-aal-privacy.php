@@ -115,7 +115,7 @@ class AAL_Privacy {
 		}
 
 		$content = sprintf(
-			__( 'If you are a registered user, we save your content activity like create/update/delete posts and comments. When a profile or comment is updated, we may also store the previous and new values of the changed fields (for example email address or display name) in the activity log. When a user\'s role changes, we also store the previous and new roles.', 'aryo-activity-log' )
+			__( 'If you are a registered user, we save your content activity like create/update/delete posts and comments. When a profile or comment is updated, we may also store the previous and new values of the changed fields (for example email address or display name) in the activity log.', 'aryo-activity-log' )
 		);
 
 		wp_add_privacy_policy_content(
