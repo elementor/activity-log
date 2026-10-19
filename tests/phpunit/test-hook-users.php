@@ -71,6 +71,15 @@ class AAL_Test_Hook_Users extends WP_UnitTestCase {
 		$user->set_role( 'editor' );
 
 		global $wpdb;
+		$count = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$wpdb->activity_log}`
+					WHERE `object_type` = 'Users' AND `object_subtype` = 'Role' AND `action` = 'updated' AND `object_id` = %d",
+				$user_id
+			)
+		);
+		$this->assertSame( 1, (int) $count );
+
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
 				"SELECT meta FROM `{$wpdb->activity_log}`
