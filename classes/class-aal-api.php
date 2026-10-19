@@ -47,11 +47,18 @@ class AAL_API {
 			return;
 		}
 
+		$batch_size = absint( apply_filters( 'aal/maintenance/delete_batch_size', 50000 ) );
+		if ( 0 === $batch_size ) {
+			return;
+		}
+
 		$wpdb->query(
 			$wpdb->prepare(
 				'DELETE FROM `' . $wpdb->activity_log . '`
-					WHERE `hist_time` < %d',
-				strtotime( '-' . $logs_lifespan . ' days', current_time( 'timestamp' ) )
+					WHERE `hist_time` < %d
+					LIMIT %d',
+				strtotime( '-' . $logs_lifespan . ' days', current_time( 'timestamp' ) ),
+				$batch_size
 			)
 		);
 	}
