@@ -2,6 +2,12 @@
 
 class Test_AAL_Dashboard_Widget extends WP_UnitTestCase {
 
+	public function tear_down() {
+		set_current_screen( 'front' );
+		$GLOBALS['wp_meta_boxes'] = array();
+		parent::tear_down();
+	}
+
 	private function is_widget_registered() {
 		global $wp_meta_boxes;
 

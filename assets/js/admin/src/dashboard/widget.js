@@ -90,14 +90,17 @@ export default function DashboardWidget() {
 	const [ loading, setLoading ] = useState( true );
 	const [ loadingMore, setLoadingMore ] = useState( false );
 	const [ error, setError ] = useState( null );
+	const [ loadMoreError, setLoadMoreError ] = useState( null );
 
 	const loadPage = useCallback( ( pageNum, append ) => {
 		if ( append ) {
 			setLoadingMore( true );
+			setLoadMoreError( null );
 		} else {
 			setLoading( true );
+			setError( null );
+			setLoadMoreError( null );
 		}
-		setError( null );
 
 		return fetchLogs( { page: pageNum, per_page: PER_PAGE } )
 			.then( ( result ) => {
@@ -106,12 +109,17 @@ export default function DashboardWidget() {
 				setItems( ( prev ) =>
 					append ? mergeUniqueById( prev, result.items ) : result.items
 				);
+				setLoadMoreError( null );
 			} )
 			.catch( ( err ) => {
-				setError(
+				const message =
 					err.message ||
-						__( 'Failed to load activity.', 'aryo-activity-log' )
-				);
+					__( 'Failed to load activity.', 'aryo-activity-log' );
+				if ( append ) {
+					setLoadMoreError( message );
+				} else {
+					setError( message );
+				}
 			} )
 			.finally( () => {
 				setLoading( false );
@@ -133,9 +141,9 @@ export default function DashboardWidget() {
 				</a>
 			) }
 
-			{ error && (
+			{ ( error || loadMoreError ) && (
 				<Notice status="error" isDismissible={ false }>
-					{ error }
+					{ error || loadMoreError }
 				</Notice>
 			) }
 
