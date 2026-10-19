@@ -28,6 +28,7 @@ The plugin doesn’t require any setup; it works right out of the box, runs on i
 * <strong>Email Logging</strong> - Capture all emails sent from your WordPress site for streamlined debugging and compliance. Especially useful for WooCommerce stores tracking order emails alongside other site events.
 * <strong>Export to CSV</strong> - Export your Activity Log data to CSV, or build support for your own format with our dedicated Export API.
 * <strong>Data Privacy and GDPR Compliance</strong> - Export or erase log data directly through the WordPress Privacy Tools.
+* <strong>Dashboard widget</strong> - See your 10 most recent log entries on the WordPress dashboard in a timeline view.
 
 If you have more than a handful of users, keeping track of who did what by hand is virtually impossible. Activity Log solves that by tying every action back to the user who triggered it, in an easy-to-filter view right on your WordPress dashboard.
 
@@ -151,6 +152,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 = 2.17.0 =
 * New: Log user role changes with old and new values
 * New: Show old and new values for settings, posts, users and comments changes
+* New: Recent activity timeline widget on the WordPress dashboard
 * Tweak: Detect existing users promoted to administrator
 * Tweak: Limited daily old logs cleanup to 50,000 rows per run to avoid timeouts on large sites
 * Fix: Store actual WordPress role instead of first user cap for role filtering

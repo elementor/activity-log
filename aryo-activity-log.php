@@ -34,6 +34,7 @@ include( 'classes/class-aal-changes.php' );
 include( 'classes/class-aal-log-query.php' );
 include( 'classes/class-aal-log-presenter.php' );
 include( 'classes/class-aal-admin-ui.php' );
+include( 'classes/class-aal-dashboard-widget.php' );
 include( 'classes/class-aal-settings.php' );
 include( 'classes/class-aal-api.php' );
 include( 'classes/class-aal-hooks.php' );
@@ -104,6 +105,7 @@ final class AAL_Main {
 
 		new AAL_Export();
 		new AAL_Privacy();
+		new AAL_Dashboard_Widget();
 
 		// set up our DB name
 		$wpdb->activity_log = $wpdb->prefix . 'aryo_activity_log';
