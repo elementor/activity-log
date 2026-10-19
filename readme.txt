@@ -154,7 +154,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Tweak: Detect existing users promoted to administrator
 * Fix: Store actual WordPress role instead of first user cap for role filtering
 
-= 2.16.0 - 2026-10-12 =
+= 2.16.0 - 2026-10-18 =
 * New: Suspicious events detection ability for AI agents
 * New: Activity summary ability for AI agents
 * New: Read-only Abilities API support for AI agents (WP 6.9+)
