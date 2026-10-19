@@ -42,3 +42,5 @@ Bad:
 ## Changelog and PR title
 
 Every user-facing change adds one short line `* Type: Subject` to BOTH `changelog.txt` and `readme.txt`, under the top version section in each. The PR title equals that changelog line without the leading `* `.
+
+Within each version section, entries are grouped by type in this order: all `New:` lines first, then all `Tweak:` lines, then all `Fix:` lines, then any other types. Never interleave types. When adding an entry, insert it as the last line of its type group, not at the end of the section.
