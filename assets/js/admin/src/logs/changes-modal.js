@@ -12,6 +12,16 @@ function formatChangeValue( value, other ) {
 	if ( null === value ) {
 		return '—';
 	}
+	if ( typeof value === 'string' && value.startsWith( '[' ) ) {
+		try {
+			const parsed = JSON.parse( value );
+			if ( Array.isArray( parsed ) && parsed.every( ( item ) => typeof item === 'string' || typeof item === 'number' ) ) {
+				return parsed.length ? parsed.join( ', ' ) : '—';
+			}
+		} catch ( e ) {
+			// Fall through to String( value ).
+		}
+	}
 	return String( value );
 }
 
