@@ -898,7 +898,9 @@ class AAL_Log_Query {
 			$parts       = array();
 			$parts_args  = array();
 			if ( in_array( 'new_admin', $row_rules, true ) ) {
-				$parts[] = "(`object_type` = 'Users' AND `action` = 'registered')";
+				$parts[]      = "(`object_type` = 'Users' AND `action` = 'registered')";
+				$parts[]      = "(`object_type` = 'Users' AND `object_subtype` = 'Role' AND `action` = 'updated' AND `meta` LIKE %s)";
+				$parts_args[] = '%' . $wpdb->esc_like( '","[\\"administrator\\"]' ) . '%';
 			}
 			if ( in_array( 'plugin_activated', $row_rules, true ) ) {
 				$parts[] = "(`object_type` = 'Plugins' AND `action` = 'activated')";
@@ -914,7 +916,7 @@ class AAL_Log_Query {
 
 			$row_sql   = $this->prepare_summary_sql(
 				$role_where,
-				'SELECT `histid`, `user_id`, `action`, `object_type`, `object_name`, `object_id`, `hist_time`, `request_source` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d AND (' . implode( ' OR ', $parts ) . ')',
+				'SELECT `histid`, `user_id`, `action`, `object_type`, `object_subtype`, `object_name`, `object_id`, `hist_time`, `request_source`, IF(`object_subtype` = \'Role\', `meta`, NULL) AS `meta` FROM %i WHERE `hist_time` >= %d AND `hist_time` <= %d AND (' . implode( ' OR ', $parts ) . ')',
 				' ORDER BY `hist_time` DESC LIMIT %d',
 				array_merge( array( $wpdb->activity_log, $from_ts, $to_ts ), $parts_args, array( AAL_Abilities::SUSPICIOUS_ROW_LIMIT ) )
 			);
@@ -979,6 +981,15 @@ class AAL_Log_Query {
 	private function classify_row( $row, $admin_ids ) {
 		if ( 'Users' === $row->object_type && 'registered' === $row->action && in_array( (int) $row->object_id, $admin_ids, true ) ) {
 			return 'new_admin';
+		}
+		if ( 'Users' === $row->object_type && 'Role' === $row->object_subtype && 'updated' === $row->action ) {
+			$decoded = json_decode( (string) $row->meta, true );
+			$pair    = ( is_array( $decoded ) && isset( $decoded['changes']['roles'] ) && is_array( $decoded['changes']['roles'] ) ) ? $decoded['changes']['roles'] : array();
+			$old     = isset( $pair[0] ) ? json_decode( (string) $pair[0], true ) : array();
+			$new     = isset( $pair[1] ) ? json_decode( (string) $pair[1], true ) : array();
+			if ( is_array( $new ) && in_array( 'administrator', $new, true ) && ( ! is_array( $old ) || ! in_array( 'administrator', $old, true ) ) ) {
+				return 'new_admin';
+			}
 		}
 		if ( 'Plugins' === $row->object_type && 'activated' === $row->action ) {
 			return 'plugin_activated';
