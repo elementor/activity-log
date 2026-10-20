@@ -41,6 +41,10 @@ Bad:
 
 ## Changelog and PR title
 
-Every user-facing change adds one short line `* Type: Subject` to BOTH `changelog.txt` and `readme.txt`, under the top version section in each. The PR title equals that changelog line without the leading `* `.
+Every user-facing change adds one short line `* Type: Subject` to BOTH `changelog.txt` and `readme.txt`, under the top version section in each.
+
+The PR title and the commit message use the same `Type: Subject` format as a changelog line, but describe only this PR's own topic (e.g. `New: Show old and new values for widget changes`). They are not required to equal the changelog line.
+
+When a change extends an entry that already exists in the current version section, update that line instead of adding a new one (e.g. add the new area to an existing `Show old and new values for ...` line).
 
 Within each version section, entries are grouped by type in this order: all `New:` lines first, then all `Tweak:` lines, then all `Fix:` lines, then any other types. Never interleave types. When adding an entry, insert it as the last line of its type group, not at the end of the section.
