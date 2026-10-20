@@ -176,4 +176,82 @@ class AAL_Test_Hook_Users extends WP_UnitTestCase {
 
 		$this->assertEmpty( $row );
 	}
+
+	public function test_rest_persisted_preferences_does_not_log_profile_update() {
+		$admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+
+		global $wpdb;
+		$wpdb->query( "DELETE FROM `{$wpdb->activity_log}` WHERE `object_id` = {$admin_id}" );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/users/me' );
+		$request->set_header( 'Content-Type', 'application/json' );
+		$request->set_body(
+			wp_json_encode(
+				array(
+					'meta' => array(
+						'persisted_preferences' => array(
+							'core' => array( 'foo' => true ),
+						),
+					),
+				)
+			)
+		);
+
+		rest_get_server()->dispatch( $request );
+
+		$this->assertSame( 0, $this->count_profile_updates( $admin_id ) );
+	}
+
+	public function test_rest_name_change_logs_profile_update() {
+		$admin_id = self::factory()->user->create(
+			array(
+				'role'         => 'administrator',
+				'display_name' => 'Old Name',
+			)
+		);
+		wp_set_current_user( $admin_id );
+
+		global $wpdb;
+		$wpdb->query( "DELETE FROM `{$wpdb->activity_log}` WHERE `object_id` = {$admin_id}" );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/users/me' );
+		$request->set_header( 'Content-Type', 'application/json' );
+		$request->set_body( wp_json_encode( array( 'name' => 'New Name' ) ) );
+
+		rest_get_server()->dispatch( $request );
+
+		$this->assertSame( 1, $this->count_profile_updates( $admin_id ) );
+	}
+
+	public function test_profile_update_logs_meta_change_and_skips_noop() {
+		$user_id = self::factory()->user->create( array( 'first_name' => 'Old' ) );
+
+		global $wpdb;
+		$wpdb->query( "DELETE FROM `{$wpdb->activity_log}` WHERE `object_id` = {$user_id}" );
+
+		wp_update_user(
+			array(
+				'ID'         => $user_id,
+				'first_name' => 'New',
+			)
+		);
+
+		$this->assertSame( 1, $this->count_profile_updates( $user_id ) );
+
+		wp_update_user( array( 'ID' => $user_id ) );
+
+		$this->assertSame( 1, $this->count_profile_updates( $user_id ) );
+	}
+
+	private function count_profile_updates( $user_id ) {
+		global $wpdb;
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$wpdb->activity_log}` WHERE `object_type` = 'Users' AND `object_subtype` = 'Profile' AND `action` = 'updated' AND `object_id` = %d",
+				$user_id
+			)
+		);
+	}
 }
