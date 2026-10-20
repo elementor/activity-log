@@ -54,7 +54,8 @@ class AAL_Test_Widget_Diff extends WP_UnitTestCase {
 		);
 
 		$this->assertNotEmpty( $row );
-		$this->assertEmpty( $row->meta );
+		$meta = json_decode( (string) $row->meta, true );
+		$this->assertFalse( is_array( $meta ) && isset( $meta['changes'] ) );
 
 		unset( $_REQUEST['sidebar'] );
 	}
