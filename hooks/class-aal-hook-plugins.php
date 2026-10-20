@@ -3,6 +3,8 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class AAL_Hook_Plugins extends AAL_Hook_Base {
 
+	private $old_versions = array();
+
 	protected function _add_log_plugin( $action, $plugin_name ) {
 		$plugin_version = '';
 
@@ -81,17 +83,30 @@ class AAL_Hook_Plugins extends AAL_Hook_Base {
 			
 			foreach ( $slugs as $slug ) {
 				$data = get_plugin_data( WP_PLUGIN_DIR . '/' . $slug, true, false );
-				
-				aal_insert_log(
-					array(
-						'action' => 'updated',
-						'object_type' => 'Plugins',
-						'object_name' => $data['Name'],
-						'object_subtype' => $data['Version'],
-					)
+				$old  = isset( $this->old_versions[ $slug ] ) ? $this->old_versions[ $slug ] : '';
+
+				$log_args = array(
+					'action' => 'updated',
+					'object_type' => 'Plugins',
+					'object_name' => $data['Name'],
+					'object_subtype' => $data['Version'],
 				);
+
+				if ( ! empty( $old ) ) {
+					$log_args['meta'] = AAL_Changes::diff( array( 'version' => $old ), array( 'version' => $data['Version'] ) );
+				}
+
+				aal_insert_log( $log_args );
 			}
 		}
+	}
+
+	public function capture_old_plugin_version( $response, $hook_extra ) {
+		if ( ! empty( $hook_extra['plugin'] ) && file_exists( WP_PLUGIN_DIR . '/' . $hook_extra['plugin'] ) ) {
+			$this->old_versions[ $hook_extra['plugin'] ] = get_plugin_data( WP_PLUGIN_DIR . '/' . $hook_extra['plugin'], false, false )['Version'];
+		}
+
+		return $response;
 	}
 
 	public function hooks_auto_update_settings( $option, $value, $old_value ) {
@@ -114,6 +129,8 @@ class AAL_Hook_Plugins extends AAL_Hook_Base {
 		add_action( 'delete_plugin', array( $this, 'hooks_delete_plugin' ) );
 
 		add_action( 'upgrader_process_complete', array( $this, 'hooks_plugin_install_or_update' ), 10, 2 );
+
+		add_filter( 'upgrader_pre_install', array( $this, 'capture_old_plugin_version' ), 10, 2 );
 
 		add_action( 'update_site_option_auto_update_plugins', [ $this, 'hooks_auto_update_settings' ], 10, 3 );
 
