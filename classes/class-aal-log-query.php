@@ -265,8 +265,9 @@ class AAL_Log_Query {
 	 *     @type int    $page        1-indexed page number.
 	 *     @type int    $per_page    Items per page (max 100).
 	 *     @type bool   $exclude_ip  When true, omit hist_ip from the search columns.
+	 *     @type bool   $skip_count  When true, skip COUNT and infer has_more from per_page + 1 fetch.
 	 * }
-	 * @return array { items: object[], total: int, pages: int } or empty on access denied.
+	 * @return array { items: object[], total: int|null, pages: int|null, has_more: bool } or empty on access denied.
 	 */
 	public function query( $args = array() ) {
 		global $wpdb;
@@ -274,9 +275,10 @@ class AAL_Log_Query {
 		$role_where = $this->get_where_by_role();
 		if ( false === $role_where ) {
 			return array(
-				'items' => array(),
-				'total' => 0,
-				'pages' => 0,
+				'items'    => array(),
+				'total'    => 0,
+				'pages'    => 0,
+				'has_more' => false,
 			);
 		}
 
@@ -294,6 +296,7 @@ class AAL_Log_Query {
 			'page'       => 1,
 			'per_page'   => 50,
 			'exclude_ip' => false,
+			'skip_count' => false,
 		) );
 
 		$where = ' WHERE 1 = 1';
@@ -385,10 +388,20 @@ class AAL_Log_Query {
 		$page     = max( 1, (int) $args['page'] );
 		$offset   = ( $page - 1 ) * $per_page;
 
-		$total_items = (int) $wpdb->get_var(
-			'SELECT COUNT(`histid`) FROM `' . $wpdb->activity_log . '`'
-			. $where . ' ' . $role_where
-		);
+		$skip_count = ! empty( $args['skip_count'] );
+
+		$total_items = null;
+		$pages       = null;
+
+		if ( ! $skip_count ) {
+			$total_items = (int) $wpdb->get_var(
+				'SELECT COUNT(`histid`) FROM `' . $wpdb->activity_log . '`'
+				. $where . ' ' . $role_where
+			);
+			$pages = (int) ceil( $total_items / $per_page );
+		}
+
+		$limit_count = $skip_count ? $per_page + 1 : $per_page;
 
 		$items = $wpdb->get_results( $wpdb->prepare(
 			'SELECT * FROM `' . $wpdb->activity_log . '`'
@@ -396,13 +409,23 @@ class AAL_Log_Query {
 			. ' ORDER BY ' . $items_orderby . ' ' . $items_order
 			. ' LIMIT %d, %d;',
 			$offset,
-			$per_page
+			$limit_count
 		) );
 
+		if ( $skip_count ) {
+			$has_more = $items && count( $items ) > $per_page;
+			if ( $has_more ) {
+				$items = array_slice( $items, 0, $per_page );
+			}
+		} else {
+			$has_more = $page < $pages;
+		}
+
 		return array(
-			'items' => $items ? $items : array(),
-			'total' => $total_items,
-			'pages' => (int) ceil( $total_items / $per_page ),
+			'items'    => $items ? $items : array(),
+			'total'    => $total_items,
+			'pages'    => $pages,
+			'has_more' => $has_more,
 		);
 	}
 

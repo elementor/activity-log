@@ -294,8 +294,9 @@ class AAL_REST {
 						),
 					),
 				),
-				'total' => array( 'type' => 'integer' ),
-				'pages' => array( 'type' => 'integer' ),
+				'total'    => array( 'type' => array( 'integer', 'null' ) ),
+				'pages'    => array( 'type' => array( 'integer', 'null' ) ),
+				'has_more' => array( 'type' => 'boolean' ),
 			),
 		);
 	}
@@ -350,6 +351,10 @@ class AAL_REST {
 				'default'           => '',
 				'sanitize_callback' => 'sanitize_text_field',
 			),
+			'skip_count' => array(
+				'default'           => false,
+				'sanitize_callback' => 'rest_sanitize_boolean',
+			),
 		);
 	}
 
@@ -371,6 +376,7 @@ class AAL_REST {
 			'order'      => $request->get_param( 'order' ),
 			'page'       => $request->get_param( 'page' ),
 			'per_page'   => $per_page,
+			'skip_count' => $request->get_param( 'skip_count' ),
 		) );
 
 		$collect_ip = 'no-collect-ip' !== AAL_Main::instance()->settings->get_option( 'log_visitor_ip_source' );
@@ -388,11 +394,14 @@ class AAL_REST {
 			'items'      => $items,
 			'total'      => $result['total'],
 			'pages'      => $result['pages'],
+			'has_more'   => $result['has_more'],
 			'promotions' => $promotions,
 		) );
 
-		$response->header( 'X-WP-Total', $result['total'] );
-		$response->header( 'X-WP-TotalPages', $result['pages'] );
+		if ( null !== $result['total'] ) {
+			$response->header( 'X-WP-Total', $result['total'] );
+			$response->header( 'X-WP-TotalPages', $result['pages'] );
+		}
 
 		return $response;
 	}
