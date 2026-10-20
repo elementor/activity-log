@@ -3,16 +3,25 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class AAL_Hook_Themes extends AAL_Hook_Base {
 
-	public function hooks_switch_theme( $new_name, WP_Theme $new_theme ) {
-		aal_insert_log(
-			array(
-				'action'         => 'activated',
-				'object_type'    => 'Themes',
-				'object_subtype' => $new_theme->get_stylesheet(),
-				'object_id'      => 0,
-				'object_name'    => $new_name,
-			)
+	private $old_versions = array();
+
+	public function hooks_switch_theme( $new_name, WP_Theme $new_theme, $old_theme = null ) {
+		$log_args = array(
+			'action'         => 'activated',
+			'object_type'    => 'Themes',
+			'object_subtype' => $new_theme->get_stylesheet(),
+			'object_id'      => 0,
+			'object_name'    => $new_name,
 		);
+
+		if ( $old_theme instanceof WP_Theme ) {
+			$log_args['meta'] = AAL_Changes::diff(
+				array( 'theme' => $old_theme->get( 'Name' ) ),
+				array( 'theme' => $new_name )
+			);
+		}
+
+		aal_insert_log( $log_args );
 	}
 
 	public function hooks_theme_customizer_modified( WP_Customize_Manager $obj ) {
@@ -96,17 +105,30 @@ class AAL_Hook_Themes extends AAL_Hook_Base {
 				
 				$name    = $theme['Name'];
 				$version = $theme_data['Version'];
+				$old     = isset( $this->old_versions[ $slug ] ) ? $this->old_versions[ $slug ] : '';
 
-				aal_insert_log(
-					array(
-						'action' => 'updated',
-						'object_type' => 'Themes',
-						'object_name' => $name,
-						'object_subtype' => $version,
-					)
+				$log_args = array(
+					'action' => 'updated',
+					'object_type' => 'Themes',
+					'object_name' => $name,
+					'object_subtype' => $version,
 				);
+
+				if ( ! empty( $old ) ) {
+					$log_args['meta'] = AAL_Changes::diff( array( 'version' => $old ), array( 'version' => $version ) );
+				}
+
+				aal_insert_log( $log_args );
 			}
 		}
+	}
+
+	public function capture_old_theme_version( $response, $hook_extra ) {
+		if ( ! empty( $hook_extra['theme'] ) ) {
+			$this->old_versions[ $hook_extra['theme'] ] = wp_get_theme( $hook_extra['theme'] )->get( 'Version' );
+		}
+
+		return $response;
 	}
 
 	private function add_log_theme( $action, $theme_slug ) {
@@ -140,9 +162,11 @@ class AAL_Hook_Themes extends AAL_Hook_Base {
 	}
 
 	public function __construct() {
-		add_action( 'switch_theme', array( &$this, 'hooks_switch_theme' ), 10, 2 );
+		add_action( 'switch_theme', array( &$this, 'hooks_switch_theme' ), 10, 3 );
 		add_action( 'delete_site_transient_update_themes', array( &$this, 'hooks_theme_deleted' ) );
 		add_action( 'upgrader_process_complete', array( &$this, 'hooks_theme_install_or_update' ), 10, 2 );
+
+		add_filter( 'upgrader_pre_install', array( $this, 'capture_old_theme_version' ), 10, 2 );
 
 		// Theme customizer
 		add_action( 'customize_save', array( &$this, 'hooks_theme_customizer_modified' ) );
