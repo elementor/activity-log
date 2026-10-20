@@ -200,15 +200,7 @@ class AAL_Test_Hook_Users extends WP_UnitTestCase {
 
 		rest_get_server()->dispatch( $request );
 
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT * FROM `{$wpdb->activity_log}`
-					WHERE `object_type` = 'Users' AND `object_subtype` = 'Profile' AND `object_id` = %d",
-				$admin_id
-			)
-		);
-
-		$this->assertEmpty( $row );
+		$this->assertSame( 0, $this->count_profile_updates( $admin_id ) );
 	}
 
 	public function test_rest_name_change_logs_profile_update() {
@@ -229,16 +221,7 @@ class AAL_Test_Hook_Users extends WP_UnitTestCase {
 
 		rest_get_server()->dispatch( $request );
 
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT * FROM `{$wpdb->activity_log}`
-					WHERE `object_type` = 'Users' AND `object_subtype` = 'Profile' AND `action` = 'updated' AND `object_id` = %d
-					ORDER BY histid DESC LIMIT 1",
-				$admin_id
-			)
-		);
-
-		$this->assertNotEmpty( $row );
+		$this->assertSame( 1, $this->count_profile_updates( $admin_id ) );
 	}
 
 	public function test_profile_update_logs_meta_change_and_skips_noop() {
@@ -254,35 +237,20 @@ class AAL_Test_Hook_Users extends WP_UnitTestCase {
 			)
 		);
 
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT * FROM `{$wpdb->activity_log}`
-					WHERE `object_type` = 'Users' AND `object_subtype` = 'Profile' AND `action` = 'updated' AND `object_id` = %d
-					ORDER BY histid DESC LIMIT 1",
-				$user_id
-			)
-		);
-
-		$this->assertNotEmpty( $row );
-
-		$count = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM `{$wpdb->activity_log}`
-					WHERE `object_type` = 'Users' AND `object_subtype` = 'Profile' AND `action` = 'updated' AND `object_id` = %d",
-				$user_id
-			)
-		);
+		$this->assertSame( 1, $this->count_profile_updates( $user_id ) );
 
 		wp_update_user( array( 'ID' => $user_id ) );
 
-		$this->assertSame(
-			$count,
-			(int) $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT COUNT(*) FROM `{$wpdb->activity_log}`
-						WHERE `object_type` = 'Users' AND `object_subtype` = 'Profile' AND `action` = 'updated' AND `object_id` = %d",
-					$user_id
-				)
+		$this->assertSame( 1, $this->count_profile_updates( $user_id ) );
+	}
+
+	private function count_profile_updates( $user_id ) {
+		global $wpdb;
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$wpdb->activity_log}` WHERE `object_type` = 'Users' AND `object_subtype` = 'Profile' AND `action` = 'updated' AND `object_id` = %d",
+				$user_id
 			)
 		);
 	}
