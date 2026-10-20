@@ -6,30 +6,16 @@ export function mergeUniqueById( existing, incoming ) {
 	return existing.concat( added );
 }
 
-export function isSameLocalDay( a, b ) {
-	return (
-		a.getFullYear() === b.getFullYear() &&
-		a.getMonth() === b.getMonth() &&
-		a.getDate() === b.getDate()
-	);
-}
+export function getDayHeaderLabel( date ) {
+	const dashboard = window.aalDashboard || {};
 
-export function getDayHeaderLabel( iso8601 ) {
-	const date = new Date( iso8601 );
-	const today = new Date();
-	const yesterday = new Date();
-	yesterday.setDate( today.getDate() - 1 );
-
-	if ( isSameLocalDay( date, today ) ) {
+	if ( date.dateshow === dashboard.today ) {
 		return __( 'Today', 'aryo-activity-log' );
 	}
-	if ( isSameLocalDay( date, yesterday ) ) {
+	if ( date.dateshow === dashboard.yesterday ) {
 		return __( 'Yesterday', 'aryo-activity-log' );
 	}
-	return date.toLocaleDateString( undefined, {
-		month: 'short',
-		day: 'numeric',
-	} );
+	return date.date;
 }
 
 export function groupItemsByDay( items ) {
@@ -37,13 +23,12 @@ export function groupItemsByDay( items ) {
 	let currentKey = null;
 
 	items.forEach( ( item ) => {
-		const dayDate = new Date( item.date.iso8601 );
-		const dayKey = `${ dayDate.getFullYear() }-${ dayDate.getMonth() }-${ dayDate.getDate() }`;
+		const dayKey = item.date.dateshow;
 
 		if ( dayKey !== currentKey ) {
 			groups.push( {
 				dayKey,
-				header: getDayHeaderLabel( item.date.iso8601 ),
+				header: getDayHeaderLabel( item.date ),
 				items: [],
 			} );
 			currentKey = dayKey;

@@ -65,6 +65,7 @@ class AAL_Dashboard_Widget {
 			array( 'wp-components' ),
 			$asset['version']
 		);
+		wp_style_add_data( 'aal-dashboard-widget', 'rtl', 'replace' );
 
 		wp_enqueue_script(
 			'aal-dashboard-widget',
@@ -77,6 +78,8 @@ class AAL_Dashboard_Widget {
 		$bootstrap = array(
 			'perPage'    => 10,
 			'viewAllUrl' => admin_url( 'admin.php?page=activity-log-page' ),
+			'today'      => date( 'd/m/Y', current_time( 'timestamp' ) ),
+			'yesterday'  => date( 'd/m/Y', current_time( 'timestamp' ) - DAY_IN_SECONDS ),
 		);
 
 		wp_add_inline_script(
