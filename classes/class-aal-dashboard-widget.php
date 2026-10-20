@@ -49,11 +49,22 @@ class AAL_Dashboard_Widget {
 		$build_dir  = plugin_dir_path( ACTIVITY_LOG__FILE__ ) . 'assets/js/admin/build/';
 		$asset_file = $build_dir . 'dashboard-index.asset.php';
 
-		if ( ! file_exists( $asset_file ) || ! file_exists( $build_dir . 'dashboard-index.js' ) ) {
+		if (
+			! file_exists( $asset_file )
+			|| ! file_exists( $build_dir . 'dashboard-index.js' )
+			|| ! file_exists( $build_dir . 'dashboard-index.css' )
+		) {
 			return;
 		}
 
 		$asset = include $asset_file;
+
+		wp_enqueue_style(
+			'aal-dashboard-widget',
+			plugins_url( 'assets/js/admin/build/dashboard-index.css', ACTIVITY_LOG__FILE__ ),
+			array( 'wp-components' ),
+			$asset['version']
+		);
 
 		wp_enqueue_script(
 			'aal-dashboard-widget',
@@ -62,8 +73,6 @@ class AAL_Dashboard_Widget {
 			$asset['version'],
 			true
 		);
-
-		wp_enqueue_style( 'wp-components' );
 
 		$bootstrap = array(
 			'perPage'    => 10,

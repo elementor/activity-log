@@ -1,3 +1,4 @@
+import './widget.scss';
 import { useState, useEffect, useCallback, useMemo } from '@wordpress/element';
 import { Button, Spinner, Notice } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
@@ -6,151 +7,6 @@ import { SourceBadge } from '../logs/log-row';
 
 const config = window.aalDashboard || {};
 const PER_PAGE = config.perPage || 10;
-const THEME_COLOR = 'var(--wp-admin-theme-color, #2271b1)';
-
-const styles = {
-	widget: { position: 'relative' },
-	timeline: {
-		position: 'relative',
-		margin: 0,
-		padding: 0,
-		listStyle: 'none',
-	},
-	timelineLine: {
-		position: 'absolute',
-		left: 9,
-		top: 0,
-		bottom: 0,
-		width: 1,
-		background: '#e0e0e0',
-		pointerEvents: 'none',
-	},
-	dayGroups: { margin: 0, padding: 0, listStyle: 'none' },
-	dayHeader: {
-		fontSize: 11,
-		fontWeight: 600,
-		textTransform: 'uppercase',
-		letterSpacing: '0.04em',
-		color: '#757575',
-		margin: '14px 0 6px',
-		padding: 0,
-	},
-	dayHeaderFirst: { marginTop: 0 },
-	dayList: { listStyle: 'none', margin: 0, padding: 0 },
-	item: {
-		position: 'relative',
-		paddingLeft: 28,
-		marginBottom: 2,
-	},
-	avatar: {
-		position: 'absolute',
-		left: 0,
-		top: 8,
-		width: 20,
-		height: 20,
-		borderRadius: '50%',
-		flexShrink: 0,
-		zIndex: 1,
-		background: '#dcdcde',
-		objectFit: 'cover',
-	},
-	rowText: {
-		flex: 1,
-		minWidth: 0,
-		whiteSpace: 'nowrap',
-		overflow: 'hidden',
-		textOverflow: 'ellipsis',
-	},
-	topic: { color: '#1e1e1e', fontWeight: 400 },
-	descMuted: { color: '#757575' },
-	authorMuted: { color: '#757575', fontSize: 12 },
-	timeRight: {
-		flexShrink: 0,
-		fontSize: 12,
-		color: '#757575',
-		marginLeft: 8,
-	},
-	details: {
-		margin: '4px 0 8px 0',
-		paddingLeft: 28,
-		fontSize: 12,
-		color: '#757575',
-		display: 'flex',
-		flexDirection: 'column',
-		gap: 6,
-	},
-	footer: {
-		marginTop: 12,
-		display: 'flex',
-		flexDirection: 'column',
-		gap: 8,
-	},
-	viewAllWrap: { textAlign: 'right' },
-	viewAllLink: {
-		color: THEME_COLOR,
-		textDecoration: 'none',
-		fontSize: 13,
-	},
-	loading: { textAlign: 'center', padding: '24px 0' },
-	empty: { color: '#646970', margin: 0 },
-};
-
-const widgetStyles = `
-.aal-dashboard-widget-row {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	width: 100%;
-	margin: 0;
-	padding: 6px 8px;
-	border: none;
-	background: transparent;
-	cursor: pointer;
-	text-align: left;
-	font: inherit;
-	color: inherit;
-	border-radius: 4px;
-}
-.aal-dashboard-widget-row:hover,
-.aal-dashboard-widget-row:focus-visible {
-	background: #f6f7f7;
-	outline: none;
-}
-.aal-dashboard-widget-chevron {
-	flex-shrink: 0;
-	font-size: 10px;
-	color: #757575;
-	transition: transform 0.15s ease;
-	visibility: hidden;
-}
-.aal-dashboard-widget-row:hover .aal-dashboard-widget-chevron,
-.aal-dashboard-widget-row:focus-visible .aal-dashboard-widget-chevron,
-.aal-dashboard-widget-row[aria-expanded="true"] .aal-dashboard-widget-chevron {
-	visibility: visible;
-}
-.aal-dashboard-widget-row[aria-expanded="true"] .aal-dashboard-widget-chevron {
-	transform: rotate(180deg);
-}
-.aal-dashboard-widget-action-pill {
-	display: inline-block;
-	background: #f0f6fc;
-	color: ${ THEME_COLOR };
-	border-radius: 10px;
-	font-size: 11px;
-	padding: 2px 8px;
-	line-height: 1.4;
-	align-self: flex-start;
-}
-@supports (background: color-mix(in srgb, red, blue)) {
-	.aal-dashboard-widget-action-pill {
-		background: color-mix(in srgb, var(--wp-admin-theme-color, #2271b1) 12%, white);
-	}
-}
-.aal-dashboard-widget-load-more {
-	width: 100%;
-	justify-content: center;
-}
-`;
 
 function mergeUniqueById( existing, incoming ) {
 	const seen = new Set( existing.map( ( item ) => item.id ) );
@@ -215,13 +71,17 @@ function AuthorAvatar( { url } ) {
 				alt=""
 				width="20"
 				height="20"
-				className="avatar"
-				style={ styles.avatar }
+				className="avatar aal-dashboard-item__avatar"
 			/>
 		);
 	}
 
-	return <span style={ styles.avatar } aria-hidden="true" />;
+	return (
+		<span
+			className="aal-dashboard-item__avatar"
+			aria-hidden="true"
+		/>
+	);
 }
 
 function TimelineItem( { item, isExpanded, onToggle } ) {
@@ -229,38 +89,41 @@ function TimelineItem( { item, isExpanded, onToggle } ) {
 	const detailsId = `aal-dashboard-log-${ item.id }`;
 	const topic =
 		type.label + ( label.label ? `: ${ label.label }` : '' );
+	const rowClassName =
+		'aal-dashboard-row' + ( isExpanded ? ' is-expanded' : '' );
 
 	return (
-		<li style={ styles.item }>
+		<li className="aal-dashboard-item">
 			<AuthorAvatar url={ author.avatar } />
 			<button
 				type="button"
-				className="aal-dashboard-widget-row"
+				className={ rowClassName }
 				aria-expanded={ isExpanded }
 				aria-controls={ detailsId }
 				onClick={ () => onToggle( item.id ) }
 			>
-				<span style={ styles.rowText }>
-					<span style={ styles.topic }>{ topic }</span>
+				<span className="aal-dashboard-row__text">
+					<span className="aal-dashboard-row__topic">{ topic }</span>
 					{ description.text && (
-						<span style={ styles.descMuted }>
+						<span className="aal-dashboard-row__desc">
 							{ ` · ${ description.text }` }
 						</span>
 					) }
-					<span style={ styles.authorMuted }>
+					<span className="aal-dashboard-row__author">
 						{ ` ${ author.name }` }
 					</span>
 				</span>
-				<span style={ styles.timeRight }>{ date.relative }</span>
-				<span className="aal-dashboard-widget-chevron" aria-hidden="true">
+				<span className="aal-dashboard-row__time">{ date.relative }</span>
+				<span
+					className="aal-dashboard-row__chevron"
+					aria-hidden="true"
+				>
 					▼
 				</span>
 			</button>
 			{ isExpanded && (
-				<div id={ detailsId } style={ styles.details }>
-					<span className="aal-dashboard-widget-action-pill">
-						{ action.label }
-					</span>
+				<div id={ detailsId } className="aal-dashboard-details">
+					<span className="aal-dashboard-pill">{ action.label }</span>
 					<div>
 						{ date.date }
 						{ ' ' }
@@ -352,9 +215,7 @@ export default function DashboardWidget() {
 	const showFooter = ( hasMore && ! error ) || viewAllUrl;
 
 	return (
-		<div className="aal-dashboard-widget" style={ styles.widget }>
-			<style>{ widgetStyles }</style>
-
+		<div className="aal-dashboard-widget">
 			{ ( error || loadMoreError ) && (
 				<Notice status="error" isDismissible={ false }>
 					{ error || loadMoreError }
@@ -362,34 +223,33 @@ export default function DashboardWidget() {
 			) }
 
 			{ loading && ! items.length && (
-				<div style={ styles.loading }>
+				<div className="aal-dashboard-loading">
 					<Spinner />
 				</div>
 			) }
 
 			{ ! loading && ! error && ! items.length && (
-				<p style={ styles.empty }>
+				<p className="aal-dashboard-empty">
 					{ __( 'No activity logged yet.', 'aryo-activity-log' ) }
 				</p>
 			) }
 
 			{ items.length > 0 && (
-				<div style={ styles.timeline }>
-					<span style={ styles.timelineLine } aria-hidden="true" />
-					<ul style={ styles.dayGroups }>
-						{ dayGroups.map( ( group, groupIndex ) => (
-							<li key={ group.dayKey }>
-								<p
-									style={ {
-										...styles.dayHeader,
-										...( groupIndex === 0
-											? styles.dayHeaderFirst
-											: {} ),
-									} }
-								>
+				<div className="aal-dashboard-timeline">
+					<span
+						className="aal-dashboard-timeline__line"
+						aria-hidden="true"
+					/>
+					<ul className="aal-dashboard-days">
+						{ dayGroups.map( ( group ) => (
+							<li
+								key={ group.dayKey }
+								className="aal-dashboard-day"
+							>
+								<p className="aal-dashboard-day__header">
 									{ group.header }
 								</p>
-								<ul style={ styles.dayList }>
+								<ul className="aal-dashboard-day__list">
 									{ group.items.map( ( item ) => (
 										<TimelineItem
 											key={ item.id }
@@ -408,11 +268,11 @@ export default function DashboardWidget() {
 			) }
 
 			{ showFooter && (
-				<div style={ styles.footer }>
+				<div className="aal-dashboard-footer">
 					{ hasMore && ! error && (
 						<Button
 							variant="secondary"
-							className="aal-dashboard-widget-load-more"
+							className="aal-dashboard-load-more"
 							onClick={ () => loadPage( page + 1, true ) }
 							isBusy={ loadingMore }
 							disabled={ loadingMore }
@@ -421,11 +281,10 @@ export default function DashboardWidget() {
 						</Button>
 					) }
 					{ viewAllUrl && (
-						<div style={ styles.viewAllWrap }>
+						<div className="aal-dashboard-footer__view-all-wrap">
 							<a
-								className="aal-dashboard-widget-view-all"
+								className="aal-dashboard-footer__view-all"
 								href={ viewAllUrl }
-								style={ styles.viewAllLink }
 							>
 								{ __( 'View all', 'aryo-activity-log' ) } →
 							</a>
