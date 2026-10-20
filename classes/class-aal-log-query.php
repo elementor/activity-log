@@ -388,33 +388,20 @@ class AAL_Log_Query {
 		$page     = max( 1, (int) $args['page'] );
 		$offset   = ( $page - 1 ) * $per_page;
 
-		if ( ! empty( $args['skip_count'] ) ) {
-			$items = $wpdb->get_results( $wpdb->prepare(
-				'SELECT * FROM `' . $wpdb->activity_log . '`'
+		$skip_count = ! empty( $args['skip_count'] );
+
+		$total_items = null;
+		$pages       = null;
+
+		if ( ! $skip_count ) {
+			$total_items = (int) $wpdb->get_var(
+				'SELECT COUNT(`histid`) FROM `' . $wpdb->activity_log . '`'
 				. $where . ' ' . $role_where
-				. ' ORDER BY ' . $items_orderby . ' ' . $items_order
-				. ' LIMIT %d, %d;',
-				$offset,
-				$per_page + 1
-			) );
-
-			$has_more = $items && count( $items ) > $per_page;
-			if ( $has_more ) {
-				$items = array_slice( $items, 0, $per_page );
-			}
-
-			return array(
-				'items'    => $items ? $items : array(),
-				'total'    => null,
-				'pages'    => null,
-				'has_more' => $has_more,
 			);
+			$pages = (int) ceil( $total_items / $per_page );
 		}
 
-		$total_items = (int) $wpdb->get_var(
-			'SELECT COUNT(`histid`) FROM `' . $wpdb->activity_log . '`'
-			. $where . ' ' . $role_where
-		);
+		$limit_count = $skip_count ? $per_page + 1 : $per_page;
 
 		$items = $wpdb->get_results( $wpdb->prepare(
 			'SELECT * FROM `' . $wpdb->activity_log . '`'
@@ -422,16 +409,23 @@ class AAL_Log_Query {
 			. ' ORDER BY ' . $items_orderby . ' ' . $items_order
 			. ' LIMIT %d, %d;',
 			$offset,
-			$per_page
+			$limit_count
 		) );
 
-		$pages = (int) ceil( $total_items / $per_page );
+		if ( $skip_count ) {
+			$has_more = $items && count( $items ) > $per_page;
+			if ( $has_more ) {
+				$items = array_slice( $items, 0, $per_page );
+			}
+		} else {
+			$has_more = $page < $pages;
+		}
 
 		return array(
 			'items'    => $items ? $items : array(),
 			'total'    => $total_items,
 			'pages'    => $pages,
-			'has_more' => $page < $pages,
+			'has_more' => $has_more,
 		);
 	}
 
