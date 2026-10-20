@@ -3,7 +3,9 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class AAL_Hook_Users extends AAL_Hook_Base {
 
-	private $meta_changes = array();
+	private $old_meta = array();
+
+	private $new_meta = array();
 
 	public function hooks_user_register( $user_id ) {
 		$user = get_user_by( 'id', $user_id );
@@ -77,15 +79,9 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 				$new[ $field ] = $user->$field;
 			}
 
-			$diff = AAL_Changes::diff( $old, $new );
-			if ( ! empty( $this->meta_changes['changes'] ) ) {
-				if ( empty( $diff['changes'] ) ) {
-					$diff['changes'] = $this->meta_changes['changes'];
-				} else {
-					$diff['changes'] = array_merge( $diff['changes'], $this->meta_changes['changes'] );
-				}
-			}
-			$this->meta_changes = array();
+			$diff = AAL_Changes::diff( $old + $this->old_meta, $new + $this->new_meta );
+			$this->old_meta = array();
+			$this->new_meta = array();
 
 			if ( empty( $diff ) ) {
 				return;
@@ -93,14 +89,16 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 
 			$args['meta'] = $diff;
 		} else {
-			$this->meta_changes = array();
+			$this->old_meta = array();
+			$this->new_meta = array();
 		}
 
 		aal_insert_log( $args );
 	}
 
 	public function capture_user_meta_changes( $meta, $user, $update, $userdata = array() ) {
-		$this->meta_changes = array();
+		$this->old_meta = array();
+		$this->new_meta = array();
 
 		if ( ! $update ) {
 			return $meta;
@@ -118,7 +116,8 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 			$old[ $key ] = get_user_meta( $user->ID, $key, true );
 		}
 
-		$this->meta_changes = AAL_Changes::diff( $old, $new );
+		$this->old_meta = $old;
+		$this->new_meta = $new;
 
 		return $meta;
 	}
