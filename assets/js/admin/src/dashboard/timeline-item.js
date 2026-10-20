@@ -26,6 +26,10 @@ export default function TimelineItem( { item, isExpanded, onToggle } ) {
 	const detailsId = `aal-dashboard-log-${ item.id }`;
 	const topic =
 		type.label + ( label.label ? `: ${ label.label }` : '' );
+	const fullText =
+		topic +
+		( description.text ? ` · ${ description.text }` : '' ) +
+		` ${ author.name }`;
 	const rowClassName =
 		'aal-dashboard-row' + ( isExpanded ? ' is-expanded' : '' );
 
@@ -39,7 +43,7 @@ export default function TimelineItem( { item, isExpanded, onToggle } ) {
 				aria-controls={ detailsId }
 				onClick={ () => onToggle( item.id ) }
 			>
-				<span className="aal-dashboard-row__text">
+				<span className="aal-dashboard-row__text" title={ fullText }>
 					<span className="aal-dashboard-row__topic">{ topic }</span>
 					{ description.text && (
 						<span className="aal-dashboard-row__desc">

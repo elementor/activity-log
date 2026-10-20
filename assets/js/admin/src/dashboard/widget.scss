@@ -43,6 +43,7 @@
 	color: #757575;
 	margin: 14px 0 6px;
 	padding: 0;
+	padding-inline-start: 28px;
 }
 
 .aal-dashboard-day:first-child .aal-dashboard-day__header {
@@ -145,11 +146,13 @@
 
 .aal-dashboard-details {
 	margin: 4px 0 8px;
-	padding-inline-start: 28px;
+	padding-inline-start: 6px;
 	font-size: 12px;
 	color: #757575;
 	display: flex;
-	flex-direction: column;
+	flex-direction: row;
+	align-items: center;
+	flex-wrap: wrap;
 	gap: 6px;
 }
 
@@ -161,7 +164,6 @@
 	font-size: 11px;
 	padding: 2px 8px;
 	line-height: 1.4;
-	align-self: flex-start;
 }
 
 @supports (background: color-mix(in srgb, red, blue)) {
