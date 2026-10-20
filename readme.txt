@@ -154,6 +154,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Tweak: Detect existing users promoted to administrator
 * Tweak: Limited daily old logs cleanup to 50,000 rows per run to avoid timeouts on large sites
 * Fix: Store actual WordPress role instead of first user cap for role filtering
+* Fix: Skip logging profile updates for meta-only REST requests such as editor preferences
 
 = 2.16.0 - 2026-10-18 =
 * New: Suspicious events detection ability for AI agents

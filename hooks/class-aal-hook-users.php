@@ -3,6 +3,8 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class AAL_Hook_Users extends AAL_Hook_Base {
 
+	private $skip_profile_update = false;
+
 	public function hooks_user_register( $user_id ) {
 		$user = get_user_by( 'id', $user_id );
 
@@ -55,6 +57,11 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 	}
 
 	public function hooks_profile_update( $user_id, $old_user_data = null ) {
+		if ( $this->skip_profile_update ) {
+			$this->skip_profile_update = false;
+			return;
+		}
+
 		$user = get_user_by( 'id', $user_id );
 
 		$args = array(
@@ -129,6 +136,44 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		) );
 	}
 
+	public function maybe_skip_preferences_update( $response, $handler, $request ) {
+		$this->skip_profile_update = false;
+
+		if ( ! ( $request instanceof WP_REST_Request ) ) {
+			return $response;
+		}
+
+		$method = $request->get_method();
+		if ( ! in_array( $method, array( 'POST', 'PUT', 'PATCH' ), true ) ) {
+			return $response;
+		}
+
+		if ( ! preg_match( '#^/wp/v2/users/(me|\d+)$#', $request->get_route() ) ) {
+			return $response;
+		}
+
+		$params = array_merge( (array) $request->get_json_params(), (array) $request->get_body_params() );
+
+		if ( array( 'meta' ) !== array_keys( $params ) ) {
+			return $response;
+		}
+
+		$meta = $params['meta'];
+		if ( ! is_array( $meta ) || array( 'persisted_preferences' ) !== array_keys( $meta ) ) {
+			return $response;
+		}
+
+		$this->skip_profile_update = true;
+
+		return $response;
+	}
+
+	public function reset_skip_profile_update( $response ) {
+		$this->skip_profile_update = false;
+
+		return $response;
+	}
+
 	public function __construct() {
 		add_action( 'wp_login', array( &$this, 'hooks_wp_login' ), 10, 2 );
 		add_action( 'clear_auth_cookie', array( &$this, 'hooks_clear_auth_cookie' ) );
@@ -137,6 +182,8 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		add_action( 'profile_update', array( &$this, 'hooks_profile_update' ), 10, 2 );
 		add_action( 'set_user_role', array( &$this, 'hooks_set_user_role' ), 10, 3 );
 		add_filter( 'wp_login_failed', array( &$this, 'hooks_wrong_password' ) );
+		add_filter( 'rest_request_before_callbacks', array( $this, 'maybe_skip_preferences_update' ), 10, 3 );
+		add_filter( 'rest_request_after_callbacks', array( $this, 'reset_skip_profile_update' ) );
 
 		parent::__construct();
 	}

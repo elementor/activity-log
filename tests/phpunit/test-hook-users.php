@@ -176,4 +176,68 @@ class AAL_Test_Hook_Users extends WP_UnitTestCase {
 
 		$this->assertEmpty( $row );
 	}
+
+	public function test_rest_persisted_preferences_does_not_log_profile_update() {
+		$admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+
+		global $wpdb;
+		$wpdb->query( "DELETE FROM `{$wpdb->activity_log}` WHERE `object_id` = {$admin_id}" );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/users/me' );
+		$request->set_header( 'Content-Type', 'application/json' );
+		$request->set_body(
+			wp_json_encode(
+				array(
+					'meta' => array(
+						'persisted_preferences' => array(
+							'core' => array( 'foo' => true ),
+						),
+					),
+				)
+			)
+		);
+
+		rest_get_server()->dispatch( $request );
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM `{$wpdb->activity_log}`
+					WHERE `object_type` = 'Users' AND `object_subtype` = 'Profile' AND `object_id` = %d",
+				$admin_id
+			)
+		);
+
+		$this->assertEmpty( $row );
+	}
+
+	public function test_rest_name_change_logs_profile_update() {
+		$admin_id = self::factory()->user->create(
+			array(
+				'role'         => 'administrator',
+				'display_name' => 'Old Name',
+			)
+		);
+		wp_set_current_user( $admin_id );
+
+		global $wpdb;
+		$wpdb->query( "DELETE FROM `{$wpdb->activity_log}` WHERE `object_id` = {$admin_id}" );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/users/me' );
+		$request->set_header( 'Content-Type', 'application/json' );
+		$request->set_body( wp_json_encode( array( 'name' => 'New Name' ) ) );
+
+		rest_get_server()->dispatch( $request );
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM `{$wpdb->activity_log}`
+					WHERE `object_type` = 'Users' AND `object_subtype` = 'Profile' AND `action` = 'updated' AND `object_id` = %d
+					ORDER BY histid DESC LIMIT 1",
+				$admin_id
+			)
+		);
+
+		$this->assertNotEmpty( $row );
+	}
 }
