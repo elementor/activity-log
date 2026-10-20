@@ -240,4 +240,50 @@ class AAL_Test_Hook_Users extends WP_UnitTestCase {
 
 		$this->assertNotEmpty( $row );
 	}
+
+	public function test_profile_update_logs_meta_change_and_skips_noop() {
+		$user_id = self::factory()->user->create( array( 'first_name' => 'Old' ) );
+
+		global $wpdb;
+		$wpdb->query( "DELETE FROM `{$wpdb->activity_log}` WHERE `object_id` = {$user_id}" );
+
+		wp_update_user(
+			array(
+				'ID'         => $user_id,
+				'first_name' => 'New',
+			)
+		);
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM `{$wpdb->activity_log}`
+					WHERE `object_type` = 'Users' AND `object_subtype` = 'Profile' AND `action` = 'updated' AND `object_id` = %d
+					ORDER BY histid DESC LIMIT 1",
+				$user_id
+			)
+		);
+
+		$this->assertNotEmpty( $row );
+
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$wpdb->activity_log}`
+					WHERE `object_type` = 'Users' AND `object_subtype` = 'Profile' AND `action` = 'updated' AND `object_id` = %d",
+				$user_id
+			)
+		);
+
+		wp_update_user( array( 'ID' => $user_id ) );
+
+		$this->assertSame(
+			$count,
+			(int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM `{$wpdb->activity_log}`
+						WHERE `object_type` = 'Users' AND `object_subtype` = 'Profile' AND `action` = 'updated' AND `object_id` = %d",
+					$user_id
+				)
+			)
+		);
+	}
 }
