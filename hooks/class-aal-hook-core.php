@@ -48,7 +48,7 @@ class AAL_Hook_Core extends AAL_Hook_Base {
 	}
 
 	public function __construct() {
-		add_action( '_core_updated_successfully', array( &$this, 'core_updated_successfully' ), 10, 1 );
+		add_action( '_core_updated_successfully', array( &$this, 'core_updated_successfully' ) );
 		add_action( 'update_site_option_auto_update_core_major', [ $this, 'hooks_auto_major_update_settings' ], 10, 3 );
 
 		parent::__construct();
