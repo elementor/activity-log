@@ -65,7 +65,6 @@ class AAL_Dashboard_Widget {
 			array( 'wp-components' ),
 			$asset['version']
 		);
-		wp_style_add_data( 'aal-dashboard-widget', 'rtl', 'replace' );
 
 		wp_enqueue_script(
 			'aal-dashboard-widget',

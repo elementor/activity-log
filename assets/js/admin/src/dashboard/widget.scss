@@ -21,7 +21,7 @@
 
 .aal-dashboard-timeline__line {
 	position: absolute;
-	left: 9px;
+	inset-inline-start: 9px;
 	top: 0;
 	bottom: 0;
 	width: 1px;
@@ -57,13 +57,13 @@
 
 .aal-dashboard-item {
 	position: relative;
-	padding-left: 28px;
+	padding-inline-start: 28px;
 	margin-bottom: 2px;
 }
 
 .aal-dashboard-item__avatar {
 	position: absolute;
-	left: 0;
+	inset-inline-start: 0;
 	top: 8px;
 	width: 20px;
 	height: 20px;
@@ -84,7 +84,7 @@
 	border: none;
 	background: transparent;
 	cursor: pointer;
-	text-align: left;
+	text-align: start;
 	font: inherit;
 	color: inherit;
 	border-radius: 4px;
@@ -122,7 +122,7 @@
 	flex-shrink: 0;
 	font-size: 12px;
 	color: #757575;
-	margin-left: 8px;
+	margin-inline-start: 8px;
 }
 
 .aal-dashboard-row__chevron {
@@ -145,7 +145,7 @@
 
 .aal-dashboard-details {
 	margin: 4px 0 8px;
-	padding-left: 28px;
+	padding-inline-start: 28px;
 	font-size: 12px;
 	color: #757575;
 	display: flex;
@@ -182,7 +182,7 @@
 }
 
 .aal-dashboard-footer__view-all-wrap {
-	text-align: right;
+	text-align: end;
 }
 
 .aal-dashboard-footer__view-all {
