@@ -68,6 +68,46 @@ class Test_AAL_Logs_REST extends WP_UnitTestCase {
 		$this->assertArrayNotHasKey( 'changes_omitted', $item );
 	}
 
+	public function test_get_logs_skip_count_has_more_without_total() {
+		global $wpdb;
+		$wpdb->query( "DELETE FROM {$wpdb->activity_log}" );
+		$this->insert_sample_log( array( 'hist_time' => time() ) );
+		$this->insert_sample_log( array( 'hist_time' => time() - 1, 'object_name' => 'rest-test-2' ) );
+		$this->insert_sample_log( array( 'hist_time' => time() - 2, 'object_name' => 'rest-test-3' ) );
+
+		$request = new WP_REST_Request( 'GET', '/activity-log/v1/logs' );
+		$request->set_query_params(
+			array(
+				'per_page'   => 2,
+				'skip_count' => true,
+			)
+		);
+		$response = rest_get_server()->dispatch( $request );
+		$data     = $response->get_data();
+
+		$this->assertTrue( $data['has_more'] );
+		$this->assertNull( $data['total'] );
+		$this->assertNull( $data['pages'] );
+		$this->assertCount( 2, $data['items'] );
+
+		$wpdb->query( "DELETE FROM {$wpdb->activity_log}" );
+		$this->insert_sample_log();
+
+		$request->set_query_params(
+			array(
+				'per_page'   => 2,
+				'skip_count' => true,
+			)
+		);
+		$data = rest_get_server()->dispatch( $request )->get_data();
+
+		$this->assertFalse( $data['has_more'] );
+
+		$default = rest_get_server()->dispatch( new WP_REST_Request( 'GET', '/activity-log/v1/logs' ) )->get_data();
+		$this->assertIsInt( $default['total'] );
+		$this->assertIsInt( $default['pages'] );
+	}
+
 	public function test_logs_schema_includes_changes() {
 		$handler = rest_get_server()->get_routes()['/activity-log/v1/logs'][0];
 		$schema  = call_user_func( $handler['schema'] );

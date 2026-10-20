@@ -43,10 +43,14 @@ export default function DashboardWidget() {
 			setLoadMoreError( null );
 		}
 
-		return fetchLogs( { page: pageNum, per_page: PER_PAGE } )
+		return fetchLogs( {
+			page: pageNum,
+			per_page: PER_PAGE,
+			skip_count: 1,
+		} )
 			.then( ( result ) => {
 				setPage( pageNum );
-				setHasMore( pageNum < result.pages );
+				setHasMore( !! result.has_more );
 				setItems( ( prev ) =>
 					append ? mergeUniqueById( prev, result.items ) : result.items
 				);
