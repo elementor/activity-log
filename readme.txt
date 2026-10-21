@@ -150,7 +150,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 == Changelog ==
 
 = 2.17.0 =
-* New: Show old and new values for settings, posts, users, user roles, comments, plugin versions, themes and WordPress core version changes
+* New: Show old and new values for settings, posts, users, user roles, comments, plugin versions, themes, WordPress core version and widget changes
 * New: Recent activity timeline widget on the WordPress dashboard
 * Tweak: Detect existing users promoted to administrator
 * Tweak: Limited daily old logs cleanup to 50,000 rows per run to avoid timeouts on large sites
