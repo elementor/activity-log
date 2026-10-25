@@ -249,6 +249,51 @@ class AAL_Log_Query {
 	}
 
 	/**
+	 * Resolve a dateshow filter value to start/end hist_time timestamps.
+	 *
+	 * @param string $dateshow Filter value from the activity log UI.
+	 * @return array{start: int, end: int}|null Start and end timestamps, or null when invalid.
+	 */
+	public static function get_date_range( $dateshow ) {
+		if ( empty( $dateshow ) ) {
+			return null;
+		}
+
+		$current_time = current_time( 'timestamp' );
+		$start_time   = 0;
+		$end_time     = 0;
+
+		if ( in_array( $dateshow, array( 'today', 'yesterday', 'week', 'month' ), true ) ) {
+			$start_time = mktime( 0, 0, 0, date( 'm', $current_time ), date( 'd', $current_time ), date( 'Y', $current_time ) );
+			$end_time   = mktime( 23, 59, 59, date( 'm', $current_time ), date( 'd', $current_time ), date( 'Y', $current_time ) );
+
+			if ( 'yesterday' === $dateshow ) {
+				$start_time = strtotime( 'yesterday', $start_time );
+				$end_time   = mktime( 23, 59, 59, date( 'm', $start_time ), date( 'd', $start_time ), date( 'Y', $start_time ) );
+			} elseif ( 'week' === $dateshow ) {
+				$start_time = strtotime( '-1 week', $start_time );
+			} elseif ( 'month' === $dateshow ) {
+				$start_time = strtotime( '-30 days', $start_time );
+			}
+		} else {
+			$date_array = explode( '/', $dateshow );
+			if ( 3 === count( $date_array ) ) {
+				$start_time = mktime( 0, 0, 0, (int) $date_array[1], (int) $date_array[0], (int) $date_array[2] );
+				$end_time   = mktime( 23, 59, 59, (int) $date_array[1], (int) $date_array[0], (int) $date_array[2] );
+			}
+		}
+
+		if ( empty( $start_time ) || empty( $end_time ) ) {
+			return null;
+		}
+
+		return array(
+			'start' => (int) $start_time,
+			'end'   => (int) $end_time,
+		);
+	}
+
+	/**
 	 * Query activity log rows.
 	 *
 	 * @param array $args {
@@ -297,6 +342,8 @@ class AAL_Log_Query {
 			'per_page'   => 50,
 			'exclude_ip' => false,
 			'skip_count' => false,
+			'before_id'  => 0,
+			'min_id'     => 0,
 		) );
 
 		$where = ' WHERE 1 = 1';
@@ -335,33 +382,18 @@ class AAL_Log_Query {
 		}
 
 		if ( ! empty( $args['dateshow'] ) ) {
-			$current_time = current_time( 'timestamp' );
-			$start_time   = 0;
-			$end_time     = 0;
-
-			if ( in_array( $args['dateshow'], array( 'today', 'yesterday', 'week', 'month' ), true ) ) {
-				$start_time = mktime( 0, 0, 0, date( 'm', $current_time ), date( 'd', $current_time ), date( 'Y', $current_time ) );
-				$end_time   = mktime( 23, 59, 59, date( 'm', $current_time ), date( 'd', $current_time ), date( 'Y', $current_time ) );
-
-				if ( 'yesterday' === $args['dateshow'] ) {
-					$start_time = strtotime( 'yesterday', $start_time );
-					$end_time   = mktime( 23, 59, 59, date( 'm', $start_time ), date( 'd', $start_time ), date( 'Y', $start_time ) );
-				} elseif ( 'week' === $args['dateshow'] ) {
-					$start_time = strtotime( '-1 week', $start_time );
-				} elseif ( 'month' === $args['dateshow'] ) {
-					$start_time = strtotime( '-30 days', $start_time );
-				}
-			} else {
-				$date_array = explode( '/', $args['dateshow'] );
-				if ( 3 === count( $date_array ) ) {
-					$start_time = mktime( 0, 0, 0, (int) $date_array[1], (int) $date_array[0], (int) $date_array[2] );
-					$end_time   = mktime( 23, 59, 59, (int) $date_array[1], (int) $date_array[0], (int) $date_array[2] );
-				}
+			$date_range = self::get_date_range( $args['dateshow'] );
+			if ( null !== $date_range ) {
+				$where .= $wpdb->prepare( ' AND `hist_time` > %d AND `hist_time` < %d', $date_range['start'], $date_range['end'] );
 			}
+		}
 
-			if ( ! empty( $start_time ) && ! empty( $end_time ) ) {
-				$where .= $wpdb->prepare( ' AND `hist_time` > %d AND `hist_time` < %d', $start_time, $end_time );
-			}
+		if ( ! empty( $args['min_id'] ) ) {
+			$where .= $wpdb->prepare( ' AND `histid` >= %d', (int) $args['min_id'] );
+		}
+
+		if ( ! empty( $args['before_id'] ) ) {
+			$where .= $wpdb->prepare( ' AND `histid` < %d', (int) $args['before_id'] );
 		}
 
 		if ( ! empty( $args['s'] ) ) {
@@ -380,7 +412,7 @@ class AAL_Log_Query {
 			);
 		}
 
-		$allowed_orderby = array( 'hist_time', 'hist_ip' );
+		$allowed_orderby = array( 'hist_time', 'hist_ip', 'histid' );
 		$items_orderby   = in_array( $args['orderby'], $allowed_orderby, true ) ? $args['orderby'] : 'hist_time';
 		$items_order     = 'ASC' === strtoupper( $args['order'] ) ? 'ASC' : 'DESC';
 
