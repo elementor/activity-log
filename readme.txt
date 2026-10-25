@@ -154,6 +154,9 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
+= 2.18.0 =
+* Fix: Log user events as Unknown user when the user no longer exists
+
 = 2.17.0 - 2026-10-25 =
 * New: Show old and new values for settings, posts, users, user roles, comments, plugin versions, themes, WordPress core version, widget and term changes
 * New: Recent activity timeline widget on the WordPress dashboard

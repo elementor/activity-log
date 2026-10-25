@@ -7,6 +7,10 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 
 	private $new_meta = array();
 
+	private function get_user_object_name( $user ) {
+		return $user instanceof WP_User ? $user->user_nicename : 'Unknown user';
+	}
+
 	public function hooks_user_register( $user_id ) {
 		$user = get_user_by( 'id', $user_id );
 
@@ -14,8 +18,8 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 			'action' => 'registered',
 			'object_type' => 'Users',
 			'object_subtype' => 'Profile',
-			'object_id' => $user->ID,
-			'object_name' => $user->user_nicename,
+			'object_id' => (int) $user_id,
+			'object_name' => $this->get_user_object_name( $user ),
 		) );
 	}
 	public function hooks_delete_user( $user_id ) {
@@ -25,8 +29,8 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 			'action' => 'deleted',
 			'object_type' => 'Users',
 			'object_subtype' => 'Profile',
-			'object_id' => $user->ID,
-			'object_name' => $user->user_nicename,
+			'object_id' => (int) $user_id,
+			'object_name' => $this->get_user_object_name( $user ),
 		) );
 	}
 
@@ -65,11 +69,11 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 			'action'         => 'updated',
 			'object_type'    => 'Users',
 			'object_subtype' => 'Profile',
-			'object_id'      => $user->ID,
-			'object_name'    => $user->user_nicename,
+			'object_id'      => (int) $user_id,
+			'object_name'    => $this->get_user_object_name( $user ),
 		);
 
-		if ( $old_user_data instanceof WP_User ) {
+		if ( $old_user_data instanceof WP_User && $user instanceof WP_User ) {
 			$fields = array( 'user_email', 'display_name', 'user_url', 'user_nicename', 'user_pass' );
 			$old    = array();
 			$new    = array();
