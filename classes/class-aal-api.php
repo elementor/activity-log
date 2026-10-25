@@ -178,7 +178,7 @@ class AAL_API {
 			$args['hist_time'],
 		);
 
-		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
+		if ( AAL_Maintenance::is_schema_ready( '1.1' ) && '' !== $meta_json ) {
 			$duplicate_columns .= ', `meta`';
 			$duplicate_where   .= ' AND `meta` = %s';
 			$duplicate_args[]   = $meta_json;
