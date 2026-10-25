@@ -242,6 +242,73 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		$this->role_change_buffers = array();
 	}
 
+	public function hooks_create_application_password( $user_id, $item ) {
+		$this->log_application_password( 'app_password_created', $user_id, $item );
+	}
+
+	public function hooks_delete_application_password( $user_id, $item ) {
+		$this->log_application_password( 'app_password_revoked', $user_id, $item );
+	}
+
+	private function log_application_password( $action, $user_id, $item ) {
+		$args = array(
+			'action'         => $action,
+			'object_type'    => 'Users',
+			'object_subtype' => 'Application Password',
+			'object_id'      => (int) $user_id,
+			'object_name'    => is_array( $item ) && isset( $item['name'] ) ? $item['name'] : '',
+		);
+
+		$meta = $this->get_application_password_meta( $item );
+		if ( ! empty( $meta ) ) {
+			$args['meta'] = $meta;
+		}
+
+		aal_insert_log( $args );
+	}
+
+	public function hooks_retrieve_password_key( $user_login ) {
+		$user = get_user_by( 'login', $user_login );
+
+		aal_insert_log( array(
+			'action'         => 'password_reset_requested',
+			'object_type'    => 'Users',
+			'object_subtype' => 'Profile',
+			'object_id'      => $user instanceof WP_User ? (int) $user->ID : 0,
+			'object_name'    => $this->get_user_object_name( $user ),
+		) );
+	}
+
+	public function hooks_after_password_reset( $user ) {
+		if ( ! $user instanceof WP_User ) {
+			$user = null;
+		}
+
+		aal_insert_log( array(
+			'action'         => 'password_reset',
+			'object_type'    => 'Users',
+			'object_subtype' => 'Profile',
+			'object_id'      => $user instanceof WP_User ? (int) $user->ID : 0,
+			'object_name'    => $this->get_user_object_name( $user ),
+		) );
+	}
+
+	private function get_application_password_meta( $item ) {
+		if ( ! is_array( $item ) ) {
+			return array();
+		}
+
+		$meta = array();
+		if ( ! empty( $item['uuid'] ) ) {
+			$meta['uuid'] = $item['uuid'];
+		}
+		if ( isset( $item['app_id'] ) && '' !== $item['app_id'] ) {
+			$meta['app_id'] = $item['app_id'];
+		}
+
+		return $meta;
+	}
+
 	public function hooks_set_user_role( $user_id, $role, $old_roles ) {
 		if ( empty( $old_roles ) ) {
 			return;
@@ -284,6 +351,10 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		add_action( 'set_user_role', array( &$this, 'hooks_set_user_role' ), 10, 3 );
 		add_filter( 'wp_login_failed', array( &$this, 'hooks_wrong_password' ) );
 		add_filter( 'insert_user_meta', array( $this, 'capture_user_meta_changes' ), 10, 4 );
+		add_action( 'wp_create_application_password', array( &$this, 'hooks_create_application_password' ), 10, 2 );
+		add_action( 'wp_delete_application_password', array( &$this, 'hooks_delete_application_password' ), 10, 2 );
+		add_action( 'retrieve_password_key', array( &$this, 'hooks_retrieve_password_key' ) );
+		add_action( 'after_password_reset', array( &$this, 'hooks_after_password_reset' ) );
 
 		parent::__construct();
 	}
