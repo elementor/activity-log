@@ -8,7 +8,7 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 	private $new_meta = array();
 
 	/**
-	 * @var array<int, array{original: array<int, string>|null}>
+	 * @var array<int, array{original: array<int, string>}>
 	 */
 	private $role_change_buffers = array();
 
@@ -168,7 +168,7 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		$user = get_user_by( 'id', $user_id );
 		if ( ! $user instanceof WP_User ) {
 			$this->role_change_buffers[ $user_id ] = array(
-				'original' => null,
+				'original' => array(),
 			);
 			return;
 		}
@@ -198,7 +198,7 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 
 	public function flush_buffered_role_changes() {
 		foreach ( $this->role_change_buffers as $user_id => $buffer ) {
-			$old  = null === $buffer['original'] ? array() : $buffer['original'];
+			$old  = $buffer['original'];
 			$user = get_user_by( 'id', $user_id );
 
 			if ( ! $user instanceof WP_User ) {

@@ -96,6 +96,40 @@ class AAL_Test_Hook_Users extends WP_UnitTestCase {
 		$this->assertSame( array( '["editor"]', '["administrator","editor"]' ), $meta['changes']['roles'] );
 	}
 
+	public function test_add_role_then_deleted_user_logs_unknown_user_on_flush() {
+		$reassign_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$user_id     = self::factory()->user->create( array( 'role' => 'editor' ) );
+
+		global $wpdb;
+		$wpdb->query( "DELETE FROM `{$wpdb->activity_log}` WHERE `object_id` = {$user_id}" );
+
+		$user = get_user_by( 'id', $user_id );
+		$user->add_role( 'subscriber' );
+		wp_delete_user( $user_id, $reassign_id );
+		$this->flush_pending_role_logs();
+
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$wpdb->activity_log}`
+					WHERE `object_type` = 'Users' AND `object_subtype` = 'Role' AND `action` = 'updated' AND `object_id` = %d",
+				$user_id
+			)
+		);
+		$this->assertSame( 1, $count );
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM `{$wpdb->activity_log}`
+					WHERE `object_type` = 'Users' AND `object_subtype` = 'Role' AND `action` = 'updated' AND `object_id` = %d",
+				$user_id
+			)
+		);
+
+		$this->assertNotEmpty( $row );
+		$this->assertSame( (string) $user_id, $row->object_id );
+		$this->assertSame( 'Unknown user', $row->object_name );
+	}
+
 	public function test_add_and_remove_role_in_one_request_logs_one_row() {
 		$user_id = self::factory()->user->create( array( 'role' => 'editor' ) );
 
