@@ -49,6 +49,24 @@ class AAL_Test_CLI_Stats extends WP_UnitTestCase {
 		);
 	}
 
+	public function test_build_summarize_input_date_range_has_no_period() {
+		$input = AAL_CLI_Stats::build_summarize_input(
+			array(
+				'date-from' => '2026-03-01',
+				'date-to'   => '2026-03-07',
+			)
+		);
+
+		$this->assertSame(
+			array(
+				'date_from' => '2026-03-01',
+				'date_to'   => '2026-03-07',
+			),
+			$input
+		);
+		$this->assertArrayNotHasKey( 'period', $input );
+	}
+
 	public function test_fetch_stats_rejects_period_with_date_range() {
 		$result = AAL_CLI_Stats::fetch_stats(
 			array(

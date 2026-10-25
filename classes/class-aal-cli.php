@@ -153,13 +153,22 @@ class AAL_CLI_List {
 	}
 
 	/**
+	 * Whether the CLI request should bypass capability checks on log queries.
+	 *
+	 * @return bool True when running under WP-CLI with no current user (full log access).
+	 */
+	public static function is_unrestricted() {
+		return defined( 'WP_CLI' ) && WP_CLI && 0 === get_current_user_id();
+	}
+
+	/**
 	 * Fetch log rows and total for list output.
 	 *
 	 * @param array<string, mixed> $assoc_args CLI flags.
 	 * @return array{ rows: array<int, array<string, mixed>>, total: int }
 	 */
 	public static function fetch_list( $assoc_args ) {
-		$unrestricted = defined( 'WP_CLI' ) && WP_CLI && 0 === get_current_user_id();
+		$unrestricted = self::is_unrestricted();
 		$query        = new AAL_Log_Query( array( 'unrestricted' => $unrestricted ) );
 		$result       = $query->query( self::build_query_args( $assoc_args ) );
 
@@ -255,7 +264,7 @@ class AAL_CLI_Stats {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public static function fetch_stats( $assoc_args ) {
-		$unrestricted = defined( 'WP_CLI' ) && WP_CLI && 0 === get_current_user_id();
+		$unrestricted = AAL_CLI_List::is_unrestricted();
 		$query        = new AAL_Log_Query( array( 'unrestricted' => $unrestricted ) );
 
 		return $query->summarize_activity_from_input( self::build_summarize_input( $assoc_args ) );
