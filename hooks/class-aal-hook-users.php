@@ -10,6 +10,10 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 	public function hooks_user_register( $user_id ) {
 		$user = get_user_by( 'id', $user_id );
 
+		if ( ! $user instanceof WP_User ) {
+			return;
+		}
+
 		aal_insert_log( array(
 			'action' => 'registered',
 			'object_type' => 'Users',
@@ -20,6 +24,10 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 	}
 	public function hooks_delete_user( $user_id ) {
 		$user = get_user_by( 'id', $user_id );
+
+		if ( ! $user instanceof WP_User ) {
+			return;
+		}
 
 		aal_insert_log( array(
 			'action' => 'deleted',
@@ -60,6 +68,10 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 
 	public function hooks_profile_update( $user_id, $old_user_data = null ) {
 		$user = get_user_by( 'id', $user_id );
+
+		if ( ! $user instanceof WP_User ) {
+			return;
+		}
 
 		$args = array(
 			'action'         => 'updated',
