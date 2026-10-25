@@ -1,6 +1,6 @@
 # Activity Log
 
-A WordPress plugin that logs user and system actions: post edits, login attempts, plugin activations, option changes, REST API calls, WP-CLI commands, and more. Each log entry records who made the change, when, from which IP, and through which request source (WP Admin, REST API, WP-CLI, WP-Cron, XML-RPC, or WP Abilities).
+A WordPress plugin that logs user and system actions: post edits, login attempts, plugin activations, option changes, REST API calls, WP-CLI commands, and more. Each log entry records who made the change, when, from which IP, and through which request source (WP Admin, REST API, WP-CLI, WP-Cron, XML-RPC, or WP Abilities). It also records the old and new value of each changed field, and shows recent events in a timeline widget on the WordPress dashboard.
 
 Events are stored in a dedicated database table, separate from core WordPress tables.
 

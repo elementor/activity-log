@@ -29,7 +29,7 @@ The plugin doesn’t require any setup; it works right out of the box, runs on i
 * <strong>Export to CSV</strong> - Export your Activity Log data to CSV, or build support for your own format with our dedicated Export API.
 * <strong>Data Privacy and GDPR Compliance</strong> - Export or erase log data directly through the WordPress Privacy Tools.
 
-If you have more than a handful of users, keeping track of who did what by hand is virtually impossible. Activity Log solves that by tying every action back to the user who triggered it, in an easy-to-filter view right on your WordPress dashboard.
+If you have more than a handful of users, keeping track of who did what by hand is virtually impossible. Activity Log solves that by tying every action back to the user who triggered it, in an easy-to-filter view on the Activity Log screen and in a Recent Activity timeline on the WordPress dashboard.
 
 <h3>With the Activity Log you can record:</h3>
 
@@ -43,7 +43,7 @@ If you have more than a handful of users, keeping track of who did what by hand 
 * <strong>Menus</strong> - Created, updated, deleted
 * <strong>Media</strong> - Created, updated, deleted
 * <strong>Comments</strong> - Created, approved, unapproved, trashed, untrashed, spammed, unspammed, deleted
-* <strong>Users</strong> - Login, logout, login failed, update profile, registered, deleted
+* <strong>Users</strong> - Login, logout, login failed, update profile, role changed, registered, deleted
 * <strong>Plugins</strong> - Installed, updated, activated, deactivated, changed
 * <strong>Themes</strong> - Installed, updated, deleted, activated, changed (Editor and Customizer)
 * <strong>Widgets</strong> - Added to sidebar, deleted from sidebar, order widgets
@@ -51,11 +51,11 @@ If you have more than a handful of users, keeping track of who did what by hand 
 * <strong>Options</strong> - Extended custom settings for 3rd party plugins
 * <strong>Export</strong> - Exported activity log file
 * <strong>Request Source</strong> - WP Admin, REST API, WP-CLI, WP-Cron, XML-RPC, WP Abilities, and Application Password name when used
-* <strong>AI Agents</strong> - Lets AI agents read your logs on WordPress 6.9 or later, once you turn it on in the settings. They can query logs, summarize activity, and detect suspicious events like repeated failed logins, new admin accounts, and changes to sensitive settings.
+* <strong>AI Agents</strong> - Lets AI agents read your logs on WordPress 6.9 or later, once you turn it on in the settings. They can query logs, summarize activity, and detect suspicious events like repeated failed logins, new or promoted administrator accounts, and changes to sensitive settings.
 * <strong>WooCommerce</strong> - Track products, orders, customers, and more
 * <strong>bbPress</strong> - Forums, topics, replies, taxonomies, and other actions
 * <strong>Emails sent from WordPress site</strong> - Sending successful, sending failed
-* <strong>Dashboard Widget</strong> - See the latest activity on the WordPress dashboard in a timeline, with Load more.
+* <strong>Dashboard Widget</strong> - Recent activity timeline on the WordPress dashboard (for users who can view the log), grouped by day, with load more and a link to the full log
 * There’s more, of course, but you get the point...
 
 For each event recorded by the activity log, the following details are also logged:
@@ -65,6 +65,7 @@ For each event recorded by the activity log, the following details are also logg
 * Source IP address from which the change originated
 * Request source — WP Admin, REST API, WP-CLI, WP-Cron, XML-RPC, or WP Abilities
 * Affected object where the change occurred
+* Old and new values for changed settings, posts, users, user roles, comments, plugin versions, themes, WordPress core version, widgets, and terms, with secret values redacted and long values truncated
 
 <h3>Data Storage and Performance</h3>
 
@@ -119,9 +120,13 @@ You can easily export logs with Activity Log. We also support exporting filtered
 
 Yes. Each log entry records its Request Source, so you can tell whether a change was made through the WP Admin, the REST API, WP-CLI, WP-Cron, XML-RPC, or the WP Abilities API. If the request was authenticated with an Application Password, its name is shown as well. Use the Source filter on the log screen to narrow results down to a specific channel.
 
+= Can I see exactly what changed? =
+
+Yes. For settings, posts, users, user roles, comments, plugin versions, themes, WordPress core version, widgets, and terms, Activity Log stores the old and new value of each changed field and shows them in the log entry details. Secret values such as passwords and API keys are redacted, and long values are truncated to keep the log table small.
+
 = Can AI agents read my activity log? =
 
-Yes, if you turn it on in the settings. On WordPress 6.9 or later, Activity Log adds read-only abilities through the WordPress Abilities API, so AI agents can query logs, summarize activity, and detect suspicious events.
+Yes, if you turn it on in the settings. On WordPress 6.9 or later, Activity Log adds read-only abilities through the WordPress Abilities API, so AI agents can query logs, summarize activity, and detect suspicious events such as repeated failed logins, newly registered administrators, existing users promoted to administrator, and changes to sensitive settings.
 
 = How long are logs kept? =
 
