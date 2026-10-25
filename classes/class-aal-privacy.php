@@ -9,6 +9,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class AAL_Privacy {
 
+	/**
+	 * Stored in hist_ip for anonymized rows. Empty on purpose so it is not
+	 * confused with the 127.0.0.1 column default used when no IP is known (cron, CLI).
+	 */
+	const ANONYMIZED_IP = '';
+
 	public function __construct() {
 		add_filter( 'wp_privacy_personal_data_exporters', array( $this, 'register_exporter' ) );
 		add_filter( 'wp_privacy_personal_data_erasers', array( $this, 'register_eraser' ) );
@@ -50,7 +56,8 @@ class AAL_Privacy {
 
 		$wpdb->query(
 			$wpdb->prepare(
-				"UPDATE $wpdb->activity_log SET user_id = 0, hist_ip = '127.0.0.1' WHERE user_id = %d LIMIT %d",
+				"UPDATE $wpdb->activity_log SET user_id = 0, hist_ip = %s WHERE user_id = %d LIMIT %d",
+				self::ANONYMIZED_IP,
 				$user->ID,
 				$number
 			)

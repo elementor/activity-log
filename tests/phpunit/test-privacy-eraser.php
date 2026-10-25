@@ -137,7 +137,7 @@ class AAL_Test_Privacy_Eraser extends WP_UnitTestCase {
 
 		$this->assertNotEmpty( $performed_by_a );
 		$this->assertSame( 0, (int) $performed_by_a->user_id );
-		$this->assertSame( '127.0.0.1', $performed_by_a->hist_ip );
+		$this->assertSame( AAL_Privacy::ANONYMIZED_IP, $performed_by_a->hist_ip );
 		$this->assertSame( $this->user_a_caps, $performed_by_a->user_caps );
 
 		$users_row = $wpdb->get_row(
