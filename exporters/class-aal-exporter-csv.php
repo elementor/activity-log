@@ -25,6 +25,10 @@ class AAL_Exporter_csv {
 
 	const FORMULAS_START_CHARACTERS = [ '=', '-', '+', '@', "\t", "\r" ];
 
+	/** PHP 8.4 deprecates relying on the default $escape argument. */
+	const CSV_ENCLOSURE = '"';
+	const CSV_ESCAPE = '\\';
+
 	/**
 	 * Writes CSV data for download
 	 *
@@ -44,11 +48,11 @@ class AAL_Exporter_csv {
 		
 		$separator = apply_filters( 'aal_export_csv_separator', ',' );
 
-		fputcsv( $fp, $columns, $separator );
+		fputcsv( $fp, $columns, $separator, self::CSV_ENCLOSURE, self::CSV_ESCAPE );
 
 		foreach ( $data as $row ) {
 			$encoded_row = $this->get_encoded_row( $row );
-			fputcsv( $fp, $encoded_row, $separator );
+			fputcsv( $fp, $encoded_row, $separator, self::CSV_ENCLOSURE, self::CSV_ESCAPE );
 		}
 
 		if ( $is_test_mode_off ) {
