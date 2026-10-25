@@ -159,7 +159,7 @@ class AAL_CLI_List {
 	 * @return array{ rows: array<int, array<string, mixed>>, total: int }
 	 */
 	public static function fetch_list( $assoc_args ) {
-		$unrestricted = ( 0 === get_current_user_id() );
+		$unrestricted = defined( 'WP_CLI' ) && WP_CLI && 0 === get_current_user_id();
 		$query        = new AAL_Log_Query( array( 'unrestricted' => $unrestricted ) );
 		$result       = $query->query( self::build_query_args( $assoc_args ) );
 
