@@ -108,6 +108,49 @@ class Test_AAL_Logs_REST extends WP_UnitTestCase {
 		$this->assertIsInt( $default['pages'] );
 	}
 
+	public function test_get_logs_after_id_incremental() {
+		global $wpdb;
+		$wpdb->query( "DELETE FROM {$wpdb->activity_log}" );
+		$hist_time = current_time( 'timestamp' ) - 60;
+		$id1       = $this->insert_sample_log( array( 'hist_time' => $hist_time, 'object_name' => 'rest-after-1' ) );
+		$id2       = $this->insert_sample_log( array( 'hist_time' => $hist_time - 1, 'object_name' => 'rest-after-2' ) );
+
+		$request = new WP_REST_Request( 'GET', '/activity-log/v1/logs' );
+		$request->set_query_params(
+			array(
+				'after_id' => $id1,
+				'per_page' => 10,
+			)
+		);
+		$data = rest_get_server()->dispatch( $request )->get_data();
+
+		$this->assertNull( $data['total'] );
+		$this->assertNull( $data['pages'] );
+		$this->assertFalse( $data['has_more'] );
+		$this->assertSame( $id2, $data['next_after_id'] );
+		$this->assertCount( 1, $data['items'] );
+		$this->assertSame( $id2, $data['items'][0]['id'] );
+	}
+
+	public function test_get_logs_after_id_zero_explicit() {
+		global $wpdb;
+		$wpdb->query( "DELETE FROM {$wpdb->activity_log}" );
+		$hist_time = current_time( 'timestamp' ) - 60;
+		$id1       = $this->insert_sample_log( array( 'hist_time' => $hist_time ) );
+
+		$request = new WP_REST_Request( 'GET', '/activity-log/v1/logs' );
+		$request->set_query_params(
+			array(
+				'after_id' => 0,
+				'per_page' => 10,
+			)
+		);
+		$data = rest_get_server()->dispatch( $request )->get_data();
+
+		$this->assertArrayHasKey( 'next_after_id', $data );
+		$this->assertSame( $id1, $data['next_after_id'] );
+	}
+
 	public function test_logs_schema_includes_changes() {
 		$handler = rest_get_server()->get_routes()['/activity-log/v1/logs'][0];
 		$schema  = call_user_func( $handler['schema'] );

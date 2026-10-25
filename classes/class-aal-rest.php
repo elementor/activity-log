@@ -294,9 +294,13 @@ class AAL_REST {
 						),
 					),
 				),
-				'total'    => array( 'type' => array( 'integer', 'null' ) ),
-				'pages'    => array( 'type' => array( 'integer', 'null' ) ),
-				'has_more' => array( 'type' => 'boolean' ),
+				'total'         => array( 'type' => array( 'integer', 'null' ) ),
+				'pages'         => array( 'type' => array( 'integer', 'null' ) ),
+				'has_more'      => array( 'type' => 'boolean' ),
+				'next_after_id' => array(
+					'type'        => 'integer',
+					'description' => __( 'Use next_after_id from the previous response as after_id to fetch only new events.', 'aryo-activity-log' ),
+				),
 			),
 		);
 	}
@@ -355,6 +359,10 @@ class AAL_REST {
 				'default'           => false,
 				'sanitize_callback' => 'rest_sanitize_boolean',
 			),
+			'after_id'   => array(
+				'description'       => __( 'Use next_after_id from the previous response as after_id to fetch only new events.', 'aryo-activity-log' ),
+				'sanitize_callback' => 'absint',
+			),
 		);
 	}
 
@@ -363,7 +371,7 @@ class AAL_REST {
 
 		$per_page = min( (int) $request->get_param( 'per_page' ), 100 );
 
-		$result = $query->query( array(
+		$query_args = array(
 			'typeshow'   => $request->get_param( 'typeshow' ),
 			'showaction' => $request->get_param( 'showaction' ),
 			'filter_ip'  => $request->get_param( 'filter_ip' ),
@@ -377,7 +385,13 @@ class AAL_REST {
 			'page'       => $request->get_param( 'page' ),
 			'per_page'   => $per_page,
 			'skip_count' => $request->get_param( 'skip_count' ),
-		) );
+		);
+
+		if ( $request->has_param( 'after_id' ) ) {
+			$query_args['after_id'] = (int) $request->get_param( 'after_id' );
+		}
+
+		$result = $query->query( $query_args );
 
 		$collect_ip = 'no-collect-ip' !== AAL_Main::instance()->settings->get_option( 'log_visitor_ip_source' );
 
@@ -390,13 +404,19 @@ class AAL_REST {
 
 		$promotions = $this->get_promotions( $seen_types );
 
-		$response = new WP_REST_Response( array(
+		$response_data = array(
 			'items'      => $items,
 			'total'      => $result['total'],
 			'pages'      => $result['pages'],
 			'has_more'   => $result['has_more'],
 			'promotions' => $promotions,
-		) );
+		);
+
+		if ( $request->has_param( 'after_id' ) ) {
+			$response_data['next_after_id'] = $result['next_after_id'];
+		}
+
+		$response = new WP_REST_Response( $response_data );
 
 		if ( null !== $result['total'] ) {
 			$response->header( 'X-WP-Total', $result['total'] );

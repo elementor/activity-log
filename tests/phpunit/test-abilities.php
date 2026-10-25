@@ -168,6 +168,39 @@ class AAL_Test_Abilities extends WP_Test_REST_TestCase {
 		$this->assertSame( 'ability_invalid_input', $result->get_error_code() );
 	}
 
+	public function test_query_logs_after_id_incremental() {
+		global $wpdb;
+		$wpdb->query( "DELETE FROM {$wpdb->activity_log}" );
+		$hist_time = current_time( 'timestamp' ) - 60;
+		$id1       = $this->insert_sample_log( array( 'hist_time' => $hist_time ) );
+		$id2       = $this->insert_sample_log( array( 'hist_time' => $hist_time - 1 ) );
+
+		$result = wp_get_ability( AAL_Abilities::ABILITY_QUERY_LOGS )->execute(
+			array(
+				'after_id' => $id1,
+				'per_page' => 10,
+			)
+		);
+
+		$this->assertNull( $result['total'] );
+		$this->assertNull( $result['pages'] );
+		$this->assertFalse( $result['has_more'] );
+		$this->assertSame( $id2, $result['next_after_id'] );
+		$this->assertCount( 1, $result['items'] );
+		$this->assertSame( $id2, $result['items'][0]['id'] );
+
+		$rest = $this->dispatch_ability_rest(
+			AAL_Abilities::ABILITY_QUERY_LOGS,
+			array(
+				'after_id' => $id1,
+				'per_page' => 10,
+			)
+		);
+		$rest_data = $rest->get_data();
+		$this->assertSame( $id2, $rest_data['next_after_id'] );
+		$this->assertFalse( $rest_data['has_more'] );
+	}
+
 	public function test_query_logs_without_input_direct_and_rest() {
 		$this->insert_sample_log();
 		wp_set_current_user( $this->admin_id );
