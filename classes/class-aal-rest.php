@@ -360,10 +360,9 @@ class AAL_REST {
 				'sanitize_callback' => 'rest_sanitize_boolean',
 			),
 			'after_id'   => array(
-				'type'              => 'integer',
-				'minimum'           => 0,
+				'default'           => '',
 				'description'       => __( 'Use next_after_id from the previous response as after_id to fetch only new events.', 'aryo-activity-log' ),
-				'sanitize_callback' => 'absint',
+				'sanitize_callback' => 'sanitize_text_field',
 			),
 		);
 	}
@@ -389,9 +388,9 @@ class AAL_REST {
 			'skip_count' => $request->get_param( 'skip_count' ),
 		);
 
-		$after_id_param = $request->get_param( 'after_id' );
-		if ( null !== $after_id_param ) {
-			$query_args['after_id'] = (int) $after_id_param;
+		$after_id_raw = $request->get_param( 'after_id' );
+		if ( '' !== (string) $after_id_raw ) {
+			$query_args['after_id'] = (int) $after_id_raw;
 		}
 
 		$result = $query->query( $query_args );
@@ -415,7 +414,7 @@ class AAL_REST {
 			'promotions' => $promotions,
 		);
 
-		if ( null !== $after_id_param ) {
+		if ( '' !== (string) $after_id_raw ) {
 			$response_data['next_after_id'] = $result['next_after_id'];
 		}
 
