@@ -122,7 +122,7 @@ class Test_AAL_Logs_REST extends WP_UnitTestCase {
 				'per_page' => 10,
 			)
 		);
-		$data = rest_get_server()->dispatch( $request )->get_data();
+		$data = ( new AAL_REST() )->get_logs( $request )->get_data();
 
 		$this->assertNull( $data['total'] );
 		$this->assertNull( $data['pages'] );
@@ -145,7 +145,7 @@ class Test_AAL_Logs_REST extends WP_UnitTestCase {
 				'per_page' => 10,
 			)
 		);
-		$data = rest_get_server()->dispatch( $request )->get_data();
+		$data = ( new AAL_REST() )->get_logs( $request )->get_data();
 
 		$this->assertArrayHasKey( 'next_after_id', $data );
 		$this->assertSame( $id1, $data['next_after_id'] );

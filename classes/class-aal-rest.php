@@ -310,16 +310,11 @@ class AAL_REST {
 	 */
 	private function get_logs_after_id_param( WP_REST_Request $request ) {
 		$query_params = $request->get_query_params();
-		if ( is_array( $query_params ) && array_key_exists( 'after_id', $query_params ) ) {
-			return (int) $query_params['after_id'];
-		}
-
-		$after_id_raw = $request->get_param( 'after_id' );
-		if ( '' === (string) $after_id_raw || null === $after_id_raw ) {
+		if ( ! is_array( $query_params ) || ! array_key_exists( 'after_id', $query_params ) ) {
 			return null;
 		}
 
-		return (int) $after_id_raw;
+		return (int) $query_params['after_id'];
 	}
 
 	private function get_logs_args() {
