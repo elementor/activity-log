@@ -387,7 +387,7 @@ class AAL_REST {
 			'skip_count' => $request->get_param( 'skip_count' ),
 		);
 
-		$after_id_requested = array_key_exists( 'after_id', $request->get_query_params() );
+		$after_id_requested = null !== $request->get_param( 'after_id' );
 
 		if ( $after_id_requested ) {
 			$query_args['after_id'] = (int) $request->get_param( 'after_id' );
