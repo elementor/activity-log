@@ -163,6 +163,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Fix: Log user events as Unknown user when the user no longer exists
 * Fix: Log the correct name and version for single-file plugins and folders with several plugins
 * Fix: Personal data export now completes for users with many log entries
+* Fix: Log role changes made by adding or removing a single role, and detect users promoted to administrator with several roles
 * Fix: Different events logged in the same second are no longer dropped as duplicates
 
 = 2.17.0 - 2026-10-25 =

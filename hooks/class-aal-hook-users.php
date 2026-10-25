@@ -7,6 +7,11 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 
 	private $new_meta = array();
 
+	/**
+	 * How many stack frames to inspect when checking whether a role hook was fired by WP_User::set_role().
+	 */
+	const SET_ROLE_BACKTRACE_DEPTH = 10;
+
 	private function get_user_object_name( $user ) {
 		return $user instanceof WP_User ? $user->user_nicename : 'Unknown user';
 	}
@@ -141,6 +146,52 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		) );
 	}
 
+	private function is_role_change_from_set_role() {
+		foreach ( debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS, self::SET_ROLE_BACKTRACE_DEPTH ) as $call ) {
+			if ( isset( $call['function'], $call['class'] ) && 'set_role' === $call['function'] && 'WP_User' === $call['class'] ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private function log_single_role_change( $user_id, $role, $event ) {
+		if ( $this->is_role_change_from_set_role() ) {
+			return;
+		}
+
+		$user = get_user_by( 'id', $user_id );
+		$new  = $user instanceof WP_User ? array_values( (array) $user->roles ) : array();
+		sort( $new );
+
+		$old = 'add' === $event ? array_values( array_diff( $new, array( $role ) ) ) : array_merge( $new, array( $role ) );
+		sort( $old );
+
+		if ( $old === $new ) {
+			return;
+		}
+
+		aal_insert_log(
+			array(
+				'action'         => 'updated',
+				'object_type'    => 'Users',
+				'object_subtype' => 'Role',
+				'object_id'      => (int) $user_id,
+				'object_name'    => $this->get_user_object_name( $user ),
+				'meta'           => AAL_Changes::diff( array( 'roles' => $old ), array( 'roles' => $new ) ),
+			)
+		);
+	}
+
+	public function hooks_add_user_role( $user_id, $role ) {
+		$this->log_single_role_change( $user_id, $role, 'add' );
+	}
+
+	public function hooks_remove_user_role( $user_id, $role ) {
+		$this->log_single_role_change( $user_id, $role, 'remove' );
+	}
+
 	public function hooks_create_application_password( $user_id, $item ) {
 		$this->log_application_password( 'app_password_created', $user_id, $item );
 	}
@@ -244,6 +295,8 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		add_action( 'delete_user', array( &$this, 'hooks_delete_user' ) );
 		add_action( 'user_register', array( &$this, 'hooks_user_register' ) );
 		add_action( 'profile_update', array( &$this, 'hooks_profile_update' ), 10, 2 );
+		add_action( 'add_user_role', array( &$this, 'hooks_add_user_role' ), 10, 2 );
+		add_action( 'remove_user_role', array( &$this, 'hooks_remove_user_role' ), 10, 2 );
 		add_action( 'set_user_role', array( &$this, 'hooks_set_user_role' ), 10, 3 );
 		add_filter( 'wp_login_failed', array( &$this, 'hooks_wrong_password' ) );
 		add_filter( 'insert_user_meta', array( $this, 'capture_user_meta_changes' ), 10, 4 );
