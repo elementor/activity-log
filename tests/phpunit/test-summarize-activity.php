@@ -108,6 +108,9 @@ class AAL_Test_Summarize_Activity extends WP_Test_REST_TestCase {
 	/** @dataProvider summarize_dst_fallback_provider */
 	public function test_summarize_dst_fallback_hour( $insert_hists, $expected_buckets ) {
 		update_option( 'timezone_string', 'Asia/Jerusalem' );
+		global $wpdb;
+		// set_up() logs can fall in this date range when run on 2026-10-25.
+		$wpdb->query( "DELETE FROM {$wpdb->activity_log}" );
 		foreach ( $insert_hists as $hist_time ) {
 			$this->insert_log( array( 'hist_time' => $hist_time ) );
 		}
