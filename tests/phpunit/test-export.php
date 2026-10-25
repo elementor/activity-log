@@ -190,6 +190,53 @@ class AAL_Test_Export extends WP_UnitTestCase {
 		$this->assertSame( '', $row['changes'] );
 	}
 
+	public function test_export_csv_trailing_machine_friendly_columns() {
+		global $wpdb;
+
+		$this->set_ip_source_option( 'no-collect-ip' );
+
+		$user_id   = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $user_id );
+		$hist_time = 1609459200;
+		$object_id = 4242;
+		$action    = 'updated';
+		$marker    = 'csv-id-cols-export-test';
+
+		$wpdb->insert(
+			$wpdb->activity_log,
+			array(
+				'action'         => $action,
+				'object_type'    => 'Posts',
+				'object_subtype' => 'post',
+				'object_name'    => $marker,
+				'object_id'      => $object_id,
+				'user_id'        => $user_id,
+				'user_caps'      => 'administrator',
+				'hist_time'      => $hist_time,
+			),
+			array( '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d' )
+		);
+
+		$export  = $this->get_export_instance();
+		$columns = $this->invoke_get_export_columns( $export );
+		$rows    = iterator_to_array(
+			$this->invoke_export_rows_generator( $export, array( 's' => $marker ), $columns ),
+			false
+		);
+
+		$this->assertSame(
+			array( 'Time (ISO 8601)', 'User ID', 'Object ID', 'Action Key' ),
+			array_slice( array_values( $columns ), -4 )
+		);
+		$this->assertCount( 1, $rows );
+
+		$row = $rows[0];
+		$this->assertSame( AAL_Log_Query::hist_time_to_iso8601( $hist_time ), $row['time_iso'] );
+		$this->assertSame( $user_id, $row['user_id'] );
+		$this->assertSame( (string) $object_id, $row['object_id'] );
+		$this->assertSame( $action, $row['action_key'] );
+	}
+
 	public function test_export_batches_yield_all_rows_in_histid_desc_order() {
 		global $wpdb;
 
@@ -390,6 +437,13 @@ class AAL_Test_Export extends WP_UnitTestCase {
 	/**
 	 * @return Generator<int, array<string, string>>
 	 */
+	private function invoke_get_export_columns( AAL_Export $export ): array {
+		$method = new ReflectionMethod( AAL_Export::class, 'get_export_columns' );
+		$method->setAccessible( true );
+
+		return $method->invoke( $export );
+	}
+
 	private function invoke_export_rows_generator( AAL_Export $export, array $query_args, array $columns ) {
 		$method = new ReflectionMethod( AAL_Export::class, 'export_rows_generator' );
 		$method->setAccessible( true );
