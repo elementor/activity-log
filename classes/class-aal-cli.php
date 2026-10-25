@@ -170,6 +170,98 @@ class AAL_CLI_List {
 	}
 }
 
+/**
+ * Builds activity log stats data for WP-CLI (no WP-CLI dependency).
+ */
+class AAL_CLI_Stats {
+
+	const DEFAULT_PERIOD = '24h';
+
+	const COUNT_ROW_FIELD_COUNT = 'count';
+
+	const OBJECT_TYPE_FIELD = 'object_type';
+
+	const ACTION_FIELD = 'action';
+
+	const TOP_USER_FIELD_USER_ID = 'user_id';
+
+	const TOP_USER_FIELD_NAME = 'name';
+
+	const TOP_USER_FIELD_COUNT = 'count';
+
+	/**
+	 * Map WP-CLI associative arguments to summarize-activity input.
+	 *
+	 * @param array<string, mixed> $assoc_args CLI flags.
+	 * @return array<string, mixed>
+	 */
+	public static function build_summarize_input( $assoc_args ) {
+		$assoc_args = is_array( $assoc_args ) ? $assoc_args : array();
+		$input      = array();
+
+		if ( ! empty( $assoc_args['period'] ) ) {
+			$input['period'] = $assoc_args['period'];
+		}
+		if ( ! empty( $assoc_args['date-from'] ) ) {
+			$input['date_from'] = $assoc_args['date-from'];
+		}
+		if ( ! empty( $assoc_args['date-to'] ) ) {
+			$input['date_to'] = $assoc_args['date-to'];
+		}
+
+		if ( empty( $input ) ) {
+			$input['period'] = self::DEFAULT_PERIOD;
+		}
+
+		return $input;
+	}
+
+	/**
+	 * @param array<string, int> $counts     Label => count map from summarize output.
+	 * @param string             $label_field Row key for the label column.
+	 * @return array<int, array<string, int|string>>
+	 */
+	public static function build_label_count_rows( $counts, $label_field ) {
+		$rows = array();
+		foreach ( $counts as $label => $count ) {
+			$rows[] = array(
+				$label_field              => (string) $label,
+				self::COUNT_ROW_FIELD_COUNT => (int) $count,
+			);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $top_users Summarize top_users payload.
+	 * @return array<int, array<string, int|string>>
+	 */
+	public static function build_top_users_rows( $top_users ) {
+		$rows = array();
+		foreach ( $top_users as $user ) {
+			$rows[] = array(
+				self::TOP_USER_FIELD_USER_ID => (int) $user['user_id'],
+				self::TOP_USER_FIELD_NAME    => (string) $user['name'],
+				self::TOP_USER_FIELD_COUNT   => (int) $user['count'],
+			);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * @param array<string, mixed> $assoc_args CLI flags.
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public static function fetch_stats( $assoc_args ) {
+		$unrestricted = defined( 'WP_CLI' ) && WP_CLI && 0 === get_current_user_id();
+		$query        = new AAL_Log_Query( array( 'unrestricted' => $unrestricted ) );
+
+		return $query->summarize_activity_from_input( self::build_summarize_input( $assoc_args ) );
+	}
+}
+
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 
 	/**
@@ -256,6 +348,107 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 
 			$fields = AAL_CLI_List::parse_fields( $assoc_args );
 			\WP_CLI\Utils\format_items( $format, $data['rows'], $fields );
+		}
+
+		/**
+		 * Show aggregated activity log statistics.
+		 *
+		 * ## OPTIONS
+		 *
+		 * [--period=<period>]
+		 * : Relative time window.
+		 * ---
+		 * default: 24h
+		 * options:
+		 *   - 24h
+		 *   - 7d
+		 *   - 30d
+		 *   - today
+		 * ---
+		 *
+		 * [--date-from=<Y-m-d>]
+		 * : Range start date in the site timezone (use with --date-to).
+		 *
+		 * [--date-to=<Y-m-d>]
+		 * : Range end date in the site timezone (use with --date-from).
+		 *
+		 * [--format=<format>]
+		 * : Render output in a particular format.
+		 * ---
+		 * default: table
+		 * options:
+		 *   - table
+		 *   - json
+		 *   - yaml
+		 * ---
+		 *
+		 * ## EXAMPLES
+		 *
+		 *     wp activity-log stats
+		 *     wp activity-log stats --period=7d
+		 *     wp activity-log stats --date-from=2026-03-01 --date-to=2026-03-07 --format=json
+		 *
+		 * @subcommand stats
+		 *
+		 * @param array<int, string>   $args       Positional arguments.
+		 * @param array<string, mixed> $assoc_args Associative arguments.
+		 */
+		public function stats( $args, $assoc_args ) {
+			$summary = AAL_CLI_Stats::fetch_stats( $assoc_args );
+			if ( is_wp_error( $summary ) ) {
+				WP_CLI::error( $summary->get_error_message() );
+			}
+
+			$format = isset( $assoc_args['format'] ) ? $assoc_args['format'] : 'table';
+
+			if ( 'table' !== $format ) {
+				WP_CLI::print_value( $summary, array( 'format' => $format ) );
+				return;
+			}
+
+			WP_CLI::log(
+				sprintf(
+					'Range: %s - %s',
+					$summary['range']['from'],
+					$summary['range']['to']
+				)
+			);
+			WP_CLI::log( sprintf( 'Total: %d', (int) $summary['total'] ) );
+
+			$this->print_stats_count_table(
+				'By object type',
+				AAL_CLI_Stats::build_label_count_rows( $summary['by_object_type'], AAL_CLI_Stats::OBJECT_TYPE_FIELD ),
+				array( AAL_CLI_Stats::OBJECT_TYPE_FIELD, AAL_CLI_Stats::COUNT_ROW_FIELD_COUNT )
+			);
+			$this->print_stats_count_table(
+				'By action',
+				AAL_CLI_Stats::build_label_count_rows( $summary['by_action'], AAL_CLI_Stats::ACTION_FIELD ),
+				array( AAL_CLI_Stats::ACTION_FIELD, AAL_CLI_Stats::COUNT_ROW_FIELD_COUNT )
+			);
+			$this->print_stats_count_table(
+				'Top users',
+				AAL_CLI_Stats::build_top_users_rows( $summary['top_users'] ),
+				array(
+					AAL_CLI_Stats::TOP_USER_FIELD_USER_ID,
+					AAL_CLI_Stats::TOP_USER_FIELD_NAME,
+					AAL_CLI_Stats::TOP_USER_FIELD_COUNT,
+				)
+			);
+		}
+
+		/**
+		 * @param string               $title  Section heading.
+		 * @param array<int, mixed>    $rows   Table rows.
+		 * @param array<int, string>   $fields Column keys.
+		 */
+		private function print_stats_count_table( $title, $rows, $fields ) {
+			if ( empty( $rows ) ) {
+				return;
+			}
+
+			WP_CLI::log( '' );
+			WP_CLI::log( $title );
+			\WP_CLI\Utils\format_items( 'table', $rows, $fields );
 		}
 	}
 }
