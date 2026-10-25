@@ -109,6 +109,10 @@ class AAL_Export {
 			'description' => __( 'Meta', 'aryo-activity-log' ),
 			'action'      => __( 'Action', 'aryo-activity-log' ),
 			'changes'     => __( 'Changes', 'aryo-activity-log' ),
+			'time_iso'    => __( 'Time (ISO 8601)', 'aryo-activity-log' ),
+			'user_id'     => __( 'User ID', 'aryo-activity-log' ),
+			'object_id'   => __( 'Object ID', 'aryo-activity-log' ),
+			'action_key'  => __( 'Action Key', 'aryo-activity-log' ),
 		);
 
 		return $this->add_export_ip_column( $columns );
