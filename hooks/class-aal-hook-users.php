@@ -8,7 +8,7 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 	private $new_meta = array();
 
 	/**
-	 * @var array<int, array{original: array<int, string>}>
+	 * @var array<int, array{original: array<int, string>|null}>
 	 */
 	private $role_change_buffers = array();
 
@@ -167,6 +167,9 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 
 		$user = get_user_by( 'id', $user_id );
 		if ( ! $user instanceof WP_User ) {
+			$this->role_change_buffers[ $user_id ] = array(
+				'original' => null,
+			);
 			return;
 		}
 
@@ -195,12 +198,28 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 
 	public function flush_buffered_role_changes() {
 		foreach ( $this->role_change_buffers as $user_id => $buffer ) {
+			$old  = null === $buffer['original'] ? array() : $buffer['original'];
 			$user = get_user_by( 'id', $user_id );
+
 			if ( ! $user instanceof WP_User ) {
+				$new = array();
+				if ( $old === $new ) {
+					continue;
+				}
+
+				aal_insert_log(
+					array(
+						'action'         => 'updated',
+						'object_type'    => 'Users',
+						'object_subtype' => 'Role',
+						'object_id'      => (int) $user_id,
+						'object_name'    => $this->get_user_object_name( $user ),
+						'meta'           => AAL_Changes::diff( array( 'roles' => $old ), array( 'roles' => $new ) ),
+					)
+				);
 				continue;
 			}
 
-			$old = $buffer['original'];
 			$new = array_values( (array) $user->roles );
 			sort( $new );
 
@@ -214,7 +233,7 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 					'object_type'    => 'Users',
 					'object_subtype' => 'Role',
 					'object_id'      => $user->ID,
-					'object_name'    => $user->user_nicename,
+					'object_name'    => $this->get_user_object_name( $user ),
 					'meta'           => AAL_Changes::diff( array( 'roles' => $old ), array( 'roles' => $new ) ),
 				)
 			);
