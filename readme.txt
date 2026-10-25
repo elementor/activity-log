@@ -156,6 +156,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 = 2.18.0 =
 * New: Anonymize a user's activity log entries through the WordPress personal data eraser
+* New: Log application password and password reset events
 * Tweak: Log an entry when all activity logs are erased
 * Tweak: Run old logs cleanup hourly instead of daily so large sites catch up faster
 * Fix: Log user events as Unknown user when the user no longer exists
