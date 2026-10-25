@@ -146,21 +146,7 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		) );
 	}
 
-	private function is_role_change_from_set_role() {
-		foreach ( debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS ) as $call ) {
-			if ( isset( $call['function'], $call['class'] ) && 'set_role' === $call['function'] && 'WP_User' === $call['class'] ) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
 	private function buffer_role_change( $user_id, $role, $event ) {
-		if ( $this->is_role_change_from_set_role() ) {
-			return;
-		}
-
 		if ( isset( $this->role_change_buffers[ $user_id ] ) ) {
 			return;
 		}
@@ -203,25 +189,10 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 
 			if ( ! $user instanceof WP_User ) {
 				$new = array();
-				if ( $old === $new ) {
-					continue;
-				}
-
-				aal_insert_log(
-					array(
-						'action'         => 'updated',
-						'object_type'    => 'Users',
-						'object_subtype' => 'Role',
-						'object_id'      => (int) $user_id,
-						'object_name'    => $this->get_user_object_name( $user ),
-						'meta'           => AAL_Changes::diff( array( 'roles' => $old ), array( 'roles' => $new ) ),
-					)
-				);
-				continue;
+			} else {
+				$new = array_values( (array) $user->roles );
+				sort( $new );
 			}
-
-			$new = array_values( (array) $user->roles );
-			sort( $new );
 
 			if ( $old === $new ) {
 				continue;
@@ -232,7 +203,7 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 					'action'         => 'updated',
 					'object_type'    => 'Users',
 					'object_subtype' => 'Role',
-					'object_id'      => $user->ID,
+					'object_id'      => (int) $user_id,
 					'object_name'    => $this->get_user_object_name( $user ),
 					'meta'           => AAL_Changes::diff( array( 'roles' => $old ), array( 'roles' => $new ) ),
 				)
@@ -310,6 +281,9 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 	}
 
 	public function hooks_set_user_role( $user_id, $role, $old_roles ) {
+		// WP_User::set_role() fires add_user_role/remove_user_role before set_user_role and is logged here, so drop its buffered entry.
+		unset( $this->role_change_buffers[ $user_id ] );
+
 		if ( empty( $old_roles ) ) {
 			return;
 		}
