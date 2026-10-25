@@ -155,6 +155,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 == Changelog ==
 
 = 2.18.0 =
+* Tweak: Log an entry when all activity logs are erased
 * Fix: Log user events as Unknown user when the user no longer exists
 
 = 2.17.0 - 2026-10-25 =

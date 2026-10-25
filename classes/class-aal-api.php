@@ -102,6 +102,15 @@ class AAL_API {
 		global $wpdb;
 
 		$wpdb->query( 'TRUNCATE `' . $wpdb->activity_log . '`' );
+
+		aal_insert_log(
+			array(
+				'action'         => 'erased',
+				'object_type'    => 'Options',
+				'object_name'    => 'erased',
+				'object_subtype' => 'Activity Log',
+			)
+		);
 	}
 
 	/**
