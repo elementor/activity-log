@@ -55,6 +55,7 @@ If you have more than a handful of users, keeping track of who did what by hand 
 * <strong>WooCommerce</strong> - Track products, orders, customers, and more
 * <strong>bbPress</strong> - Forums, topics, replies, taxonomies, and other actions
 * <strong>Emails sent from WordPress site</strong> - Sending successful, sending failed
+* <strong>Dashboard Widget</strong> - See the latest activity on the WordPress dashboard in a timeline, with Load more.
 * There’s more, of course, but you get the point...
 
 For each event recorded by the activity log, the following details are also logged:
@@ -154,11 +155,13 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 == Changelog ==
 
 = 2.17.0 =
-* New: Log user role changes with old and new values
-* New: Show old and new values for settings, posts, users and comments changes
+* New: Show old and new values for settings, posts, users, user roles, comments, plugin versions, themes, WordPress core version, widget and term changes
+* New: Recent activity timeline widget on the WordPress dashboard
 * Tweak: Detect existing users promoted to administrator
 * Tweak: Limited daily old logs cleanup to 50,000 rows per run to avoid timeouts on large sites
+* Tweak: Added translator comments for log action and option keys
 * Fix: Store actual WordPress role instead of first user cap for role filtering
+* Fix: Skip logging editor preference saves as profile updates
 
 = 2.16.0 - 2026-10-18 =
 * New: Suspicious events detection ability for AI agents

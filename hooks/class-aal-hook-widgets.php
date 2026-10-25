@@ -16,6 +16,13 @@ class AAL_Hook_Widgets extends AAL_Hook_Base {
 			return $instance;
 		}
 
+		if ( false !== $instance ) {
+			$diff = AAL_Changes::diff( (array) $old_instance, (array) $instance );
+			if ( ! empty( $diff ) ) {
+				$aal_args['meta'] = $diff;
+			}
+		}
+
 		aal_insert_log( $aal_args );
 
 		// We are need return the instance, for complete the filter.

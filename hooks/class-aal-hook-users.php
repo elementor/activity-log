@@ -3,6 +3,10 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class AAL_Hook_Users extends AAL_Hook_Base {
 
+	private $old_meta = array();
+
+	private $new_meta = array();
+
 	public function hooks_user_register( $user_id ) {
 		$user = get_user_by( 'id', $user_id );
 
@@ -66,7 +70,7 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		);
 
 		if ( $old_user_data instanceof WP_User ) {
-			$fields = array( 'user_email', 'display_name', 'user_url', 'user_nicename' );
+			$fields = array( 'user_email', 'display_name', 'user_url', 'user_nicename', 'user_pass' );
 			$old    = array();
 			$new    = array();
 
@@ -75,13 +79,47 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 				$new[ $field ] = $user->$field;
 			}
 
-			$diff = AAL_Changes::diff( $old, $new );
-			if ( ! empty( $diff ) ) {
-				$args['meta'] = $diff;
+			$diff = AAL_Changes::diff( $old + $this->old_meta, $new + $this->new_meta );
+			$this->old_meta = array();
+			$this->new_meta = array();
+
+			if ( empty( $diff ) ) {
+				return;
 			}
+
+			$args['meta'] = $diff;
+		} else {
+			$this->old_meta = array();
+			$this->new_meta = array();
 		}
 
 		aal_insert_log( $args );
+	}
+
+	public function capture_user_meta_changes( $meta, $user, $update, $userdata = array() ) {
+		$this->old_meta = array();
+		$this->new_meta = array();
+
+		if ( ! $update ) {
+			return $meta;
+		}
+
+		$new = $meta;
+		foreach ( array_keys( wp_get_user_contact_methods( $user ) ) as $key ) {
+			if ( isset( $userdata[ $key ] ) ) {
+				$new[ $key ] = $userdata[ $key ];
+			}
+		}
+
+		$old = array();
+		foreach ( array_keys( $new ) as $key ) {
+			$old[ $key ] = get_user_meta( $user->ID, $key, true );
+		}
+
+		$this->old_meta = $old;
+		$this->new_meta = $new;
+
+		return $meta;
 	}
 
 	public function hooks_wrong_password( $username ) {
@@ -137,6 +175,7 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		add_action( 'profile_update', array( &$this, 'hooks_profile_update' ), 10, 2 );
 		add_action( 'set_user_role', array( &$this, 'hooks_set_user_role' ), 10, 3 );
 		add_filter( 'wp_login_failed', array( &$this, 'hooks_wrong_password' ) );
+		add_filter( 'insert_user_meta', array( $this, 'capture_user_meta_changes' ), 10, 4 );
 
 		parent::__construct();
 	}
