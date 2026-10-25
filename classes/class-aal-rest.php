@@ -305,14 +305,6 @@ class AAL_REST {
 		);
 	}
 
-	public static function sanitize_logs_after_id_param( $value ) {
-		if ( null === $value || '' === $value ) {
-			return '';
-		}
-
-		return (int) max( 0, (int) $value );
-	}
-
 	private function get_logs_args() {
 		return array(
 			'page'       => array(
@@ -368,9 +360,10 @@ class AAL_REST {
 				'sanitize_callback' => 'rest_sanitize_boolean',
 			),
 			'after_id'   => array(
-				'default'           => '',
+				'type'              => 'integer',
+				'minimum'           => 0,
 				'description'       => __( 'Use next_after_id from the previous response as after_id to fetch only new events.', 'aryo-activity-log' ),
-				'sanitize_callback' => array( __CLASS__, 'sanitize_logs_after_id_param' ),
+				'sanitize_callback' => 'absint',
 			),
 		);
 	}
@@ -396,9 +389,8 @@ class AAL_REST {
 			'skip_count' => $request->get_param( 'skip_count' ),
 		);
 
-		$after_id_param     = $request->get_param( 'after_id' );
-		$after_id_requested = ( '' !== $after_id_param && null !== $after_id_param );
-		if ( $after_id_requested ) {
+		$after_id_param = $request->get_param( 'after_id' );
+		if ( null !== $after_id_param ) {
 			$query_args['after_id'] = (int) $after_id_param;
 		}
 
@@ -423,7 +415,7 @@ class AAL_REST {
 			'promotions' => $promotions,
 		);
 
-		if ( $after_id_requested ) {
+		if ( null !== $after_id_param ) {
 			$response_data['next_after_id'] = $result['next_after_id'];
 		}
 
