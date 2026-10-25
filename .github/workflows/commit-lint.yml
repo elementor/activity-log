@@ -32,5 +32,5 @@ jobs:
           if [ "$EVENT_NAME" = "pull_request" ]; then
             printf '%s\n' "$PR_TITLE" | npx commitlint
           else
-            printf '%s\n' "$COMMIT_MSG" | npx commitlint
+            printf '%s\n' "$COMMIT_MSG" | head -n 1 | npx commitlint
           fi

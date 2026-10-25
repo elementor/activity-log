@@ -150,10 +150,11 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 == Changelog ==
 
 = 2.17.0 =
-* New: Show old and new values for settings, posts, users, user roles, comments, plugin versions, themes, WordPress core version and term changes
+* New: Show old and new values for settings, posts, users, user roles, comments, plugin versions, themes, WordPress core version, widget and term changes
 * New: Recent activity timeline widget on the WordPress dashboard
 * Tweak: Detect existing users promoted to administrator
 * Tweak: Limited daily old logs cleanup to 50,000 rows per run to avoid timeouts on large sites
+* Tweak: Added translator comments for log action and option keys
 * Fix: Store actual WordPress role instead of first user cap for role filtering
 * Fix: Skip logging editor preference saves as profile updates
 
