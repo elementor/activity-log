@@ -399,9 +399,10 @@ class AAL_REST {
 			'skip_count' => $request->get_param( 'skip_count' ),
 		);
 
-		$after_id_raw = $this->get_logs_after_id_param( $request );
-		if ( array_key_exists( 'after_id', $request->get_params( 'GET' ) ) ) {
-			$query_args['after_id'] = $after_id_raw;
+		$get_params     = $request->get_params( 'GET' );
+		$after_id_param = $this->get_logs_after_id_param( $request );
+		if ( is_array( $get_params ) && array_key_exists( 'after_id', $get_params ) ) {
+			$query_args['after_id'] = $after_id_param;
 		}
 
 		$result = $query->query( $query_args );
@@ -425,8 +426,13 @@ class AAL_REST {
 			'promotions' => $promotions,
 		);
 
-		if ( array_key_exists( 'next_after_id', $result ) ) {
-			$response_data['next_after_id'] = $result['next_after_id'];
+		if ( is_array( $get_params ) && array_key_exists( 'after_id', $get_params ) ) {
+			$next_after_id = $after_id_param;
+			if ( ! empty( $items ) ) {
+				$last_item     = end( $items );
+				$next_after_id = (int) $last_item['id'];
+			}
+			$response_data['next_after_id'] = $next_after_id;
 		}
 
 		$response = new WP_REST_Response( $response_data );
