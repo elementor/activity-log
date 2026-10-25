@@ -9,8 +9,16 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class AAL_Privacy {
 
+	/**
+	 * Stored in hist_ip for anonymized rows. Empty on purpose so it is not
+	 * confused with the 127.0.0.1 column default used when no IP is known (cron, CLI).
+	 */
+	const ANONYMIZED_IP = '';
+
 	public function __construct() {
 		add_filter( 'wp_privacy_personal_data_exporters', array( $this, 'register_exporter' ) );
+		add_filter( 'wp_privacy_personal_data_erasers', array( $this, 'register_eraser' ) );
+		add_action( 'wp_privacy_personal_data_erased', array( $this, 'log_personal_data_erased' ) );
 		add_action( 'admin_init', array( $this, 'add_privacy_policy_content' ) );
 	}
 
@@ -20,6 +28,70 @@ class AAL_Privacy {
 			'callback' => array( $this, 'wp_exporter' ),
 		);
 		return $exporters;
+	}
+
+	public function register_eraser( $erasers ) {
+		$erasers['activity-log'] = array(
+			'eraser_friendly_name' => __( 'Activity Log Plugin', 'aryo-activity-log' ),
+			'callback' => array( $this, 'wp_eraser' ),
+		);
+		return $erasers;
+	}
+
+	public function wp_eraser( $email_address, $page = 1 ) {
+		$number = 500;
+
+		$user = get_user_by( 'email', $email_address );
+
+		if ( ! $user ) {
+			return array(
+				'items_removed' => false,
+				'items_retained' => false,
+				'messages' => array(),
+				'done' => true,
+			);
+		}
+
+		global $wpdb;
+
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE $wpdb->activity_log SET user_id = 0, hist_ip = %s WHERE user_id = %d LIMIT %d",
+				self::ANONYMIZED_IP,
+				$user->ID,
+				$number
+			)
+		);
+		$affected_performed = $wpdb->rows_affected;
+
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE $wpdb->activity_log SET object_name = 'Anonymized user', meta = NULL WHERE object_type = 'Users' AND object_id = %d AND object_name <> 'Anonymized user' LIMIT %d",
+				$user->ID,
+				$number
+			)
+		);
+		$affected_about = $wpdb->rows_affected;
+
+		$done = $affected_performed < $number && $affected_about < $number;
+
+		return array(
+			'items_removed' => ( $affected_performed + $affected_about ) > 0,
+			'items_retained' => false,
+			'messages' => array(),
+			'done' => $done,
+		);
+	}
+
+	public function log_personal_data_erased( $request_id ) {
+		aal_insert_log(
+			array(
+				'action' => 'personal_data_erased',
+				'object_type' => 'Users',
+				'object_id' => absint( $request_id ),
+				'object_name' => sprintf( 'Personal data request #%d', absint( $request_id ) ),
+			)
+		);
 	}
 
 	public function wp_exporter( $email_address, $page = 1 ) {
@@ -115,7 +187,7 @@ class AAL_Privacy {
 
 		$content = sprintf(
 			__( 'If you are a registered user, we save your content activity like create/update/delete posts and comments. When a profile or comment is updated, we may also store the previous and new values of the changed fields (for example email address or display name) in the activity log.', 'aryo-activity-log' )
-		);
+		) . ' ' . __( 'When you request erasure of your personal data, your activity log entries are anonymized and a record of the erasure request is kept.', 'aryo-activity-log' );
 
 		wp_add_privacy_policy_content(
 			__( 'Activity Log', 'aryo-activity-log' ),

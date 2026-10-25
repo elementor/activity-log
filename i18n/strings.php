@@ -38,6 +38,8 @@ __( 'failed_login', 'aryo-activity-log' );
 __( 'registered', 'aryo-activity-log' );
 /* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "Logged out". */
 __( 'removed', 'aryo-activity-log' );
+/* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "Personal data erased". */
+__( 'personal_data_erased', 'aryo-activity-log' );
 
 // Plugin
 __( 'Plugins', 'aryo-activity-log' );
