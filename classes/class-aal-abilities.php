@@ -209,11 +209,18 @@ class AAL_Abilities {
 			$items[] = AAL_Log_Presenter::to_ability_json( $item );
 		}
 
-		return array(
+		$output = array(
 			'items' => $items,
-			'total' => (int) $result['total'],
-			'pages' => (int) $result['pages'],
+			'total' => $result['total'],
+			'pages' => $result['pages'],
 		);
+
+		if ( is_array( $input ) && array_key_exists( 'after_id', $input ) ) {
+			$output['has_more']      = $result['has_more'];
+			$output['next_after_id'] = $result['next_after_id'];
+		}
+
+		return $output;
 	}
 
 	/**
@@ -350,6 +357,11 @@ class AAL_Abilities {
 					'description' => __( 'Search object name or subtype.', 'aryo-activity-log' ),
 					'maxLength'   => 500,
 				),
+				'after_id'   => array(
+					'type'        => 'integer',
+					'description' => __( 'Use next_after_id from the previous response as after_id to fetch only new events.', 'aryo-activity-log' ),
+					'minimum'     => 0,
+				),
 			),
 			'additionalProperties' => false,
 		);
@@ -434,8 +446,13 @@ class AAL_Abilities {
 					'type'  => 'array',
 					'items' => self::get_log_entry_output_schema(),
 				),
-				'total' => array( 'type' => 'integer' ),
-				'pages' => array( 'type' => 'integer' ),
+				'total'         => array( 'type' => array( 'integer', 'null' ) ),
+				'pages'         => array( 'type' => array( 'integer', 'null' ) ),
+				'has_more'      => array( 'type' => 'boolean' ),
+				'next_after_id' => array(
+					'type'        => 'integer',
+					'description' => __( 'Use next_after_id from the previous response as after_id to fetch only new events.', 'aryo-activity-log' ),
+				),
 			),
 			'required'   => array( 'items', 'total', 'pages' ),
 		);
