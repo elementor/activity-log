@@ -136,9 +136,15 @@ class AAL_API {
 		}
 
 		// Make sure for non duplicate.
+		// Check only the latest rows by primary key to avoid a full table scan on large tables.
 		$check_duplicate = $wpdb->get_row(
 			$wpdb->prepare(
-				'SELECT `histid` FROM `' . $wpdb->activity_log . '`
+				'SELECT `histid` FROM (
+						SELECT `histid`, `user_caps`, `action`, `object_type`, `object_subtype`, `object_name`, `user_id`, `hist_ip`, `hist_time`
+						FROM `' . $wpdb->activity_log . '`
+						ORDER BY `histid` DESC
+						LIMIT 20
+					) AS `recent`
 					WHERE `user_caps` = %s
 						AND `action` = %s
 						AND `object_type` = %s
