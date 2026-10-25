@@ -142,33 +142,20 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 	}
 
 	public function hooks_create_application_password( $user_id, $item ) {
-		$name = is_array( $item ) && isset( $item['name'] ) ? $item['name'] : '';
-
-		$args = array(
-			'action'         => 'app_password_created',
-			'object_type'    => 'Users',
-			'object_subtype' => 'Application Password',
-			'object_id'      => (int) $user_id,
-			'object_name'    => $name,
-		);
-
-		$meta = $this->get_application_password_meta( $item );
-		if ( ! empty( $meta ) ) {
-			$args['meta'] = $meta;
-		}
-
-		aal_insert_log( $args );
+		$this->log_application_password( 'app_password_created', $user_id, $item );
 	}
 
 	public function hooks_delete_application_password( $user_id, $item ) {
-		$name = is_array( $item ) && isset( $item['name'] ) ? $item['name'] : '';
+		$this->log_application_password( 'app_password_revoked', $user_id, $item );
+	}
 
+	private function log_application_password( $action, $user_id, $item ) {
 		$args = array(
-			'action'         => 'app_password_revoked',
+			'action'         => $action,
 			'object_type'    => 'Users',
 			'object_subtype' => 'Application Password',
 			'object_id'      => (int) $user_id,
-			'object_name'    => $name,
+			'object_name'    => is_array( $item ) && isset( $item['name'] ) ? $item['name'] : '',
 		);
 
 		$meta = $this->get_application_password_meta( $item );
