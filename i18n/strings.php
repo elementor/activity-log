@@ -47,7 +47,8 @@ __( 'activated', 'aryo-activity-log' );
 __( 'deactivated', 'aryo-activity-log' );
 /* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "Logged out". */
 __( 'installed', 'aryo-activity-log' );
-__( 'File Updated', 'aryo-activity-log' );
+/* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "Logged out". */
+__( 'file_updated', 'aryo-activity-log' );
 /* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "Logged out". */
 __( 'deleted', 'aryo-activity-log' );
 /* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "Logged out". */
