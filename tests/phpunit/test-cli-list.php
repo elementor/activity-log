@@ -33,6 +33,29 @@ class AAL_Test_CLI_List extends WP_UnitTestCase {
 		$this->assertSame( 'DESC', $args['order'] );
 	}
 
+	public function test_fetch_list_without_wp_cli_and_no_user_stays_restricted() {
+		global $wpdb;
+
+		wp_set_current_user( 0 );
+
+		$wpdb->insert(
+			$wpdb->activity_log,
+			array(
+				'action'      => 'updated',
+				'object_type' => 'Posts',
+				'object_name' => 'fetch-list-no-cli',
+				'user_caps'   => 'administrator',
+				'hist_time'   => current_time( 'timestamp' ),
+			),
+			array( '%s', '%s', '%s', '%s', '%d' )
+		);
+
+		$result = AAL_CLI_List::fetch_list( array( 'type' => 'Posts' ) );
+
+		$this->assertSame( array(), $result['rows'] );
+		$this->assertSame( 0, $result['total'] );
+	}
+
 	public function test_build_list_rows_includes_id_and_action() {
 		$item = (object) array(
 			'histid'         => 42,
