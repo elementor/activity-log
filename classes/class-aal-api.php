@@ -34,9 +34,12 @@ class AAL_API {
 	}
 
 	public function maybe_add_schedule_delete_old_items() {
-		if ( ! wp_next_scheduled( 'aal/maintenance/clear_old_items' ) ) {
-			wp_schedule_event( time(), 'daily', 'aal/maintenance/clear_old_items' );
+		if ( 'hourly' === wp_get_schedule( 'aal/maintenance/clear_old_items' ) ) {
+			return;
 		}
+
+		wp_clear_scheduled_hook( 'aal/maintenance/clear_old_items' );
+		wp_schedule_event( time(), 'hourly', 'aal/maintenance/clear_old_items' );
 	}
 
 	public function delete_old_items() {
@@ -102,6 +105,15 @@ class AAL_API {
 		global $wpdb;
 
 		$wpdb->query( 'TRUNCATE `' . $wpdb->activity_log . '`' );
+
+		aal_insert_log(
+			array(
+				'action'         => 'erased',
+				'object_type'    => 'Options',
+				'object_name'    => 'erased',
+				'object_subtype' => 'Activity Log',
+			)
+		);
 	}
 
 	/**

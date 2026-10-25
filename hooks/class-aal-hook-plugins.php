@@ -8,12 +8,13 @@ class AAL_Hook_Plugins extends AAL_Hook_Base {
 	protected function _add_log_plugin( $action, $plugin_name ) {
 		$plugin_version = '';
 
-		// Get plugin name if is a path
-		if ( false !== strpos( $plugin_name, '/' ) ) {
-			$plugin_dir  = explode( '/', $plugin_name );
-			$plugin_data = array_values( get_plugins( '/' . $plugin_dir[0] ) );
-			$plugin_data = array_shift( $plugin_data );
-			$plugin_name = $plugin_data['Name'];
+		$plugin_path = WP_PLUGIN_DIR . '/' . $plugin_name;
+		if ( file_exists( $plugin_path ) ) {
+			$plugin_data = get_plugin_data( $plugin_path, false, false );
+
+			if ( ! empty( $plugin_data['Name'] ) ) {
+				$plugin_name = $plugin_data['Name'];
+			}
 
 			if ( ! empty( $plugin_data['Version'] ) ) {
 				$plugin_version = $plugin_data['Version'];
