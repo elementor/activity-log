@@ -147,40 +147,6 @@ class AAL_API {
 			return;
 		}
 
-		// Make sure for non duplicate.
-		// Check only the latest rows by primary key to avoid a full table scan on large tables.
-		$check_duplicate = $wpdb->get_row(
-			$wpdb->prepare(
-				'SELECT `histid` FROM (
-						SELECT `histid`, `user_caps`, `action`, `object_type`, `object_subtype`, `object_name`, `user_id`, `hist_ip`, `hist_time`
-						FROM `' . $wpdb->activity_log . '`
-						ORDER BY `histid` DESC
-						LIMIT 20
-					) AS `recent`
-					WHERE `user_caps` = %s
-						AND `action` = %s
-						AND `object_type` = %s
-						AND `object_subtype` = %s
-						AND `object_name` = %s
-						AND `user_id` = %s
-						AND `hist_ip` = %s
-						AND `hist_time` = %s
-				;',
-				$args['user_caps'],
-				$args['action'],
-				$args['object_type'],
-				$args['object_subtype'],
-				$args['object_name'],
-				$args['user_id'],
-				$args['hist_ip'],
-				$args['hist_time']
-			)
-		);
-
-		if ( $check_duplicate ) {
-			return;
-		}
-
 		$row = array(
 			'action'         => $args['action'],
 			'object_type'    => $args['object_type'],
@@ -193,6 +159,7 @@ class AAL_API {
 			'hist_time'      => $args['hist_time'],
 		);
 		$formats = array( '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%d' );
+		$meta_json = null;
 
 		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
 			$request_source = $this->resolve_request_source( $args );
@@ -202,10 +169,58 @@ class AAL_API {
 
 			$meta = $this->build_meta( $args );
 			if ( null !== $meta ) {
-				$row['meta'] = wp_json_encode( $meta, JSON_UNESCAPED_UNICODE );
+				$meta_json = wp_json_encode( $meta, JSON_UNESCAPED_UNICODE );
+				$row['meta'] = $meta_json;
 				$formats[] = '%s';
 				$args['meta'] = $meta;
 			}
+		}
+
+		// Make sure for non duplicate.
+		// Check only the latest rows by primary key to avoid a full table scan on large tables.
+		$duplicate_columns = '`histid`, `user_caps`, `action`, `object_type`, `object_subtype`, `object_name`, `user_id`, `hist_ip`, `hist_time`';
+		$duplicate_meta_sql  = '';
+		$duplicate_args      = array(
+			$args['user_caps'],
+			$args['action'],
+			$args['object_type'],
+			$args['object_subtype'],
+			$args['object_name'],
+			$args['user_id'],
+			$args['hist_ip'],
+			$args['hist_time'],
+		);
+
+		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
+			$duplicate_columns .= ', `meta`';
+			$duplicate_meta_sql = ' AND COALESCE( `meta`, \'\' ) = %s';
+			$duplicate_args[]   = null === $meta_json ? '' : $meta_json;
+		}
+
+		$check_duplicate = $wpdb->get_row(
+			$wpdb->prepare(
+				'SELECT `histid` FROM (
+						SELECT ' . $duplicate_columns . '
+						FROM `' . $wpdb->activity_log . '`
+						ORDER BY `histid` DESC
+						LIMIT 20
+					) AS `recent`
+					WHERE `user_caps` = %s
+						AND `action` = %s
+						AND `object_type` = %s
+						AND `object_subtype` = %s
+						AND `object_name` = %s
+						AND `user_id` = %s
+						AND `hist_ip` = %s
+						AND `hist_time` = %s'
+				. $duplicate_meta_sql .
+				';',
+				...$duplicate_args
+			)
+		);
+
+		if ( $check_duplicate ) {
+			return;
 		}
 
 		$wpdb->insert( $wpdb->activity_log, $row, $formats );
