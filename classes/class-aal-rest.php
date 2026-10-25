@@ -387,7 +387,9 @@ class AAL_REST {
 			'skip_count' => $request->get_param( 'skip_count' ),
 		);
 
-		if ( $request->has_param( 'after_id' ) ) {
+		$after_id_requested = array_key_exists( 'after_id', $request->get_query_params() );
+
+		if ( $after_id_requested ) {
 			$query_args['after_id'] = (int) $request->get_param( 'after_id' );
 		}
 
@@ -412,7 +414,7 @@ class AAL_REST {
 			'promotions' => $promotions,
 		);
 
-		if ( $request->has_param( 'after_id' ) ) {
+		if ( $after_id_requested ) {
 			$response_data['next_after_id'] = $result['next_after_id'];
 		}
 
