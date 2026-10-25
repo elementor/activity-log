@@ -21,7 +21,9 @@ jobs:
           node-version: "20"
 
       - name: Install commitlint
-        run: npm install --no-save @commitlint/cli @commitlint/config-conventional
+        run: |
+          npm install --prefix "$RUNNER_TEMP/commitlint" --no-save --no-audit --no-fund @commitlint/cli@19.8.1 @commitlint/config-conventional@19.8.1
+          ln -s "$RUNNER_TEMP/commitlint/node_modules" node_modules
 
       - name: Lint commits
         env:

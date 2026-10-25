@@ -154,7 +154,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
-= 2.17.0 =
+= 2.17.0 - 2026-10-25 =
 * New: Show old and new values for settings, posts, users, user roles, comments, plugin versions, themes, WordPress core version, widget and term changes
 * New: Recent activity timeline widget on the WordPress dashboard
 * Tweak: Detect existing users promoted to administrator
