@@ -161,7 +161,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Tweak: Log an entry when all activity logs are erased
 * Tweak: Run old logs cleanup hourly instead of daily so large sites catch up faster
 * Tweak: Export logs in batches to support large sites
-* Tweak: Added ISO time, user ID, object ID and action key columns to the CSV export
+* Tweak: Add ISO time, user ID, object ID and action key columns to the CSV export
 * Fix: Log user events as Unknown user when the user no longer exists
 * Fix: Log the correct name and version for single-file plugins and folders with several plugins
 * Fix: Personal data export now completes for users with many log entries
