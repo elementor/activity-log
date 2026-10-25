@@ -314,11 +314,6 @@ class AAL_REST {
 			return (int) $get_params['after_id'];
 		}
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		if ( isset( $_GET['after_id'] ) ) {
-			return (int) $_GET['after_id'];
-		}
-
 		return null;
 	}
 
@@ -405,7 +400,7 @@ class AAL_REST {
 		);
 
 		$after_id_raw = $this->get_logs_after_id_param( $request );
-		if ( null !== $after_id_raw ) {
+		if ( array_key_exists( 'after_id', $request->get_params( 'GET' ) ) ) {
 			$query_args['after_id'] = $after_id_raw;
 		}
 

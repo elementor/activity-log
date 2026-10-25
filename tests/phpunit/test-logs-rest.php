@@ -122,10 +122,6 @@ class Test_AAL_Logs_REST extends WP_UnitTestCase {
 				'per_page' => 10,
 			)
 		);
-		$after_id_method = new ReflectionMethod( AAL_REST::class, 'get_logs_after_id_param' );
-		$after_id_method->setAccessible( true );
-		$this->assertSame( $id1, $after_id_method->invoke( new AAL_REST(), $request ) );
-
 		$data = ( new AAL_REST() )->get_logs( $request )->get_data();
 
 		$this->assertNull( $data['total'] );
