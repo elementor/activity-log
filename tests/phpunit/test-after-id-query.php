@@ -173,6 +173,16 @@ class Test_AAL_After_Id_Query extends WP_UnitTestCase {
 		$this->assertNotEmpty( $queries );
 	}
 
+	public function test_rest_get_logs_after_id_param_reads_query_params() {
+		$request = new WP_REST_Request( 'GET', '/activity-log/v1/logs' );
+		$request->set_query_params( array( 'after_id' => '42' ) );
+
+		$method = new ReflectionMethod( AAL_REST::class, 'get_logs_after_id_param' );
+		$method->setAccessible( true );
+
+		$this->assertSame( 42, $method->invoke( new AAL_REST(), $request ) );
+	}
+
 	public function test_after_id_zero_starts_from_beginning() {
 		$id1 = $this->insert_log( array( 'hist_time' => current_time( 'timestamp' ) - 60 ) );
 		$id2 = $this->insert_log( array( 'hist_time' => current_time( 'timestamp' ) - 61 ) );

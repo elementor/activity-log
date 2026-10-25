@@ -115,11 +115,14 @@ class Test_AAL_Logs_REST extends WP_UnitTestCase {
 		$id1       = $this->insert_sample_log( array( 'hist_time' => $hist_time, 'object_name' => 'rest-after-1' ) );
 		$id2       = $this->insert_sample_log( array( 'hist_time' => $hist_time - 1, 'object_name' => 'rest-after-2' ) );
 
-		$_GET['after_id'] = (string) $id1;
-		$_GET['per_page'] = '10';
 		$request = new WP_REST_Request( 'GET', '/activity-log/v1/logs' );
-		$data    = rest_get_server()->dispatch( $request )->get_data();
-		unset( $_GET['after_id'], $_GET['per_page'] );
+		$request->set_query_params(
+			array(
+				'after_id' => (string) $id1,
+				'per_page' => 10,
+			)
+		);
+		$data = ( new AAL_REST() )->get_logs( $request )->get_data();
 
 		$this->assertNull( $data['total'] );
 		$this->assertNull( $data['pages'] );
@@ -135,11 +138,14 @@ class Test_AAL_Logs_REST extends WP_UnitTestCase {
 		$hist_time = current_time( 'timestamp' ) - 60;
 		$id1       = $this->insert_sample_log( array( 'hist_time' => $hist_time ) );
 
-		$_GET['after_id'] = '0';
-		$_GET['per_page'] = '10';
 		$request = new WP_REST_Request( 'GET', '/activity-log/v1/logs' );
-		$data    = rest_get_server()->dispatch( $request )->get_data();
-		unset( $_GET['after_id'], $_GET['per_page'] );
+		$request->set_query_params(
+			array(
+				'after_id' => '0',
+				'per_page' => 10,
+			)
+		);
+		$data = ( new AAL_REST() )->get_logs( $request )->get_data();
 
 		$this->assertArrayHasKey( 'next_after_id', $data );
 		$this->assertSame( $id1, $data['next_after_id'] );
