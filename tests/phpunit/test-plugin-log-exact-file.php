@@ -2,7 +2,7 @@
 
 class AAL_Test_Plugin_Log_Exact_File extends WP_UnitTestCase {
 
-	public function setUp() {
+	public function setUp(): void {
 		parent::setUp();
 
 		file_put_contents(
@@ -21,7 +21,7 @@ class AAL_Test_Plugin_Log_Exact_File extends WP_UnitTestCase {
 		);
 	}
 
-	public function tearDown() {
+	public function tearDown(): void {
 		$files = array(
 			WP_PLUGIN_DIR . '/aal-test-single.php',
 			WP_PLUGIN_DIR . '/aal-test-multi/a.php',
