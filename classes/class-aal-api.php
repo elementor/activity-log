@@ -147,33 +147,54 @@ class AAL_API {
 			return;
 		}
 
+		$built_meta = null;
+		$meta_json  = '';
+		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
+			$built_meta = $this->build_meta( $args );
+			if ( null !== $built_meta ) {
+				$meta_json = wp_json_encode( $built_meta, JSON_UNESCAPED_UNICODE );
+			}
+		}
+
 		// Make sure for non duplicate.
 		// Check only the latest rows by primary key to avoid a full table scan on large tables.
-		$check_duplicate = $wpdb->get_row(
-			$wpdb->prepare(
-				'SELECT `histid` FROM (
-						SELECT `histid`, `user_caps`, `action`, `object_type`, `object_subtype`, `object_name`, `user_id`, `hist_ip`, `hist_time`
-						FROM `' . $wpdb->activity_log . '`
-						ORDER BY `histid` DESC
-						LIMIT 20
-					) AS `recent`
-					WHERE `user_caps` = %s
+		$duplicate_columns = '`histid`, `user_caps`, `action`, `object_type`, `object_subtype`, `object_name`, `user_id`, `hist_ip`, `hist_time`';
+		$duplicate_where   = '`user_caps` = %s
 						AND `action` = %s
 						AND `object_type` = %s
 						AND `object_subtype` = %s
 						AND `object_name` = %s
 						AND `user_id` = %s
 						AND `hist_ip` = %s
-						AND `hist_time` = %s
+						AND `hist_time` = %s';
+		$duplicate_args    = array(
+			$args['user_caps'],
+			$args['action'],
+			$args['object_type'],
+			$args['object_subtype'],
+			$args['object_name'],
+			$args['user_id'],
+			$args['hist_ip'],
+			$args['hist_time'],
+		);
+
+		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
+			$duplicate_columns .= ', `meta`';
+			$duplicate_where   .= ' AND `meta` = %s';
+			$duplicate_args[]   = $meta_json;
+		}
+
+		$check_duplicate = $wpdb->get_row(
+			$wpdb->prepare(
+				'SELECT `histid` FROM (
+						SELECT ' . $duplicate_columns . '
+						FROM `' . $wpdb->activity_log . '`
+						ORDER BY `histid` DESC
+						LIMIT 20
+					) AS `recent`
+					WHERE ' . $duplicate_where . '
 				;',
-				$args['user_caps'],
-				$args['action'],
-				$args['object_type'],
-				$args['object_subtype'],
-				$args['object_name'],
-				$args['user_id'],
-				$args['hist_ip'],
-				$args['hist_time']
+				$duplicate_args
 			)
 		);
 
@@ -200,11 +221,10 @@ class AAL_API {
 			$formats[] = '%s';
 			$args['request_source'] = $request_source;
 
-			$meta = $this->build_meta( $args );
-			if ( null !== $meta ) {
-				$row['meta'] = wp_json_encode( $meta, JSON_UNESCAPED_UNICODE );
+			if ( null !== $built_meta ) {
+				$row['meta'] = $meta_json;
 				$formats[] = '%s';
-				$args['meta'] = $meta;
+				$args['meta'] = $built_meta;
 			}
 		}
 
