@@ -115,13 +115,11 @@ class Test_AAL_Logs_REST extends WP_UnitTestCase {
 		$id1       = $this->insert_sample_log( array( 'hist_time' => $hist_time, 'object_name' => 'rest-after-1' ) );
 		$id2       = $this->insert_sample_log( array( 'hist_time' => $hist_time - 1, 'object_name' => 'rest-after-2' ) );
 
-		$request = new WP_REST_Request(
-			'GET',
-			'/activity-log/v1/logs?' . http_build_query(
-				array(
-					'after_id' => $id1,
-					'per_page' => 10,
-				)
+		$request = new WP_REST_Request( 'GET', '/activity-log/v1/logs' );
+		$request->set_query_params(
+			array(
+				'after_id' => $id1,
+				'per_page' => 10,
 			)
 		);
 		$data = rest_get_server()->dispatch( $request )->get_data();
@@ -140,13 +138,11 @@ class Test_AAL_Logs_REST extends WP_UnitTestCase {
 		$hist_time = current_time( 'timestamp' ) - 60;
 		$id1       = $this->insert_sample_log( array( 'hist_time' => $hist_time ) );
 
-		$request = new WP_REST_Request(
-			'GET',
-			'/activity-log/v1/logs?' . http_build_query(
-				array(
-					'after_id' => 0,
-					'per_page' => 10,
-				)
+		$request = new WP_REST_Request( 'GET', '/activity-log/v1/logs' );
+		$request->set_query_params(
+			array(
+				'after_id' => 0,
+				'per_page' => 10,
 			)
 		);
 		$data = rest_get_server()->dispatch( $request )->get_data();
