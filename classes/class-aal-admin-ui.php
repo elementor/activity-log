@@ -85,11 +85,13 @@ class AAL_Admin_Ui {
 		);
 
 		$query = array();
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only list filters.
 		foreach ( $params as $key ) {
 			if ( ! empty( $_GET[ $key ] ) ) {
 				$query[ $key ] = sanitize_text_field( wp_unslash( $_GET[ $key ] ) );
 			}
 		}
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		return $query;
 	}
