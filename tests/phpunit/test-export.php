@@ -189,4 +189,221 @@ class AAL_Test_Export extends WP_UnitTestCase {
 
 		$this->assertSame( '', $row['changes'] );
 	}
+
+	public function test_export_batches_yield_all_rows_in_histid_desc_order() {
+		global $wpdb;
+
+		$admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+
+		$names = array( 'batch-a', 'batch-b', 'batch-c', 'batch-d', 'batch-e' );
+		foreach ( $names as $name ) {
+			$wpdb->insert(
+				$wpdb->activity_log,
+				array(
+					'action'      => 'updated',
+					'object_type' => 'Posts',
+					'object_name' => $name,
+					'user_caps'   => 'administrator',
+					'hist_time'   => time(),
+				),
+				array( '%s', '%s', '%s', '%s', '%d' )
+			);
+		}
+
+		add_filter( 'aal_export_batch_size', static function () {
+			return 2;
+		} );
+
+		$export  = $this->get_export_instance();
+		$columns = array( 'description' => 'Meta' );
+		$rows    = $this->invoke_export_rows_generator( $export, array( 's' => 'batch-' ), $columns );
+		$labels  = array();
+		foreach ( $rows as $row ) {
+			$labels[] = $row['description'];
+		}
+
+		$expected = $wpdb->get_col(
+			"SELECT `object_name` FROM `{$wpdb->activity_log}` WHERE `object_name` LIKE 'batch-%' ORDER BY `histid` DESC"
+		);
+
+		$this->assertCount( 5, $labels );
+		$this->assertSame( $expected, $labels );
+		$this->assertSame( $labels, array_unique( $labels ) );
+	}
+
+	public function test_export_batches_respect_typeshow_and_dateshow() {
+		global $wpdb;
+
+		$admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+
+		$in_time  = current_time( 'timestamp' ) - ( 3 * DAY_IN_SECONDS );
+		$out_time = current_time( 'timestamp' ) - ( 10 * DAY_IN_SECONDS );
+
+		$wpdb->insert(
+			$wpdb->activity_log,
+			array(
+				'action'      => 'updated',
+				'object_type' => 'Posts',
+				'object_name' => 'export-week-in',
+				'user_caps'   => 'administrator',
+				'hist_time'   => $in_time,
+			),
+			array( '%s', '%s', '%s', '%s', '%d' )
+		);
+		$wpdb->insert(
+			$wpdb->activity_log,
+			array(
+				'action'      => 'updated',
+				'object_type' => 'Users',
+				'object_name' => 'export-week-wrong-type',
+				'user_caps'   => 'administrator',
+				'hist_time'   => $in_time,
+			),
+			array( '%s', '%s', '%s', '%s', '%d' )
+		);
+		$wpdb->insert(
+			$wpdb->activity_log,
+			array(
+				'action'      => 'updated',
+				'object_type' => 'Posts',
+				'object_name' => 'export-week-out',
+				'user_caps'   => 'administrator',
+				'hist_time'   => $out_time,
+			),
+			array( '%s', '%s', '%s', '%s', '%d' )
+		);
+
+		add_filter( 'aal_export_batch_size', static function () {
+			return 1;
+		} );
+
+		$export = $this->get_export_instance();
+		$rows   = $this->invoke_export_rows_generator(
+			$export,
+			array(
+				'dateshow' => 'week',
+				'typeshow' => 'Posts',
+				's'        => 'export-week',
+			),
+			array( 'description' => 'Meta' )
+		);
+
+		$labels = array();
+		foreach ( $rows as $row ) {
+			$labels[] = $row['description'];
+		}
+
+		$this->assertSame( array( 'export-week-in' ), $labels );
+	}
+
+	public function test_query_histid_pagination_with_before_id_and_min_id() {
+		global $wpdb;
+
+		$admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+
+		foreach ( array( 'page-a', 'page-b', 'page-c', 'page-d' ) as $name ) {
+			$wpdb->insert(
+				$wpdb->activity_log,
+				array(
+					'action'      => 'updated',
+					'object_type' => 'Posts',
+					'object_name' => $name,
+					'user_caps'   => 'administrator',
+					'hist_time'   => time(),
+				),
+				array( '%s', '%s', '%s', '%s', '%d' )
+			);
+		}
+
+		$histids = $wpdb->get_col(
+			"SELECT `histid` FROM `{$wpdb->activity_log}` WHERE `object_name` LIKE 'page-%' ORDER BY `histid` ASC"
+		);
+		$min_id  = (int) $histids[1];
+		$query   = new AAL_Log_Query();
+
+		$first = $query->query(
+			array(
+				's'          => 'page-',
+				'orderby'    => 'histid',
+				'order'      => 'DESC',
+				'skip_count' => true,
+				'per_page'   => 2,
+				'min_id'     => $min_id,
+			)
+		);
+
+		$this->assertCount( 2, $first['items'] );
+		$this->assertTrue( $first['has_more'] );
+
+		$last_histid = (int) $first['items'][ count( $first['items'] ) - 1 ]->histid;
+
+		$second = $query->query(
+			array(
+				's'          => 'page-',
+				'orderby'    => 'histid',
+				'order'      => 'DESC',
+				'skip_count' => true,
+				'per_page'   => 2,
+				'min_id'     => $min_id,
+				'before_id'  => $last_histid,
+			)
+		);
+
+		$names = array_merge(
+			wp_list_pluck( $first['items'], 'object_name' ),
+			wp_list_pluck( $second['items'], 'object_name' )
+		);
+
+		$this->assertSame( array( 'page-d', 'page-c', 'page-b' ), $names );
+		$this->assertFalse( $second['has_more'] );
+	}
+
+	public function test_legacy_exporter_receives_array() {
+		$export   = $this->get_export_instance();
+		$exporter = new stdClass();
+		$rows     = ( function () {
+			yield array( 'label' => 'one' );
+		} )();
+
+		$payload = $this->invoke_get_export_write_payload( $export, $exporter, $rows );
+
+		$this->assertIsArray( $payload );
+		$this->assertSame( array( array( 'label' => 'one' ) ), $payload );
+	}
+
+	public function test_iterable_exporter_receives_generator() {
+		$export   = $this->get_export_instance();
+		$exporter = new stdClass();
+		$exporter->supports_iterable = true;
+		$rows     = ( function () {
+			yield array( 'label' => 'one' );
+		} )();
+
+		$payload = $this->invoke_get_export_write_payload( $export, $exporter, $rows );
+
+		$this->assertInstanceOf( Generator::class, $payload );
+	}
+
+	/**
+	 * @return Generator<int, array<string, string>>
+	 */
+	private function invoke_export_rows_generator( AAL_Export $export, array $query_args, array $columns ) {
+		$method = new ReflectionMethod( AAL_Export::class, 'export_rows_generator' );
+		$method->setAccessible( true );
+
+		return $method->invoke( $export, $query_args, $columns );
+	}
+
+	/**
+	 * @return array|Traversable
+	 */
+	private function invoke_get_export_write_payload( AAL_Export $export, $exporter, $rows ) {
+		$method = new ReflectionMethod( AAL_Export::class, 'get_export_write_payload' );
+		$method->setAccessible( true );
+
+		return $method->invoke( $export, $exporter, $rows );
+	}
 }

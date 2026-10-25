@@ -16,12 +16,19 @@ class AAL_Exporter_csv {
 	 */
 	public $id = 'csv';
 
+	/**
+	 * When true, write() accepts a Generator instead of a fully materialized array.
+	 *
+	 * @var bool
+	 */
+	public $supports_iterable = true;
+
 	const FORMULAS_START_CHARACTERS = [ '=', '-', '+', '@', "\t", "\r" ];
 
 	/**
 	 * Writes CSV data for download
 	 *
-	 * @param array $data Array of data to output.
+	 * @param array|Traversable $data Rows to output.
 	 * @param array $columns Column names included in data set.
 	 * @return void
 	 */
@@ -39,9 +46,28 @@ class AAL_Exporter_csv {
 
 		fputcsv( $fp, $columns, $separator );
 
+		$batch_size    = max( 1, (int) apply_filters( 'aal_export_batch_size', 1000 ) );
+		$rows_in_batch = 0;
+
 		foreach ( $data as $row ) {
 			$encoded_row = $this->get_encoded_row( $row );
 			fputcsv( $fp, $encoded_row, $separator );
+
+			if ( ! $is_test_mode_off ) {
+				continue;
+			}
+
+			$rows_in_batch++;
+			if ( $rows_in_batch >= $batch_size ) {
+				fflush( $fp );
+				flush();
+				$rows_in_batch = 0;
+			}
+		}
+
+		if ( $is_test_mode_off ) {
+			fflush( $fp );
+			flush();
 		}
 
 		fclose( $fp );
