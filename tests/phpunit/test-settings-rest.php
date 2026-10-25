@@ -193,19 +193,73 @@ class AAL_Test_Settings_REST extends WP_UnitTestCase {
 	// --- Erase ---
 
 	public function test_erase_logs_success() {
+		global $wpdb;
+
+		$wpdb->insert(
+			$wpdb->activity_log,
+			array(
+				'action'         => 'updated',
+				'object_type'    => 'Posts',
+				'object_name'    => 'rest-erase-seed',
+				'object_subtype' => 'post',
+				'hist_time'      => current_time( 'timestamp' ),
+			),
+			array( '%s', '%s', '%s', '%s', '%d' )
+		);
+
 		$response = $this->do_request( 'POST', 'logs/erase' );
 		$this->assertSame( 200, $response->get_status() );
 
 		$data = $response->get_data();
 		$this->assertTrue( $data['success'] );
+
+		$row_count = (int) $wpdb->get_var( 'SELECT COUNT(*) FROM `' . $wpdb->activity_log . '`' );
+		$this->assertSame( 1, $row_count );
+
+		$erased_count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COUNT(*) FROM `' . $wpdb->activity_log . '` WHERE `action` = %s AND `object_subtype` = %s',
+				'erased',
+				'Activity Log'
+			)
+		);
+		$this->assertSame( 1, $erased_count );
 	}
 
 	public function test_erase_blocked_by_filter() {
+		global $wpdb;
+
+		$wpdb->insert(
+			$wpdb->activity_log,
+			array(
+				'action'         => 'updated',
+				'object_type'    => 'Posts',
+				'object_name'    => 'rest-erase-blocked-seed',
+				'object_subtype' => 'post',
+				'hist_time'      => current_time( 'timestamp' ),
+			),
+			array( '%s', '%s', '%s', '%s', '%d' )
+		);
+
+		$before_count = (int) $wpdb->get_var( 'SELECT COUNT(*) FROM `' . $wpdb->activity_log . '`' );
+
 		add_filter( 'aal_allow_option_erase_logs', '__return_false' );
 
 		$response = $this->do_request( 'POST', 'logs/erase' );
 		$this->assertSame( 403, $response->get_status() );
 
 		remove_filter( 'aal_allow_option_erase_logs', '__return_false' );
+
+		$after_count = (int) $wpdb->get_var( 'SELECT COUNT(*) FROM `' . $wpdb->activity_log . '`' );
+		$this->assertSame( $before_count, $after_count );
+
+		$erased_count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COUNT(*) FROM `' . $wpdb->activity_log . '` WHERE `action` = %s AND `object_subtype` = %s',
+				'erased',
+				'Activity Log'
+			)
+		);
+		$this->assertSame( 0, $erased_count );
 	}
 }
