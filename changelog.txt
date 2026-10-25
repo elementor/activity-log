@@ -1,6 +1,7 @@
 == Changelog ==
 
 = 2.18.0 =
+* New: Added the wp activity-log WP-CLI command with a list subcommand
 * Fix: Log user events as Unknown user when the user no longer exists
 
 = 2.17.0 - 2026-10-25 =
