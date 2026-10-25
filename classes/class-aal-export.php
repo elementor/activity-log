@@ -31,7 +31,7 @@ class AAL_Export {
 			$this->redirect_back();
 		}
 
-		if ( empty( $_GET['aal-record-action'] ) || ! wp_verify_nonce( $_GET['aal_actions_nonce'], 'aal_actions_nonce' ) ) {
+		if ( empty( $_GET['aal-record-action'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['aal_actions_nonce'] ) ), 'aal_actions_nonce' ) ) {
 			$this->redirect_back();
 		}
 
@@ -39,7 +39,7 @@ class AAL_Export {
 			$this->redirect_back();
 		}
 
-		$exporter_selected = $_GET['aal-record-action'];
+		$exporter_selected = sanitize_text_field( wp_unslash( $_GET['aal-record-action'] ) );
 
 		// If exporter doesn't exist or isn't registered, bail
 		if ( ! array_key_exists( $exporter_selected, $this->get_exporters() ) ) {
@@ -86,7 +86,7 @@ class AAL_Export {
 	}
 
 	protected function redirect_back() {
-		wp_redirect( menu_page_url( 'activity-log-page', false ) );
+		wp_safe_redirect( menu_page_url( 'activity-log-page', false ) );
 		exit;
 	}
 
