@@ -140,20 +140,20 @@ class AAL_API {
 		$check_duplicate = $wpdb->get_row(
 			$wpdb->prepare(
 				'SELECT `histid` FROM (
-	SELECT `histid`, `user_caps`, `action`, `object_type`, `object_subtype`, `object_name`, `user_id`, `hist_ip`, `hist_time`
-	FROM `' . $wpdb->activity_log . '`
-	ORDER BY `histid` DESC
-	LIMIT 20
-) AS `recent`
-	WHERE `user_caps` = %s
-		AND `action` = %s
-		AND `object_type` = %s
-		AND `object_subtype` = %s
-		AND `object_name` = %s
-		AND `user_id` = %s
-		AND `hist_ip` = %s
-		AND `hist_time` = %s
-;',
+						SELECT `histid`, `user_caps`, `action`, `object_type`, `object_subtype`, `object_name`, `user_id`, `hist_ip`, `hist_time`
+						FROM `' . $wpdb->activity_log . '`
+						ORDER BY `histid` DESC
+						LIMIT 20
+					) AS `recent`
+					WHERE `user_caps` = %s
+						AND `action` = %s
+						AND `object_type` = %s
+						AND `object_subtype` = %s
+						AND `object_name` = %s
+						AND `user_id` = %s
+						AND `hist_ip` = %s
+						AND `hist_time` = %s
+				;',
 				$args['user_caps'],
 				$args['action'],
 				$args['object_type'],
