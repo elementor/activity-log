@@ -12,6 +12,7 @@ class AAL_Hook_Widgets extends AAL_Hook_Base {
 			'object_name'    => $widget->id_base,
 		);
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only; WordPress core verifies the widgets nonce.
 		if ( empty( $_REQUEST['sidebar'] ) ) {
 			return $instance;
 		}
@@ -31,17 +32,19 @@ class AAL_Hook_Widgets extends AAL_Hook_Base {
 
 	public function hooks_widget_delete() {
 		// A reference: http://grinninggecko.com/hooking-into-widget-delete-action-in-wordpress/
-		if ( 'post' == strtolower( $_SERVER['REQUEST_METHOD'] ) && ! empty( $_REQUEST['widget-id'] ) ) {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only logging; WordPress core verifies the widgets nonce.
+		if ( isset( $_SERVER['REQUEST_METHOD'] ) && 'post' === strtolower( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) && ! empty( $_REQUEST['widget-id'] ) ) {
 			if ( isset( $_REQUEST['delete_widget'] ) && 1 === (int) $_REQUEST['delete_widget'] ) {
 				aal_insert_log( array(
 					'action'         => 'deleted',
 					'object_type'    => 'Widget',
-					'object_subtype' => strtolower( sanitize_text_field( $_REQUEST['sidebar'] ) ),
+					'object_subtype' => isset( $_REQUEST['sidebar'] ) ? strtolower( sanitize_text_field( wp_unslash( $_REQUEST['sidebar'] ) ) ) : '',
 					'object_id'      => 0,
-					'object_name'    => sanitize_text_field( $_REQUEST['id_base'] ),
+					'object_name'    => isset( $_REQUEST['id_base'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['id_base'] ) ) : '',
 				) );
 			}
 		}
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 	}
 	
 	public function __construct() {
