@@ -123,6 +123,19 @@ class AAL_Test_Detect_Suspicious extends WP_Test_REST_TestCase {
 				array( 'new_admin' ),
 				array( array( 'rule' => 'new_admin', 'count' => 1 ) ),
 			),
+			'role_promoted_to_admin_multi_role' => array(
+				array(
+					array(
+						'hist_time'      => self::FROZEN_NOW,
+						'action'         => 'updated',
+						'object_type'    => 'Users',
+						'object_subtype' => 'Role',
+						'meta'           => '{"changes":{"roles":["[\\"editor\\"]","[\\"administrator\\",\\"editor\\"]"]}}',
+					),
+				),
+				array( 'new_admin' ),
+				array( array( 'rule' => 'new_admin', 'count' => 1 ) ),
+			),
 			'role_demoted_from_admin' => array(
 				array(
 					array(
@@ -168,6 +181,36 @@ class AAL_Test_Detect_Suspicious extends WP_Test_REST_TestCase {
 				array(),
 			),
 		);
+	}
+
+	public function test_detect_suspicious_new_admin_add_role_administrator() {
+		$editor_id = self::factory()->user->create( array( 'role' => 'editor' ) );
+
+		global $wpdb;
+		$wpdb->query( "DELETE FROM `{$wpdb->activity_log}` WHERE `object_id` = {$editor_id}" );
+
+		$user = get_user_by( 'id', $editor_id );
+		$user->add_role( 'administrator' );
+		$this->flush_pending_role_logs();
+
+		$wpdb->update(
+			$wpdb->activity_log,
+			array( 'hist_time' => self::FROZEN_NOW ),
+			array(
+				'object_id'      => $editor_id,
+				'object_subtype' => 'Role',
+			),
+			array( '%d' ),
+			array( '%d', '%s' )
+		);
+
+		$result = AAL_Main::instance()->abilities->execute_detect_suspicious_events(
+			array_merge( self::DAY_RANGE, array( 'rules' => array( 'new_admin' ) ) ),
+			self::FROZEN_NOW
+		);
+
+		$this->assertSame( 1, $result['findings'][0]['count'] );
+		$this->assertSame( 'new_admin', $result['findings'][0]['rule'] );
 	}
 
 	public function test_detect_suspicious_new_admin_uses_registered_user() {
@@ -253,6 +296,25 @@ class AAL_Test_Detect_Suspicious extends WP_Test_REST_TestCase {
 		$this->assertCount( 1, $result['findings'] );
 		$this->assertSame( 5, $result['findings'][0]['count'] );
 		$this->assertStringNotContainsString( self::TEST_LOG_IP, (string) wp_json_encode( $result ) );
+	}
+
+	private function flush_pending_role_logs() {
+		global $wp_filter;
+
+		if ( empty( $wp_filter['shutdown'] ) ) {
+			return;
+		}
+
+		$hook = $wp_filter['shutdown'];
+		foreach ( $hook->callbacks as $callbacks ) {
+			foreach ( $callbacks as $callback ) {
+				$function = $callback['function'];
+				if ( is_array( $function ) && $function[0] instanceof AAL_Hook_Users && 'flush_buffered_role_changes' === $function[1] ) {
+					call_user_func( $function );
+					return;
+				}
+			}
+		}
 	}
 
 	private function insert_log( $overrides = array() ) {

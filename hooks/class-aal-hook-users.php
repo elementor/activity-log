@@ -7,6 +7,11 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 
 	private $new_meta = array();
 
+	/**
+	 * @var array<int, array{original: array<int, string>}>
+	 */
+	private $role_change_buffers = array();
+
 	private function get_user_object_name( $user ) {
 		return $user instanceof WP_User ? $user->user_nicename : 'Unknown user';
 	}
@@ -141,6 +146,83 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		) );
 	}
 
+	private function is_role_change_from_set_role() {
+		foreach ( debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS ) as $call ) {
+			if ( isset( $call['function'], $call['class'] ) && 'set_role' === $call['function'] && 'WP_User' === $call['class'] ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private function buffer_role_change( $user_id, $role, $event ) {
+		if ( $this->is_role_change_from_set_role() ) {
+			return;
+		}
+
+		if ( isset( $this->role_change_buffers[ $user_id ] ) ) {
+			return;
+		}
+
+		$user = get_user_by( 'id', $user_id );
+		if ( ! $user instanceof WP_User ) {
+			return;
+		}
+
+		$current = array_values( (array) $user->roles );
+		sort( $current );
+
+		if ( 'add' === $event ) {
+			$original = array_values( array_diff( $current, array( $role ) ) );
+		} else {
+			$original = array_values( array_merge( $current, array( $role ) ) );
+			sort( $original );
+		}
+
+		$this->role_change_buffers[ $user_id ] = array(
+			'original' => $original,
+		);
+	}
+
+	public function hooks_add_user_role( $user_id, $role ) {
+		$this->buffer_role_change( $user_id, $role, 'add' );
+	}
+
+	public function hooks_remove_user_role( $user_id, $role ) {
+		$this->buffer_role_change( $user_id, $role, 'remove' );
+	}
+
+	public function flush_buffered_role_changes() {
+		foreach ( $this->role_change_buffers as $user_id => $buffer ) {
+			$user = get_user_by( 'id', $user_id );
+			if ( ! $user instanceof WP_User ) {
+				continue;
+			}
+
+			$old = $buffer['original'];
+			$new = array_values( (array) $user->roles );
+			sort( $new );
+
+			if ( $old === $new ) {
+				continue;
+			}
+
+			aal_insert_log(
+				array(
+					'action'         => 'updated',
+					'object_type'    => 'Users',
+					'object_subtype' => 'Role',
+					'object_id'      => $user->ID,
+					'object_name'    => $user->user_nicename,
+					'meta'           => AAL_Changes::diff( array( 'roles' => $old ), array( 'roles' => $new ) ),
+				)
+			);
+		}
+
+		$this->role_change_buffers = array();
+	}
+
 	public function hooks_set_user_role( $user_id, $role, $old_roles ) {
 		if ( empty( $old_roles ) ) {
 			return;
@@ -177,6 +259,9 @@ class AAL_Hook_Users extends AAL_Hook_Base {
 		add_action( 'delete_user', array( &$this, 'hooks_delete_user' ) );
 		add_action( 'user_register', array( &$this, 'hooks_user_register' ) );
 		add_action( 'profile_update', array( &$this, 'hooks_profile_update' ), 10, 2 );
+		add_action( 'add_user_role', array( &$this, 'hooks_add_user_role' ), 10, 2 );
+		add_action( 'remove_user_role', array( &$this, 'hooks_remove_user_role' ), 10, 2 );
+		add_action( 'shutdown', array( &$this, 'flush_buffered_role_changes' ) );
 		add_action( 'set_user_role', array( &$this, 'hooks_set_user_role' ), 10, 3 );
 		add_filter( 'wp_login_failed', array( &$this, 'hooks_wrong_password' ) );
 		add_filter( 'insert_user_meta', array( $this, 'capture_user_meta_changes' ), 10, 4 );

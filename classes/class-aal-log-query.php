@@ -926,7 +926,7 @@ class AAL_Log_Query {
 			if ( in_array( 'new_admin', $row_rules, true ) ) {
 				$parts[]      = "(`object_type` = 'Users' AND `action` = 'registered')";
 				$parts[]      = "(`object_type` = 'Users' AND `object_subtype` = 'Role' AND `action` = 'updated' AND `meta` LIKE %s)";
-				$parts_args[] = '%' . $wpdb->esc_like( '","[\\"administrator\\"]' ) . '%';
+				$parts_args[] = '%' . $wpdb->esc_like( 'administrator' ) . '%';
 			}
 			if ( in_array( 'plugin_activated', $row_rules, true ) ) {
 				$parts[] = "(`object_type` = 'Plugins' AND `action` = 'activated')";
