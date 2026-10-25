@@ -69,7 +69,7 @@ For each event recorded by the activity log, the following details are also logg
 
 <h3>Data Storage and Performance</h3>
 
-All events are stored in a dedicated custom database table, keeping the impact on your site's performance to a minimum — even under heavy traffic. Scheduled cleanup removes up to 50,000 old log rows per daily run so very large tables do not time out during maintenance.
+All events are stored in a dedicated custom database table, keeping the impact on your site's performance to a minimum — even under heavy traffic.
 
 <h3>Uninstall Clean-up</h3>
 
