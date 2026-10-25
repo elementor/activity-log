@@ -42,18 +42,6 @@ class AAL_Hook_File_Editor extends AAL_Hook_Base {
 		$this->capture_file_hash_before_edit_from_post( wp_unslash( $_POST ) );
 	}
 
-	public function capture_file_hash_on_editor_load() {
-		if ( ! isset( $_SERVER['REQUEST_METHOD'] ) || 'POST' !== $_SERVER['REQUEST_METHOD'] ) {
-			return;
-		}
-
-		if ( empty( $_POST ) ) {
-			return;
-		}
-
-		$this->capture_file_hash_before_edit_from_post( wp_unslash( $_POST ) );
-	}
-
 	public function log_file_editor_change_on_shutdown() {
 		if ( empty( $this->pending ) ) {
 			return;
@@ -88,108 +76,56 @@ class AAL_Hook_File_Editor extends AAL_Hook_Base {
 	 * @return array|null
 	 */
 	private function resolve_file_editor_context( $args ) {
-		if ( empty( $args['file'] ) ) {
+		if ( empty( $args['file'] ) || ! isset( $args['newcontent'] ) || 0 !== validate_file( $args['file'] ) ) {
 			return null;
 		}
-
-		if ( 0 !== validate_file( $args['file'] ) ) {
-			return null;
-		}
-
-		if ( ! isset( $args['newcontent'] ) ) {
-			return null;
-		}
-
-		$file = $args['file'];
 
 		if ( ! empty( $args['plugin'] ) ) {
-			$plugin = $args['plugin'];
-
-			if ( ! current_user_can( 'edit_plugins' ) ) {
+			if ( ! current_user_can( 'edit_plugins' ) || 0 !== validate_file( $args['plugin'] ) || ! is_file( WP_PLUGIN_DIR . '/' . $args['plugin'] ) ) {
 				return null;
 			}
 
-			if ( ! array_key_exists( $plugin, get_plugins() ) ) {
+			$plugin_data = get_plugin_data( WP_PLUGIN_DIR . '/' . $args['plugin'], false, false );
+			$object_type = 'Plugins';
+			$object_name = ! empty( $plugin_data['Name'] ) ? $plugin_data['Name'] : $args['plugin'];
+			$base_dir    = WP_PLUGIN_DIR;
+		} elseif ( ! empty( $args['theme'] ) ) {
+			if ( ! current_user_can( 'edit_themes' ) || 0 !== validate_file( $args['theme'] ) ) {
 				return null;
 			}
 
-			if ( 0 !== validate_file( $file, get_plugin_files( $plugin ) ) ) {
-				return null;
-			}
-
-			$real_file = WP_PLUGIN_DIR . '/' . $file;
-
-			$plugin_data = get_plugin_data( WP_PLUGIN_DIR . '/' . $plugin, false, false );
-			$object_name = ! empty( $plugin_data['Name'] ) ? $plugin_data['Name'] : $plugin;
-
-			return array(
-				'object_type'   => 'Plugins',
-				'object_name'   => $object_name,
-				'relative_file' => $file,
-				'real_file'     => $real_file,
-			);
-		}
-
-		if ( ! empty( $args['theme'] ) ) {
-			$stylesheet = $args['theme'];
-
-			if ( 0 !== validate_file( $stylesheet ) ) {
-				return null;
-			}
-
-			if ( ! current_user_can( 'edit_themes' ) ) {
-				return null;
-			}
-
-			$theme = wp_get_theme( $stylesheet );
+			$theme = wp_get_theme( $args['theme'] );
 			if ( ! $theme->exists() ) {
 				return null;
 			}
 
-			if ( $theme->errors() && 'theme_no_stylesheet' === $theme->errors()->get_error_code() ) {
-				return null;
-			}
-
-			$editable_extensions = wp_get_theme_file_editable_extensions( $theme );
-
-			$allowed_files = array();
-			foreach ( $editable_extensions as $type ) {
-				switch ( $type ) {
-					case 'php':
-						$allowed_files = array_merge( $allowed_files, $theme->get_files( 'php', -1 ) );
-						break;
-					case 'css':
-						$style_files                = $theme->get_files( 'css', -1 );
-						$allowed_files['style.css'] = $style_files['style.css'];
-						$allowed_files              = array_merge( $allowed_files, $style_files );
-						break;
-					default:
-						$allowed_files = array_merge( $allowed_files, $theme->get_files( $type, -1 ) );
-						break;
-				}
-			}
-
-			if ( 0 !== validate_file( $file, array_keys( $allowed_files ) ) ) {
-				return null;
-			}
-
-			$real_file = $theme->get_stylesheet_directory() . '/' . $file;
-
-			return array(
-				'object_type'   => 'Themes',
-				'object_name'   => $theme->get( 'Name' ),
-				'relative_file' => $file,
-				'real_file'     => $real_file,
-			);
+			$object_type = 'Themes';
+			$object_name = $theme->get( 'Name' );
+			$base_dir    = $theme->get_stylesheet_directory();
+		} else {
+			return null;
 		}
 
-		return null;
+		$real_base = realpath( $base_dir );
+		$real_file = realpath( $base_dir . '/' . $args['file'] );
+
+		// Only files inside the plugins folder or the theme folder may be hashed.
+		if ( false === $real_base || false === $real_file || 0 !== strpos( $real_file, trailingslashit( $real_base ) ) ) {
+			return null;
+		}
+
+		return array(
+			'object_type'   => $object_type,
+			'object_name'   => $object_name,
+			'relative_file' => $args['file'],
+			'real_file'     => $real_file,
+		);
 	}
 
 	public function __construct() {
 		add_action( 'wp_ajax_edit-theme-plugin-file', array( $this, 'capture_file_hash_before_edit' ), 0 );
-		add_action( 'load-theme-editor.php', array( $this, 'capture_file_hash_on_editor_load' ) );
-		add_action( 'load-plugin-editor.php', array( $this, 'capture_file_hash_on_editor_load' ) );
+		add_action( 'load-theme-editor.php', array( $this, 'capture_file_hash_before_edit' ) );
+		add_action( 'load-plugin-editor.php', array( $this, 'capture_file_hash_before_edit' ) );
 		add_action( 'shutdown', array( $this, 'log_file_editor_change_on_shutdown' ) );
 
 		parent::__construct();
