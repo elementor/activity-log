@@ -70,9 +70,30 @@ class AAL_Log_Query {
 	protected $caps = array();
 	protected $allow_caps = array();
 
-	public function __construct() {
+	/**
+	 * When true, skip role/cap visibility restrictions (opt-in for trusted callers such as WP-CLI).
+	 *
+	 * @var bool
+	 */
+	protected $unrestricted = false;
+
+	/**
+	 * @param array $args {
+	 *     @type bool $unrestricted Skip role/cap filters when true.
+	 * }
+	 */
+	public function __construct( $args = array() ) {
+		$args = wp_parse_args( $args, array( 'unrestricted' => false ) );
+		$this->unrestricted = ! empty( $args['unrestricted'] );
 		$this->init_roles();
 		$this->init_caps();
+	}
+
+	/**
+	 * @return bool
+	 */
+	protected function is_unrestricted() {
+		return $this->unrestricted;
 	}
 
 	protected function init_roles() {
@@ -145,6 +166,15 @@ class AAL_Log_Query {
 	 * @return array|false Allowed caps for the current user, or false if denied.
 	 */
 	public function get_allow_caps() {
+		if ( $this->is_unrestricted() ) {
+			$all_caps = array();
+			foreach ( $this->caps as $cap_allow ) {
+				$all_caps = array_merge( $all_caps, $cap_allow );
+			}
+
+			return array_values( array_unique( $all_caps ) );
+		}
+
 		if ( ! empty( $this->allow_caps ) ) {
 			return $this->allow_caps;
 		}
@@ -181,6 +211,10 @@ class AAL_Log_Query {
 	 * @return string|false SQL fragment, or false if denied.
 	 */
 	public function get_where_by_role() {
+		if ( $this->is_unrestricted() ) {
+			return '';
+		}
+
 		$allow_modules = array();
 
 		foreach ( $this->roles as $key => $role ) {

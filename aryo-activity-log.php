@@ -43,6 +43,7 @@ include( 'classes/class-aal-abilities.php' );
 include( 'classes/class-aal-export.php' );
 include( 'classes/class-aal-privacy.php' );
 include( 'classes/abstract-class-aal-exporter.php' );
+include( 'classes/class-aal-cli.php' );
 
 // Integrations
 include( 'classes/class-aal-integration-woocommerce.php' );
@@ -165,3 +166,7 @@ final class AAL_Main {
 }
 
 AAL_Main::instance();
+
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	WP_CLI::add_command( 'activity-log', 'AAL_CLI_Command' );
+}
