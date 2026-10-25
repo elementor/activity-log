@@ -44,7 +44,7 @@ class AAL_Privacy {
 		$items = $wpdb->get_results( $wpdb->prepare(
 			"SELECT * FROM $wpdb->activity_log
 			WHERE `user_id` = %d
-			ORDER BY `hist_time` ASC
+			ORDER BY `hist_time` ASC, `histid` ASC
 			LIMIT %d, %d;",
 			$user->ID, $offset, $number
 		) );
