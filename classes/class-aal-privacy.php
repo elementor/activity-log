@@ -39,15 +39,15 @@ class AAL_Privacy {
 
 		global $wpdb;
 
+		$offset = ( $page - 1 ) * $number;
+
 		$items = $wpdb->get_results( $wpdb->prepare(
-			"SELECT SQL_CALC_FOUND_ROWS * FROM $wpdb->activity_log
+			"SELECT * FROM $wpdb->activity_log
 			WHERE `user_id` = %d
 			ORDER BY `hist_time` ASC
 			LIMIT %d, %d;",
-			$user->ID, $page, $number
+			$user->ID, $offset, $number
 		) );
-
-		$found_rows = $wpdb->get_var( 'SELECT FOUND_ROWS();' );
 
 		$group_id = 'activity-log';
 		$group_label = __( 'Activity Log', 'aryo-activity-log' );
@@ -101,8 +101,7 @@ class AAL_Privacy {
 			);
 		} // End foreach().
 
-		// Tell core if we have more comments to work on still
-		$done = $found_rows < $number;
+		$done = count( $items ) < $number;
 		return array(
 			'data' => $export_items,
 			'done' => $done,

@@ -156,6 +156,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 = 2.18.0 =
 * Fix: Log user events as Unknown user when the user no longer exists
+* Fix: Personal data export now completes for users with many log entries
 
 = 2.17.0 - 2026-10-25 =
 * New: Show old and new values for settings, posts, users, user roles, comments, plugin versions, themes, WordPress core version, widget and term changes
