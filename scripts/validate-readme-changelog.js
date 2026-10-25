@@ -6,47 +6,99 @@ const path = require( 'path' );
 const root = path.resolve( __dirname, '..' );
 
 const version = process.argv[ 2 ] || require( path.join( root, 'package.json' ) ).version;
-const readme = fs.readFileSync( path.join( root, 'readme.txt' ), 'utf8' );
+const today = new Intl.DateTimeFormat( 'en-CA', { timeZone: 'Asia/Jerusalem' } ).format( new Date() );
+const expectedHeader = `= ${ version } - ${ today } =`;
 
-const changelogMarker = '== Changelog ==';
-const changelogIndex = readme.indexOf( changelogMarker );
+/**
+ * @param {string} fileName
+ * @param {string} filePath
+ * @returns {{ date: string, lines: string[] }}
+ */
+function extractVersionBlock( fileName, filePath ) {
+	const content = fs.readFileSync( filePath, 'utf8' );
+	const changelogMarker = '== Changelog ==';
+	const changelogIndex = content.indexOf( changelogMarker );
 
-if ( changelogIndex === -1 ) {
-	console.error( 'readme.txt is missing "== Changelog ==" section.' );
-	process.exit( 1 );
+	if ( changelogIndex === -1 ) {
+		console.error( `${ fileName } is missing "== Changelog ==" section.` );
+		process.exit( 1 );
+	}
+
+	const changelogBody = content.slice( changelogIndex + changelogMarker.length );
+	const escapedVersion = version.replace( /\./g, '\\.' );
+	const headerRegex = new RegExp( `^= ${ escapedVersion } - (\\d{4}-\\d{2}-\\d{2}) =`, 'm' );
+	const headerMatch = changelogBody.match( headerRegex );
+
+	if ( ! headerMatch ) {
+		console.error( `Expected "${ expectedHeader }" in ${ fileName }` );
+		process.exit( 1 );
+	}
+
+	const matchedHeader = headerMatch[ 0 ];
+	const date = headerMatch[ 1 ];
+
+	if ( matchedHeader !== expectedHeader ) {
+		console.error( `Expected "${ expectedHeader }" in ${ fileName }` );
+		process.exit( 1 );
+	}
+
+	const headerIndex = changelogBody.indexOf( matchedHeader );
+	const afterHeader = changelogBody.slice( headerIndex + matchedHeader.length );
+	const nextSectionMatch = afterHeader.match( /\n= \d+\.\d+\.\d+/ );
+	const sectionContent = nextSectionMatch
+		? afterHeader.slice( 0, nextSectionMatch.index )
+		: afterHeader;
+
+	const lines = sectionContent
+		.split( '\n' )
+		.map( ( line ) => line.trim() )
+		.filter( ( line ) => line.length > 0 );
+
+	return { date, lines };
 }
 
-const changelogBody = readme.slice( changelogIndex + changelogMarker.length );
-
-// Match "= X.Y.Z =" or "= X.Y.Z - YYYY-MM-DD =" (date suffix is optional)
-const sectionRegex = new RegExp(
-	`= ${ version.replace( /\./g, '\\.' ) }(\\s+-\\s+\\d{4}-\\d{2}-\\d{2})?\\s*=`
-);
-
-const headerMatch = changelogBody.match( sectionRegex );
-
-if ( ! headerMatch ) {
-	console.error(
-		`readme.txt is missing a changelog section for version ${ version }.\n` +
-		`Add "= ${ version } =" (optionally with " - YYYY-MM-DD") with release notes under "== Changelog ==" before dispatching the release.`
-	);
-	process.exit( 1 );
+function linesOnlyIn( haystack, other ) {
+	const otherSet = new Set( other );
+	return haystack.filter( ( line ) => ! otherSet.has( line ) );
 }
 
-const headerIndex = changelogBody.indexOf( headerMatch[ 0 ] );
-const afterHeader = changelogBody.slice( headerIndex + headerMatch[ 0 ].length );
-const nextSectionMatch = afterHeader.match( /\n= \d+\.\d+\.\d+/ );
-const sectionContent = nextSectionMatch
-	? afterHeader.slice( 0, nextSectionMatch.index )
-	: afterHeader;
+const readmePath = path.join( root, 'readme.txt' );
+const changelogPath = path.join( root, 'changelog.txt' );
 
-const hasBullet = /^\* /m.test( sectionContent );
+const readmeBlock = extractVersionBlock( 'readme.txt', readmePath );
+const changelogBlock = extractVersionBlock( 'changelog.txt', changelogPath );
 
-if ( ! hasBullet ) {
+for ( const [ fileName, block ] of [
+	[ 'readme.txt', readmeBlock ],
+	[ 'changelog.txt', changelogBlock ],
+] ) {
+	if ( ! block.lines.some( ( line ) => line.startsWith( '* ' ) ) ) {
+		console.error(
+			`${ fileName } changelog section for version ${ version } has no release notes.\n` +
+			`Add at least one "* ..." line under the section header before dispatching the release.`
+		);
+		process.exit( 1 );
+	}
+}
+
+const readmeKey = readmeBlock.lines.join( '\n' );
+const changelogKey = changelogBlock.lines.join( '\n' );
+
+if ( readmeKey !== changelogKey ) {
+	const onlyInReadme = linesOnlyIn( readmeBlock.lines, changelogBlock.lines );
+	const onlyInChangelog = linesOnlyIn( changelogBlock.lines, readmeBlock.lines );
+
 	console.error(
-		`readme.txt changelog section for version ${ version } has no release notes.\n` +
-		`Add at least one "* ..." line under the section header before dispatching the release.`
+		`readme.txt and changelog.txt release notes for version ${ version } do not match.`
 	);
+	if ( onlyInReadme.length ) {
+		console.error( 'Only in readme.txt:' );
+		onlyInReadme.forEach( ( line ) => console.error( `  ${ line }` ) );
+	}
+	if ( onlyInChangelog.length ) {
+		console.error( 'Only in changelog.txt:' );
+		onlyInChangelog.forEach( ( line ) => console.error( `  ${ line }` ) );
+	}
 	process.exit( 1 );
 }
 
