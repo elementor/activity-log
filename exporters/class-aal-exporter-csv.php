@@ -46,23 +46,9 @@ class AAL_Exporter_csv {
 
 		fputcsv( $fp, $columns, $separator );
 
-		$batch_size    = max( 1, (int) apply_filters( 'aal_export_batch_size', 1000 ) );
-		$rows_in_batch = 0;
-
 		foreach ( $data as $row ) {
 			$encoded_row = $this->get_encoded_row( $row );
 			fputcsv( $fp, $encoded_row, $separator );
-
-			if ( ! $is_test_mode_off ) {
-				continue;
-			}
-
-			$rows_in_batch++;
-			if ( $rows_in_batch >= $batch_size ) {
-				fflush( $fp );
-				flush();
-				$rows_in_batch = 0;
-			}
 		}
 
 		if ( $is_test_mode_off ) {

@@ -176,6 +176,10 @@ class AAL_Export {
 				yield AAL_Log_Presenter::to_export_row( $item, $columns );
 			}
 
+			if ( $this->is_live_export() ) {
+				flush();
+			}
+
 			$last_item = end( $result['items'] );
 			$before_id = (int) $last_item->histid;
 

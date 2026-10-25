@@ -249,27 +249,6 @@ class AAL_Log_Query {
 	}
 
 	/**
-	 * Query activity log rows.
-	 *
-	 * @param array $args {
-	 *     @type string $typeshow    Filter by object_type.
-	 *     @type string $showaction  Filter by action.
-	 *     @type string $filter_ip   Filter by IP.
-	 *     @type int    $usershow    Filter by user_id.
-	 *     @type string $capshow     Filter by user_caps.
-	 *     @type string $sourceshow  Filter by request_source channel.
-	 *     @type string $dateshow    Date filter: today|yesterday|week (last 7 days)|month (last 30 days)|dd/mm/yyyy.
-	 *     @type string $s           Search term.
-	 *     @type string $orderby     Column to sort by (hist_time|hist_ip). Default hist_time.
-	 *     @type string $order       ASC or DESC. Default DESC.
-	 *     @type int    $page        1-indexed page number.
-	 *     @type int    $per_page    Items per page (max 100).
-	 *     @type bool   $exclude_ip  When true, omit hist_ip from the search columns.
-	 *     @type bool   $skip_count  When true, skip COUNT and infer has_more from per_page + 1 fetch.
-	 * }
-	 * @return array { items: object[], total: int|null, pages: int|null, has_more: bool } or empty on access denied.
-	 */
-	/**
 	 * Resolve a dateshow filter value to start/end hist_time timestamps.
 	 *
 	 * @param string $dateshow Filter value from the activity log UI.
@@ -314,6 +293,27 @@ class AAL_Log_Query {
 		);
 	}
 
+	/**
+	 * Query activity log rows.
+	 *
+	 * @param array $args {
+	 *     @type string $typeshow    Filter by object_type.
+	 *     @type string $showaction  Filter by action.
+	 *     @type string $filter_ip   Filter by IP.
+	 *     @type int    $usershow    Filter by user_id.
+	 *     @type string $capshow     Filter by user_caps.
+	 *     @type string $sourceshow  Filter by request_source channel.
+	 *     @type string $dateshow    Date filter: today|yesterday|week (last 7 days)|month (last 30 days)|dd/mm/yyyy.
+	 *     @type string $s           Search term.
+	 *     @type string $orderby     Column to sort by (hist_time|hist_ip). Default hist_time.
+	 *     @type string $order       ASC or DESC. Default DESC.
+	 *     @type int    $page        1-indexed page number.
+	 *     @type int    $per_page    Items per page (max 100).
+	 *     @type bool   $exclude_ip  When true, omit hist_ip from the search columns.
+	 *     @type bool   $skip_count  When true, skip COUNT and infer has_more from per_page + 1 fetch.
+	 * }
+	 * @return array { items: object[], total: int|null, pages: int|null, has_more: bool } or empty on access denied.
+	 */
 	public function query( $args = array() ) {
 		global $wpdb;
 
