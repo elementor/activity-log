@@ -38,6 +38,17 @@ __( 'failed_login', 'aryo-activity-log' );
 __( 'registered', 'aryo-activity-log' );
 /* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "Logged out". */
 __( 'removed', 'aryo-activity-log' );
+/* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "App password created". */
+__( 'app_password_created', 'aryo-activity-log' );
+/* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "App password revoked". */
+__( 'app_password_revoked', 'aryo-activity-log' );
+/* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "Password reset requested". */
+__( 'password_reset_requested', 'aryo-activity-log' );
+/* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "Password reset". */
+__( 'password_reset', 'aryo-activity-log' );
+__( 'Application Password', 'aryo-activity-log' );
+/* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "Personal data erased". */
+__( 'personal_data_erased', 'aryo-activity-log' );
 
 // Plugin
 __( 'Plugins', 'aryo-activity-log' );
@@ -47,7 +58,8 @@ __( 'activated', 'aryo-activity-log' );
 __( 'deactivated', 'aryo-activity-log' );
 /* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "Logged out". */
 __( 'installed', 'aryo-activity-log' );
-__( 'File Updated', 'aryo-activity-log' );
+/* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "File updated". */
+__( 'file_updated', 'aryo-activity-log' );
 /* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "Logged out". */
 __( 'deleted', 'aryo-activity-log' );
 /* translators: Log action key shown in the activity log. Translate as a readable label, e.g. "Logged out". */
