@@ -309,12 +309,12 @@ class AAL_REST {
 	 * @return int|null after_id when the client sent the parameter, null when omitted.
 	 */
 	private function get_logs_after_id_param( WP_REST_Request $request ) {
-		$query_params = $request->get_query_params();
-		if ( ! is_array( $query_params ) || ! array_key_exists( 'after_id', $query_params ) ) {
+		$get_params = $request->get_params( 'GET' );
+		if ( ! is_array( $get_params ) || ! array_key_exists( 'after_id', $get_params ) ) {
 			return null;
 		}
 
-		return (int) $query_params['after_id'];
+		return (int) $get_params['after_id'];
 	}
 
 	private function get_logs_args() {
@@ -372,9 +372,8 @@ class AAL_REST {
 				'sanitize_callback' => 'rest_sanitize_boolean',
 			),
 			'after_id'   => array(
-				'default'           => '',
 				'description'       => __( 'Use next_after_id from the previous response as after_id to fetch only new events.', 'aryo-activity-log' ),
-				'sanitize_callback' => 'sanitize_text_field',
+				'sanitize_callback' => 'absint',
 			),
 		);
 	}
@@ -426,7 +425,7 @@ class AAL_REST {
 			'promotions' => $promotions,
 		);
 
-		if ( null !== $after_id_raw ) {
+		if ( array_key_exists( 'next_after_id', $result ) ) {
 			$response_data['next_after_id'] = $result['next_after_id'];
 		}
 
