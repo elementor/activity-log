@@ -113,7 +113,7 @@ class AAL_Admin_Ui {
 	}
 
 	public function ajax_aal_promotion_dismiss() {
-		if ( empty( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'aal_promotion' ) ) {
+		if ( empty( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'aal_promotion' ) ) {
 			wp_send_json_error();
 		}
 
@@ -129,7 +129,7 @@ class AAL_Admin_Ui {
 	}
 
 	public function ajax_aal_promotion_campaign() {
-		if ( empty( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'aal_promotion' ) ) {
+		if ( empty( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'aal_promotion' ) ) {
 			wp_send_json_error();
 		}
 
