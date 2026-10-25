@@ -191,7 +191,6 @@ class AAL_Test_Detect_Suspicious extends WP_Test_REST_TestCase {
 
 		$user = get_user_by( 'id', $editor_id );
 		$user->add_role( 'administrator' );
-		$this->flush_pending_role_logs();
 
 		$wpdb->update(
 			$wpdb->activity_log,
@@ -296,25 +295,6 @@ class AAL_Test_Detect_Suspicious extends WP_Test_REST_TestCase {
 		$this->assertCount( 1, $result['findings'] );
 		$this->assertSame( 5, $result['findings'][0]['count'] );
 		$this->assertStringNotContainsString( self::TEST_LOG_IP, (string) wp_json_encode( $result ) );
-	}
-
-	private function flush_pending_role_logs() {
-		global $wp_filter;
-
-		if ( empty( $wp_filter['shutdown'] ) ) {
-			return;
-		}
-
-		$hook = $wp_filter['shutdown'];
-		foreach ( $hook->callbacks as $callbacks ) {
-			foreach ( $callbacks as $callback ) {
-				$function = $callback['function'];
-				if ( is_array( $function ) && $function[0] instanceof AAL_Hook_Users && 'flush_buffered_role_changes' === $function[1] ) {
-					call_user_func( $function );
-					return;
-				}
-			}
-		}
 	}
 
 	private function insert_log( $overrides = array() ) {
