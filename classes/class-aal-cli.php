@@ -123,17 +123,12 @@ class AAL_CLI_List {
 
 		foreach ( $items as $item ) {
 			$row = AAL_Log_Presenter::to_export_row( $item, $columns );
-			if ( isset( $row['id'] ) ) {
-				$row['id'] = (int) $item->histid;
-			} elseif ( in_array( 'id', $fields, true ) ) {
-				$row['id'] = (int) $item->histid;
-			}
+			$row['id'] = (int) $item->histid;
+
 			$ordered = array();
 			foreach ( $fields as $field ) {
 				if ( array_key_exists( $field, $row ) ) {
 					$ordered[ $field ] = $row[ $field ];
-				} elseif ( 'id' === $field ) {
-					$ordered[ $field ] = (int) $item->histid;
 				}
 			}
 			$rows[] = $ordered;
