@@ -367,7 +367,6 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 		 * [--period=<period>]
 		 * : Relative time window.
 		 * ---
-		 * default: 24h
 		 * options:
 		 *   - 24h
 		 *   - 7d
