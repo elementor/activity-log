@@ -77,4 +77,29 @@ class AAL_Test_CLI_List extends WP_UnitTestCase {
 		$this->assertSame( 'Posts', $rows[0]['type'] );
 		$this->assertSame( 'cli-list-row', $rows[0]['description'] );
 	}
+
+	public function test_rows_to_jsonl_lines_one_object_per_row_with_unescaped_unicode_and_slashes() {
+		$rows = array(
+			array(
+				'id'          => 1,
+				'description' => 'path/to/file — café',
+			),
+			array(
+				'id'          => 2,
+				'description' => 'https://example.com/test',
+			),
+		);
+
+		$lines = AAL_CLI_List::rows_to_jsonl_lines( $rows );
+
+		$this->assertCount( 2, $lines );
+		$this->assertSame( $rows[0], json_decode( $lines[0], true ) );
+		$this->assertSame( $rows[1], json_decode( $lines[1], true ) );
+		$this->assertStringContainsString( 'café', $lines[0] );
+		$this->assertStringNotContainsString( '\u00e9', $lines[0] );
+		$this->assertStringContainsString( 'path/to/file', $lines[0] );
+		$this->assertStringNotContainsString( 'path\\/to', $lines[0] );
+		$this->assertStringContainsString( 'https://example.com/test', $lines[1] );
+		$this->assertStringNotContainsString( 'https:\\/\\/', $lines[1] );
+	}
 }

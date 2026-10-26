@@ -190,6 +190,75 @@ class AAL_Test_Export extends WP_UnitTestCase {
 		$this->assertSame( '', $row['changes'] );
 	}
 
+	public function test_export_jsonl_omits_ip_while_csv_includes_ip() {
+		global $wpdb;
+
+		if ( ! defined( 'AAL_TESTMODE' ) ) {
+			define( 'AAL_TESTMODE', true );
+		}
+
+		$this->set_ip_source_option( 'REMOTE_ADDR' );
+
+		$user_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $user_id );
+		$marker = 'jsonl-export-ip-test';
+
+		$wpdb->insert(
+			$wpdb->activity_log,
+			array(
+				'action'         => 'updated',
+				'object_type'    => 'Posts',
+				'object_subtype' => 'post',
+				'object_name'    => $marker,
+				'user_id'        => $user_id,
+				'user_caps'      => 'administrator',
+				'hist_time'      => time(),
+				'hist_ip'        => '203.0.113.10',
+			),
+			array( '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s' )
+		);
+
+		$export = $this->get_export_instance();
+		$export->admin_register_exporters();
+
+		$csv_exporter   = new AAL_Exporter_csv();
+		$jsonl_exporter = new AAL_Exporter_jsonl();
+
+		$csv_columns   = $this->invoke_get_export_columns( $export, $csv_exporter );
+		$jsonl_columns = $this->invoke_get_export_columns( $export, $jsonl_exporter );
+
+		$this->assertArrayHasKey( 'ip', $csv_columns );
+		$this->assertArrayNotHasKey( 'ip', $jsonl_columns );
+
+		$query_args = array( 's' => $marker );
+		$csv_rows   = $this->invoke_export_rows_generator( $export, $query_args, $csv_columns );
+		$jsonl_rows = $this->invoke_export_rows_generator( $export, $query_args, $jsonl_columns );
+
+		ob_start();
+		$csv_exporter->write( $csv_rows, $csv_columns );
+		$csv_output = ob_get_clean();
+
+		ob_start();
+		$jsonl_exporter->write( $jsonl_rows, $jsonl_columns );
+		$jsonl_output = ob_get_clean();
+
+		$csv_fp = fopen( 'php://memory', 'r+' );
+		fwrite( $csv_fp, $csv_output );
+		rewind( $csv_fp );
+		$csv_header = fgetcsv( $csv_fp, 0, ',', AAL_Exporter_csv::CSV_ENCLOSURE, AAL_Exporter_csv::CSV_ESCAPE );
+		fclose( $csv_fp );
+
+		$this->assertContains( 'IP', $csv_header );
+
+		$jsonl_lines = array_filter( explode( "\n", trim( $jsonl_output ) ) );
+		$this->assertCount( 1, $jsonl_lines );
+
+		$decoded = json_decode( $jsonl_lines[0], true );
+		$this->assertIsArray( $decoded );
+		$this->assertSame( array_keys( $jsonl_columns ), array_keys( $decoded ) );
+		$this->assertArrayNotHasKey( 'ip', $decoded );
+	}
+
 	public function test_export_csv_trailing_machine_friendly_columns() {
 		global $wpdb;
 
@@ -437,11 +506,11 @@ class AAL_Test_Export extends WP_UnitTestCase {
 	/**
 	 * @return Generator<int, array<string, string>>
 	 */
-	private function invoke_get_export_columns( AAL_Export $export ): array {
+	private function invoke_get_export_columns( AAL_Export $export, $exporter = null ): array {
 		$method = new ReflectionMethod( AAL_Export::class, 'get_export_columns' );
 		$method->setAccessible( true );
 
-		return $method->invoke( $export );
+		return $method->invoke( $export, $exporter );
 	}
 
 	private function invoke_export_rows_generator( AAL_Export $export, array $query_args, array $columns ) {

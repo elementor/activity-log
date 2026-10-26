@@ -177,6 +177,23 @@ class AAL_CLI_List {
 			'total' => isset( $result['total'] ) ? (int) $result['total'] : count( $result['items'] ),
 		);
 	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $rows List rows from build_list_rows().
+	 * @return string[] One JSON object per line (no array wrapper).
+	 */
+	public static function rows_to_jsonl_lines( $rows ) {
+		if ( ! class_exists( 'AAL_Exporter_jsonl' ) ) {
+			require_once sprintf( '%s/exporters/%s', dirname( ACTIVITY_LOG__FILE__ ), 'class-aal-exporter-jsonl.php' );
+		}
+
+		$lines = array();
+		foreach ( $rows as $row ) {
+			$lines[] = wp_json_encode( $row, AAL_Exporter_jsonl::JSON_ENCODE_FLAGS );
+		}
+
+		return $lines;
+	}
 }
 
 /**
@@ -330,6 +347,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 		 *   - table
 		 *   - csv
 		 *   - json
+		 *   - jsonl
 		 *   - yaml
 		 *   - count
 		 * ---
@@ -339,6 +357,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 		 *     wp activity-log list
 		 *     wp activity-log list --type=Posts --action=updated --per-page=50
 		 *     wp activity-log list --format=count --date=today
+		 *     wp activity-log list --format=jsonl --per-page=100
 		 *
 		 * @subcommand list
 		 *
@@ -352,6 +371,13 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 
 			if ( 'count' === $format ) {
 				WP_CLI::log( (string) $data['total'] );
+				return;
+			}
+
+			if ( 'jsonl' === $format ) {
+				foreach ( AAL_CLI_List::rows_to_jsonl_lines( $data['rows'] ) as $line ) {
+					WP_CLI::line( $line );
+				}
 				return;
 			}
 
