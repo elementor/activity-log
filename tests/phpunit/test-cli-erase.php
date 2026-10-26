@@ -61,16 +61,20 @@ class AAL_Test_CLI_Erase extends WP_UnitTestCase {
 	}
 
 	public function test_count_items_before_matches_old_rows() {
+		$api      = AAL_Main::instance()->api;
+		$baseline = $api->count_items_before( 300 );
+
 		$this->insert_row_with_hist_time( 100 );
 		$this->insert_row_with_hist_time( 200 );
 		$this->insert_row_with_hist_time( 400 );
 
-		$api = AAL_Main::instance()->api;
-
-		$this->assertSame( 2, $api->count_items_before( 300 ) );
+		$this->assertSame( $baseline + 2, $api->count_items_before( 300 ) );
 	}
 
 	public function test_erase_items_before_removes_only_older_rows_and_logs_erased() {
+		$rows_before   = $this->count_all_rows();
+		$erased_before = $this->count_erased_activity_log_rows();
+
 		$this->insert_row_with_hist_time( 100 );
 		$this->insert_row_with_hist_time( 200 );
 		$this->insert_row_with_hist_time( 400 );
@@ -82,7 +86,7 @@ class AAL_Test_CLI_Erase extends WP_UnitTestCase {
 		$this->assertSame( 2, $deleted );
 		$this->assertSame( 0, $this->count_seed_rows_with_hist_times( array( 100, 200 ) ) );
 		$this->assertSame( 2, $this->count_seed_rows_with_hist_times( array( 400, 500 ) ) );
-		$this->assertSame( 1, $this->count_erased_activity_log_rows() );
-		$this->assertSame( 3, $this->count_all_rows() );
+		$this->assertSame( $erased_before + 1, $this->count_erased_activity_log_rows() );
+		$this->assertSame( $rows_before + 3, $this->count_all_rows() );
 	}
 }
