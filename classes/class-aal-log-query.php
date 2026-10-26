@@ -460,10 +460,19 @@ class AAL_Log_Query {
 
 		if ( $after_id_mode ) {
 			$where .= $wpdb->prepare( ' AND `histid` > %d', $after_id );
-			$where .= $wpdb->prepare(
-				' AND `hist_time` <= %d',
-				current_time( 'timestamp' ) - self::AFTER_ID_SAFETY_WINDOW_SECONDS
+
+			// Stop before the oldest row that is still inside the safety window (or dated in the future, e.g. after a DST fall-back),
+			// so the cursor never moves past a row that a later poll would return.
+			$barrier_histid = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					'SELECT MIN(`histid`) FROM `' . $wpdb->activity_log . '` WHERE `histid` > %d AND `hist_time` > %d',
+					$after_id,
+					current_time( 'timestamp' ) - self::AFTER_ID_SAFETY_WINDOW_SECONDS
+				)
 			);
+			if ( $barrier_histid > 0 ) {
+				$where .= $wpdb->prepare( ' AND `histid` < %d', $barrier_histid );
+			}
 		}
 
 		$allowed_orderby = array( 'hist_time', 'hist_ip', 'histid' );

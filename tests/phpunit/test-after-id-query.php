@@ -122,6 +122,32 @@ class Test_AAL_After_Id_Query extends WP_UnitTestCase {
 		$this->assertSame( $users_id, (int) $result['items'][0]->histid );
 	}
 
+	public function test_after_id_does_not_skip_rows_dated_in_the_future() {
+		$row_a_id = $this->insert_log(
+			array(
+				'object_name' => 'dst-future',
+				'hist_time'   => current_time( 'timestamp' ) + HOUR_IN_SECONDS,
+			)
+		);
+		$this->insert_log(
+			array(
+				'object_name' => 'after-dst',
+				'hist_time'   => current_time( 'timestamp' ) - 60,
+			)
+		);
+
+		$after_id = $row_a_id - 1;
+		$result   = ( new AAL_Log_Query() )->query(
+			array(
+				'after_id' => $after_id,
+				'per_page' => 10,
+			)
+		);
+
+		$this->assertSame( array(), $result['items'] );
+		$this->assertSame( $after_id, $result['next_after_id'] );
+	}
+
 	public function test_after_id_excludes_rows_inside_safety_window() {
 		$old_id = $this->insert_log(
 			array(
