@@ -271,6 +271,36 @@ class AAL_CLI_Stats {
 	}
 }
 
+/**
+ * Helpers for WP-CLI log erasure (no WP-CLI dependency).
+ */
+class AAL_CLI_Erase {
+
+	/**
+	 * Parse a YYYY-MM-DD calendar date to hist_time (site-local midnight).
+	 *
+	 * @param string $date_string Date in Y-m-d form.
+	 * @return int|null Hist time, or null when the date is invalid.
+	 */
+	public static function parse_before_date( $date_string ) {
+		$dt = DateTimeImmutable::createFromFormat( '!Y-m-d', (string) $date_string, wp_timezone() );
+		if ( false === $dt ) {
+			return null;
+		}
+
+		$errors = DateTimeImmutable::getLastErrors();
+		if ( false !== $errors && ( $errors['warning_count'] > 0 || $errors['error_count'] > 0 ) ) {
+			return null;
+		}
+
+		if ( $dt->format( 'Y-m-d' ) !== (string) $date_string ) {
+			return null;
+		}
+
+		return AAL_Log_Query::local_datetime_to_hist_time( $dt );
+	}
+}
+
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 
 	/**
@@ -457,6 +487,74 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			WP_CLI::log( '' );
 			WP_CLI::log( $title );
 			\WP_CLI\Utils\format_items( 'table', $rows, $fields );
+		}
+
+		/**
+		 * Erase activity log entries.
+		 *
+		 * ## OPTIONS
+		 *
+		 * [--before=<date>]
+		 * : Erase only entries before this date (YYYY-MM-DD, site-local midnight).
+		 *
+		 * [--dry-run]
+		 * : Print how many entries would be erased without deleting anything.
+		 *
+		 * [--yes]
+		 * : Answer yes to the confirmation prompt.
+		 *
+		 * ## EXAMPLES
+		 *
+		 *     wp activity-log erase --dry-run
+		 *     wp activity-log erase --before=2026-01-01 --yes
+		 *     wp activity-log erase --yes
+		 *
+		 * @subcommand erase
+		 *
+		 * @param array<int, string>   $args       Positional arguments.
+		 * @param array<string, mixed> $assoc_args Associative arguments.
+		 */
+		public function erase( $args, $assoc_args ) {
+			if ( ! apply_filters( 'aal_allow_option_erase_logs', true ) ) {
+				WP_CLI::error( 'Log erasure is disabled.' );
+			}
+
+			$hist_time = null;
+			if ( ! empty( $assoc_args['before'] ) ) {
+				$hist_time = AAL_CLI_Erase::parse_before_date( $assoc_args['before'] );
+				if ( null === $hist_time ) {
+					WP_CLI::error( 'Invalid --before date.' );
+				}
+			}
+
+			$api = AAL_Main::instance()->api;
+
+			if ( ! empty( $assoc_args['dry-run'] ) ) {
+				if ( null !== $hist_time ) {
+					$count = $api->count_items_before( $hist_time );
+				} else {
+					$count = $api->count_all_items();
+				}
+				WP_CLI::log( sprintf( '%d log entries would be erased.', $count ) );
+				return;
+			}
+
+			if ( null !== $hist_time ) {
+				WP_CLI::confirm(
+					sprintf(
+						'Are you sure you want to erase all activity log entries before %s?',
+						$assoc_args['before']
+					),
+					$assoc_args
+				);
+				$deleted = $api->erase_items_before( $hist_time );
+				WP_CLI::success( sprintf( 'Erased %d log entries.', $deleted ) );
+				return;
+			}
+
+			WP_CLI::confirm( 'Are you sure you want to erase all activity log entries?', $assoc_args );
+			$api->erase_all_items();
+			WP_CLI::success( 'Activity logs erased.' );
 		}
 	}
 }

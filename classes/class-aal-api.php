@@ -5,6 +5,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class AAL_API {
 
+	const ERASE_BATCH_SIZE = 1000;
+
 	private $app_password_authenticated = false;
 	private $app_password_name = '';
 	private $ability_stack = array();
@@ -106,6 +108,66 @@ class AAL_API {
 
 		$wpdb->query( 'TRUNCATE `' . $wpdb->activity_log . '`' );
 
+		$this->log_erased();
+	}
+
+	/**
+	 * @param int $hist_time Cutoff hist_time (rows strictly before this are counted).
+	 * @return int
+	 */
+	public function count_items_before( $hist_time ) {
+		global $wpdb;
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COUNT(`histid`) FROM `' . $wpdb->activity_log . '` WHERE `hist_time` < %d',
+				(int) $hist_time
+			)
+		);
+	}
+
+	/**
+	 * @param int $hist_time Cutoff hist_time (rows strictly before this are deleted).
+	 * @return int Total rows deleted.
+	 */
+	public function erase_items_before( $hist_time ) {
+		global $wpdb;
+
+		$hist_time       = (int) $hist_time;
+		$deleted_total   = 0;
+		$batch_size      = self::ERASE_BATCH_SIZE;
+
+		do {
+			$deleted = $wpdb->query(
+				$wpdb->prepare(
+					'DELETE FROM `' . $wpdb->activity_log . '` WHERE `hist_time` < %d LIMIT %d',
+					$hist_time,
+					$batch_size
+				)
+			);
+
+			if ( false === $deleted ) {
+				$deleted = 0;
+			}
+
+			$deleted_total += (int) $deleted;
+		} while ( $deleted >= $batch_size );
+
+		$this->log_erased();
+
+		return $deleted_total;
+	}
+
+	/**
+	 * @return int
+	 */
+	public function count_all_items() {
+		global $wpdb;
+
+		return (int) $wpdb->get_var( 'SELECT COUNT(`histid`) FROM `' . $wpdb->activity_log . '`' );
+	}
+
+	private function log_erased() {
 		aal_insert_log(
 			array(
 				'action'         => 'erased',
