@@ -484,5 +484,32 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			WP_CLI::log( $title );
 			\WP_CLI\Utils\format_items( 'table', $rows, $fields );
 		}
+
+		/**
+		 * Erase all activity log entries.
+		 *
+		 * ## OPTIONS
+		 *
+		 * [--yes]
+		 * : Answer yes to the confirmation prompt.
+		 *
+		 * ## EXAMPLES
+		 *
+		 *     wp activity-log erase --yes
+		 *
+		 * @subcommand erase
+		 *
+		 * @param array<int, string>   $args       Positional arguments.
+		 * @param array<string, mixed> $assoc_args Associative arguments.
+		 */
+		public function erase( $args, $assoc_args ) {
+			if ( ! apply_filters( 'aal_allow_option_erase_logs', true ) ) {
+				WP_CLI::error( 'Log erasure is disabled.' );
+			}
+
+			WP_CLI::confirm( 'Are you sure you want to erase all activity log entries?', $assoc_args );
+			AAL_Main::instance()->api->erase_all_items();
+			WP_CLI::success( 'Activity logs erased.' );
+		}
 	}
 }
