@@ -108,6 +108,17 @@ class Test_AAL_Logs_REST extends WP_UnitTestCase {
 		$this->assertIsInt( $default['pages'] );
 	}
 
+	public function test_logs_route_registers_after_id_argument() {
+		$handler = rest_get_server()->get_routes()['/activity-log/v1/logs'][0];
+		$this->assertArrayHasKey( 'after_id', $handler['args'] );
+	}
+
+	public function test_logs_schema_includes_next_after_id() {
+		$handler = rest_get_server()->get_routes()['/activity-log/v1/logs'][0];
+		$schema  = call_user_func( $handler['schema'] );
+		$this->assertArrayHasKey( 'next_after_id', $schema['properties'] );
+	}
+
 	public function test_logs_schema_includes_changes() {
 		$handler = rest_get_server()->get_routes()['/activity-log/v1/logs'][0];
 		$schema  = call_user_func( $handler['schema'] );

@@ -5,6 +5,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class AAL_Log_Query {
 
+	const AFTER_ID_SAFETY_WINDOW_SECONDS = 5;
+
 	/** Site-local instant to stored hist_time (same space as current_time( 'timestamp' )). */
 	public static function local_datetime_to_hist_time( DateTimeImmutable $local_datetime ) {
 		return $local_datetime->getTimestamp() + wp_timezone()->getOffset( $local_datetime );
@@ -345,21 +347,28 @@ class AAL_Log_Query {
 	 *     @type int    $per_page    Items per page (max 100).
 	 *     @type bool   $exclude_ip  When true, omit hist_ip from the search columns.
 	 *     @type bool   $skip_count  When true, skip COUNT and infer has_more from per_page + 1 fetch.
+	 *     @type int    $after_id    When set, return rows with histid greater than this (incremental fetch). orderby, order and page are ignored.
 	 * }
-	 * @return array { items: object[], total: int|null, pages: int|null, has_more: bool } or empty on access denied.
+	 * @return array { items: object[], total: int|null, pages: int|null, has_more: bool, next_after_id?: int } (empty items on access denied).
 	 */
 	public function query( $args = array() ) {
 		global $wpdb;
 
 		$role_where = $this->get_where_by_role();
 		if ( false === $role_where ) {
-			return array(
+			$denied = array(
 				'items'    => array(),
 				'total'    => 0,
 				'pages'    => 0,
 				'has_more' => false,
 			);
+			if ( is_array( $args ) && array_key_exists( 'after_id', $args ) ) {
+				$denied['next_after_id'] = (int) $args['after_id'];
+			}
+			return $denied;
 		}
+
+		$after_id_mode = array_key_exists( 'after_id', $args );
 
 		$args = wp_parse_args( $args, array(
 			'typeshow'   => '',
@@ -378,7 +387,10 @@ class AAL_Log_Query {
 			'skip_count' => false,
 			'before_id'  => 0,
 			'min_id'     => 0,
+			'after_id'   => 0,
 		) );
+
+		$after_id = (int) $args['after_id'];
 
 		$where = ' WHERE 1 = 1';
 
@@ -446,6 +458,23 @@ class AAL_Log_Query {
 			);
 		}
 
+		if ( $after_id_mode ) {
+			$where .= $wpdb->prepare( ' AND `histid` > %d', $after_id );
+
+			// Stop before the oldest row that is still inside the safety window (or dated in the future, e.g. after a DST fall-back),
+			// so the cursor never moves past a row that a later poll would return.
+			$safety_cutoff  = current_time( 'timestamp' ) - self::AFTER_ID_SAFETY_WINDOW_SECONDS;
+			$barrier_histid = (int) $wpdb->get_var(
+				'SELECT MIN(`histid`) FROM `' . $wpdb->activity_log . '`'
+				. $where
+				. $wpdb->prepare( ' AND `hist_time` > %d', $safety_cutoff )
+				. ' ' . $role_where
+			);
+			if ( $barrier_histid > 0 ) {
+				$where .= $wpdb->prepare( ' AND `histid` < %d', $barrier_histid );
+			}
+		}
+
 		$allowed_orderby = array( 'hist_time', 'hist_ip', 'histid' );
 		$items_orderby   = in_array( $args['orderby'], $allowed_orderby, true ) ? $args['orderby'] : 'hist_time';
 		$items_order     = 'ASC' === strtoupper( $args['order'] ) ? 'ASC' : 'DESC';
@@ -454,7 +483,13 @@ class AAL_Log_Query {
 		$page     = max( 1, (int) $args['page'] );
 		$offset   = ( $page - 1 ) * $per_page;
 
-		$skip_count = ! empty( $args['skip_count'] );
+		if ( $after_id_mode ) {
+			$items_orderby = 'histid';
+			$items_order   = 'ASC';
+			$offset        = 0;
+		}
+
+		$skip_count = ! empty( $args['skip_count'] ) || $after_id_mode;
 
 		$total_items = null;
 		$pages       = null;
@@ -487,12 +522,23 @@ class AAL_Log_Query {
 			$has_more = $page < $pages;
 		}
 
-		return array(
+		$result = array(
 			'items'    => $items ? $items : array(),
 			'total'    => $total_items,
 			'pages'    => $pages,
 			'has_more' => $has_more,
 		);
+
+		if ( $after_id_mode ) {
+			$next_after_id = $after_id;
+			if ( ! empty( $result['items'] ) ) {
+				$last_item     = end( $result['items'] );
+				$next_after_id = (int) $last_item->histid;
+			}
+			$result['next_after_id'] = $next_after_id;
+		}
+
+		return $result;
 	}
 
 	/**

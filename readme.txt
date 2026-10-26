@@ -159,6 +159,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * New: Log application password and password reset events
 * New: Log theme and plugin file editor changes
 * New: Added the wp activity-log WP-CLI command with list and stats subcommands
+* New: Incremental log fetching with after_id in the REST API and abilities
 * Tweak: Log an entry when all activity logs are erased
 * Tweak: Run old logs cleanup hourly instead of daily so large sites catch up faster
 * Tweak: Export logs in batches to support large sites
