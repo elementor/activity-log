@@ -192,6 +192,16 @@ class Test_AAL_After_Id_Query extends WP_UnitTestCase {
 		$this->assertCount( 1, $data['items'] );
 	}
 
+	public function test_after_id_access_denied_returns_input_cursor() {
+		$subscriber_id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		wp_set_current_user( $subscriber_id );
+
+		$result = ( new AAL_Log_Query() )->query( array( 'after_id' => 7 ) );
+
+		$this->assertSame( array(), $result['items'] );
+		$this->assertSame( 7, $result['next_after_id'] );
+	}
+
 	public function test_after_id_zero_starts_from_beginning() {
 		$id1 = $this->insert_log( array( 'hist_time' => current_time( 'timestamp' ) - 60 ) );
 		$id2 = $this->insert_log( array( 'hist_time' => current_time( 'timestamp' ) - 61 ) );

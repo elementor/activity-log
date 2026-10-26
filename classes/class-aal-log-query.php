@@ -349,19 +349,23 @@ class AAL_Log_Query {
 	 *     @type bool   $skip_count  When true, skip COUNT and infer has_more from per_page + 1 fetch.
 	 *     @type int    $after_id    When set, return rows with histid greater than this (incremental fetch). orderby, order and page are ignored.
 	 * }
-	 * @return array { items: object[], total: int|null, pages: int|null, has_more: bool, next_after_id?: int } or empty on access denied.
+	 * @return array { items: object[], total: int|null, pages: int|null, has_more: bool, next_after_id?: int } (empty items on access denied).
 	 */
 	public function query( $args = array() ) {
 		global $wpdb;
 
 		$role_where = $this->get_where_by_role();
 		if ( false === $role_where ) {
-			return array(
+			$denied = array(
 				'items'    => array(),
 				'total'    => 0,
 				'pages'    => 0,
 				'has_more' => false,
 			);
+			if ( is_array( $args ) && array_key_exists( 'after_id', $args ) ) {
+				$denied['next_after_id'] = (int) $args['after_id'];
+			}
+			return $denied;
 		}
 
 		$after_id_mode = array_key_exists( 'after_id', $args );
