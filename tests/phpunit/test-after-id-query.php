@@ -9,6 +9,7 @@ class Test_AAL_After_Id_Query extends WP_UnitTestCase {
 		global $wpdb;
 		$wpdb->query( "DELETE FROM {$wpdb->activity_log}" );
 		$this->admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$wpdb->query( "DELETE FROM {$wpdb->activity_log}" );
 		wp_set_current_user( $this->admin_id );
 	}
 
