@@ -104,7 +104,14 @@ class AAL_API {
 	public function erase_all_items() {
 		global $wpdb;
 
+		$last_histid = (int) $wpdb->get_var( 'SELECT MAX(`histid`) FROM `' . $wpdb->activity_log . '`' );
+
 		$wpdb->query( 'TRUNCATE `' . $wpdb->activity_log . '`' );
+
+		if ( $last_histid > 0 ) {
+			// Keep IDs increasing so after_id pollers don't stall.
+			$wpdb->query( 'ALTER TABLE `' . $wpdb->activity_log . '` AUTO_INCREMENT = ' . ( $last_histid + 1 ) );
+		}
 
 		aal_insert_log(
 			array(

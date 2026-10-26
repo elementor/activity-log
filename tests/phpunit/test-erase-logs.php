@@ -46,4 +46,18 @@ class AAL_Test_Erase_Logs extends WP_UnitTestCase {
 		$this->assertSame( 1, $this->count_all_rows() );
 		$this->assertSame( 1, $this->count_erased_activity_log_rows() );
 	}
+
+	public function test_erase_all_items_keeps_histid_above_previous_max() {
+		global $wpdb;
+
+		$this->seed_log_rows( 3 );
+
+		$max_histid = (int) $wpdb->get_var( 'SELECT MAX(`histid`) FROM `' . $wpdb->activity_log . '`' );
+
+		AAL_Main::instance()->api->erase_all_items();
+
+		$remaining_histid = (int) $wpdb->get_var( 'SELECT `histid` FROM `' . $wpdb->activity_log . '` LIMIT 1' );
+
+		$this->assertGreaterThan( $max_histid, $remaining_histid );
+	}
 }

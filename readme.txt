@@ -171,6 +171,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Fix: Log role changes made by adding or removing a single role, and detect users promoted to administrator with several roles
 * Fix: Different events logged in the same second are no longer dropped as duplicates
 * Fix: PHP 8.4 deprecation notices flooding the debug log during CSV export
+* Fix: Keep log IDs increasing after erasing all logs, so incremental after_id fetching keeps working
 
 = 2.17.0 - 2026-10-25 =
 * New: Show old and new values for settings, posts, users, user roles, comments, plugin versions, themes, WordPress core version, widget and term changes
