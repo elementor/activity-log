@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from '@wordpress/element';
 import { Spinner, Notice } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { fetchLogs, fetchFilters, dismissPromotion, buildExportUrl } from '../api';
+import { fetchLogs, fetchFilters, dismissPromotion, buildExportUrl, EXPORT_FORMAT_CSV, EXPORT_FORMAT_JSONL } from '../api';
 import useDebounce from '../hooks/use-debounce';
 import { getInitialState, syncUrl, FILTER_KEYS } from './query';
 import FiltersBar from './filters-bar';
@@ -95,7 +95,8 @@ export default function App() {
 		} ) );
 	};
 
-	const exportUrl = buildExportUrl( params );
+	const csvExportUrl = buildExportUrl( params, EXPORT_FORMAT_CSV );
+	const jsonlExportUrl = buildExportUrl( params, EXPORT_FORMAT_JSONL );
 
 	return (
 		<div style={ styles.app }>
@@ -123,7 +124,8 @@ export default function App() {
 				<LogTable
 					data={ data }
 					params={ params }
-					exportUrl={ exportUrl }
+					csvExportUrl={ csvExportUrl }
+					jsonlExportUrl={ jsonlExportUrl }
 					hasActiveFilters={ hasActiveFilters }
 					onFilterChange={ updateFilter }
 					onSortToggle={ handleSortToggle }

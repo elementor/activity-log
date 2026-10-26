@@ -3,6 +3,9 @@ import { FILTER_KEYS } from './filter-keys';
 
 const config = window.aalAdmin || {};
 
+export const EXPORT_FORMAT_CSV = 'csv';
+export const EXPORT_FORMAT_JSONL = 'jsonl';
+
 export function fetchLogs( params = {} ) {
 	const query = new URLSearchParams();
 
@@ -29,7 +32,7 @@ export function dismissPromotion( id ) {
 	} );
 }
 
-export function buildExportUrl( filters ) {
+export function buildExportUrl( filters, format = EXPORT_FORMAT_CSV ) {
 	const base = config.exportUrl || '';
 	if ( ! base ) {
 		return '';
@@ -44,7 +47,7 @@ export function buildExportUrl( filters ) {
 	} );
 
 	url.searchParams.set( 'aal-record-actions-submit', '1' );
-	url.searchParams.set( 'aal-record-action', 'csv' );
+	url.searchParams.set( 'aal-record-action', format );
 	url.searchParams.set( 'aal_actions_nonce', config.exportNonce || '' );
 
 	return url.toString();

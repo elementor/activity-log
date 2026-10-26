@@ -48,10 +48,10 @@ class AAL_Export {
 
 		$this->insert_export_log();
 
-		$query_args = $this->get_export_query_args_from_request();
-		$columns    = $this->get_export_columns();
-
 		$exporter = $this->exporters[ $exporter_selected ];
+
+		$query_args = $this->get_export_query_args_from_request();
+		$columns    = $this->get_export_columns( $exporter );
 		$rows     = $this->export_rows_generator( $query_args, $columns );
 		$payload  = $this->get_export_write_payload( $exporter, $rows );
 
@@ -98,7 +98,7 @@ class AAL_Export {
 	/**
 	 * @return array<string, string>
 	 */
-	private function get_export_columns(): array {
+	private function get_export_columns( $exporter = null ): array {
 		$columns = array(
 			'date'         => __( 'Date', 'aryo-activity-log' ),
 			'author'       => __( 'User', 'aryo-activity-log' ),
@@ -114,6 +114,10 @@ class AAL_Export {
 			'object_id'   => __( 'Object ID', 'aryo-activity-log' ),
 			'action_key'  => __( 'Action Key', 'aryo-activity-log' ),
 		);
+
+		if ( isset( $exporter->include_ip ) && false === $exporter->include_ip ) {
+			return $columns;
+		}
 
 		return $this->add_export_ip_column( $columns );
 	}
@@ -218,6 +222,7 @@ class AAL_Export {
 	public function admin_register_exporters() {
 		$builtin_exporters = array(
 			'csv',
+			'jsonl',
 		);
 
 		$exporter_instances = array();

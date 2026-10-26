@@ -39,7 +39,7 @@ function renderRowsWithPromotions( items, promotions, params, onFilter, onDismis
 	return rows;
 }
 
-export default function LogTable( { data, params, exportUrl, hasActiveFilters, onFilterChange, onSortToggle, onPageChange, onDismissPromotion } ) {
+export default function LogTable( { data, params, csvExportUrl, jsonlExportUrl, hasActiveFilters, onFilterChange, onSortToggle, onPageChange, onDismissPromotion } ) {
 	return (
 		<>
 			<table className="wp-list-table widefat fixed striped" style={ { marginTop: 8 } }>
@@ -79,15 +79,27 @@ export default function LogTable( { data, params, exportUrl, hasActiveFilters, o
 
 			<div style={ { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 } }>
 				<div>
-					{ exportUrl && (
+					{ csvExportUrl && (
 						<Button
 							variant="primary"
-							href={ exportUrl }
+							href={ csvExportUrl }
 							style={ { whiteSpace: 'nowrap' } }
 						>
 							{ hasActiveFilters
 								? __( 'Export filtered records as CSV', 'aryo-activity-log' )
 								: __( 'Export as CSV', 'aryo-activity-log' )
+							}
+						</Button>
+					) }
+					{ jsonlExportUrl && (
+						<Button
+							variant="secondary"
+							href={ jsonlExportUrl }
+							style={ { whiteSpace: 'nowrap', marginLeft: 8 } }
+						>
+							{ hasActiveFilters
+								? __( 'Export filtered records as JSON Lines', 'aryo-activity-log' )
+								: __( 'Export as JSON Lines', 'aryo-activity-log' )
 							}
 						</Button>
 					) }
