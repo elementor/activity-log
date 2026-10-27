@@ -1,5 +1,5 @@
 import { Modal } from '@wordpress/components';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 
 const styles = {
 	changesCell: { maxInlineSize: 280, overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' },
@@ -34,8 +34,7 @@ export default function ChangesModal( { changes, omitted, onClose } ) {
 		>
 			{ omitted > 0 && (
 				<p>
-					{ omitted }{ ' ' }
-					{ __( 'more fields were not stored.', 'aryo-activity-log' ) }
+					{ sprintf( /* translators: %d: number of fields that were not stored. */ _n( '%d more field was not stored.', '%d more fields were not stored.', omitted, 'aryo-activity-log' ), omitted ) }
 				</p>
 			) }
 			<table className="widefat striped" style={ { margin: 0 } }>

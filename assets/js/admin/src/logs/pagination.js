@@ -1,5 +1,5 @@
 import { Button } from '@wordpress/components';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 
 const styles = {
 	pagination: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, justifyContent: 'flex-end' },
@@ -10,7 +10,7 @@ export default function Pagination( { page, pages, total, onPageChange } ) {
 	return (
 		<div style={ styles.pagination }>
 			<span style={ styles.paginationInfo }>
-				{ total } { __( 'items', 'aryo-activity-log' ) }
+				{ sprintf( /* translators: %d: number of log items. */ _n( '%d item', '%d items', total, 'aryo-activity-log' ), total ) }
 				{ pages > 1 && (
 					<>{ ' — ' }{ __( 'Page', 'aryo-activity-log' ) } { page } / { pages }</>
 				) }

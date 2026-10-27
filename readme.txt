@@ -165,6 +165,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Tweak: Run old logs cleanup hourly instead of daily so large sites catch up faster
 * Tweak: Export logs in batches to support large sites
 * Tweak: Add ISO time, user ID, object ID and action key columns to the CSV export
+* Fix: Use proper plural forms for change, item and field counts in translations
 * Fix: Keep translated action labels exactly as translators wrote them
 * Fix: Log user events as Unknown user when the user no longer exists
 * Fix: Log the correct name and version for single-file plugins and folders with several plugins
