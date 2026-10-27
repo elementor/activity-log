@@ -211,7 +211,12 @@ class AAL_Log_Presenter {
 	}
 
 	public static function get_action_label( $action ) {
-		return ucwords( str_replace( '_', ' ', __( $action, 'aryo-activity-log' ) ) );
+		$translated = __( $action, 'aryo-activity-log' );
+		if ( $translated !== $action ) {
+			return ucfirst( $translated );
+		}
+
+		return ucwords( str_replace( '_', ' ', $action ) );
 	}
 
 	private static function format_date( $item ) {

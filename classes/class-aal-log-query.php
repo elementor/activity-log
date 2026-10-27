@@ -617,7 +617,7 @@ class AAL_Log_Query {
 			foreach ( $actions_raw as $action ) {
 				$actions[] = array(
 					'value' => $action->action,
-					'label' => ucwords( str_replace( '_', ' ', $action->action ) ),
+					'label' => AAL_Log_Presenter::get_action_label( $action->action ),
 				);
 			}
 		}
