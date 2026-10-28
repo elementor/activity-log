@@ -154,7 +154,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
-= 2.18.0 =
+= 2.18.0 - 2026-10-28 =
 * New: Anonymize a user's activity log entries through the WordPress personal data eraser
 * New: Log application password and password reset events
 * New: Log theme and plugin file editor changes
