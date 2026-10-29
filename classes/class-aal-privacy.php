@@ -196,7 +196,7 @@ class AAL_Privacy {
 	}
 
 	public function get_action_label( $action ) {
-		return ucwords( str_replace( '_', ' ', __( $action, 'aryo-activity-log' ) ) );
+		return AAL_Log_Presenter::get_action_label( $action );
 	}
 
 	private function format_source_for_privacy( $parsed, $raw ) {

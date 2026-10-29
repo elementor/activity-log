@@ -1,5 +1,5 @@
 import { useState } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import ChangesModal from './changes-modal';
 
 const styles = {
@@ -125,8 +125,7 @@ export default function LogRow( { item, params, onFilter } ) {
 									setChangesOpen( true );
 								} }
 							>
-								{ changeCount }{ ' ' }
-								{ __( 'changes', 'aryo-activity-log' ) }
+								{ sprintf( /* translators: %d: number of changed fields. */ _n( '%d change', '%d changes', changeCount, 'aryo-activity-log' ), changeCount ) }
 								{ omitted ? ` +${ omitted }` : '' }
 							</a>
 						</div>

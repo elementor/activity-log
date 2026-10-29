@@ -4,7 +4,7 @@ Tags: Activity Log, User Log, Audit Log, Security, Email Log,
 Requires at least: 6.2
 Requires PHP: 7.4
 Tested up to: 7.1
-Stable tag: 2.17.0
+Stable tag: 2.18.0
 License: GPLv2 or later
 
 Monitor every change on your WordPress site — who did what, when, and where it came from — for a complete audit trail and stronger security.
@@ -154,7 +154,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
-= 2.18.0 =
+= 2.18.0 - 2026-10-28 =
 * New: Anonymize a user's activity log entries through the WordPress personal data eraser
 * New: Log application password and password reset events
 * New: Log theme and plugin file editor changes
@@ -165,6 +165,8 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Tweak: Run old logs cleanup hourly instead of daily so large sites catch up faster
 * Tweak: Export logs in batches to support large sites
 * Tweak: Add ISO time, user ID, object ID and action key columns to the CSV export
+* Fix: Use proper plural forms for change, item and field counts in translations
+* Fix: Keep translated action labels exactly as translators wrote them
 * Fix: Log user events as Unknown user when the user no longer exists
 * Fix: Log the correct name and version for single-file plugins and folders with several plugins
 * Fix: Personal data export now completes for users with many log entries
