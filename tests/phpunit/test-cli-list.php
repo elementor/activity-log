@@ -102,4 +102,47 @@ class AAL_Test_CLI_List extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'https://example.com/test', $lines[1] );
 		$this->assertStringNotContainsString( 'https:\\/\\/', $lines[1] );
 	}
+
+	public function test_iterate_list_rows_batches_all_entries_ordered_by_id_desc() {
+		global $wpdb;
+
+		$wpdb->query( "DELETE FROM {$wpdb->activity_log}" );
+
+		$inserted_ids = array();
+		for ( $i = 0; $i < 3; $i++ ) {
+			$wpdb->insert(
+				$wpdb->activity_log,
+				array(
+					'action'      => 'updated',
+					'object_type' => 'Posts',
+					'object_name' => 'iterate-all-' . $i,
+					'user_caps'   => 'administrator',
+					'hist_time'   => current_time( 'timestamp' ),
+				),
+				array( '%s', '%s', '%s', '%s', '%d' )
+			);
+			$inserted_ids[] = (int) $wpdb->insert_id;
+		}
+
+		$batches = array();
+		foreach ( AAL_CLI_List::iterate_list_rows( array(), 2 ) as $batch ) {
+			$batches[] = $batch;
+		}
+
+		$this->assertCount( 2, $batches );
+
+		$all_rows = array_merge( $batches[0], $batches[1] );
+		$this->assertCount( 3, $all_rows );
+
+		$ids = wp_list_pluck( $all_rows, 'id' );
+		$this->assertSame( $ids, array_values( array_unique( $ids ) ) );
+
+		$sorted = $ids;
+		rsort( $sorted, SORT_NUMERIC );
+		$this->assertSame( $sorted, $ids );
+
+		foreach ( $inserted_ids as $inserted_id ) {
+			$this->assertContains( $inserted_id, $ids );
+		}
+	}
 }

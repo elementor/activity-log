@@ -155,15 +155,16 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 == Changelog ==
 
 = 2.19.0 =
+* New: Added `--all` to `wp activity-log list` to stream every matching entry in batches
 * Fix: Translate topic names in the logs filter
 
 = 2.18.0 - 2026-10-28 =
 * New: Anonymize a user's activity log entries through the WordPress personal data eraser
 * New: Log application password and password reset events
 * New: Log theme and plugin file editor changes
-* New: Added the wp activity-log WP-CLI command with list, stats and erase subcommands
-* New: Incremental log fetching with after_id in the REST API and abilities
-* New: Export logs as JSON Lines, also available via wp activity-log list --format=jsonl
+* New: Added the `wp activity-log` WP-CLI command with `list`, `stats` and `erase` subcommands
+* New: Incremental log fetching with `after_id` in the REST API and abilities
+* New: Export logs as JSON Lines, also available via `wp activity-log list --format=jsonl`
 * Tweak: Log an entry when all activity logs are erased
 * Tweak: Run old logs cleanup hourly instead of daily so large sites catch up faster
 * Tweak: Export logs in batches to support large sites
@@ -176,7 +177,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Fix: Log role changes made by adding or removing a single role, and detect users promoted to administrator with several roles
 * Fix: Different events logged in the same second are no longer dropped as duplicates
 * Fix: PHP 8.4 deprecation notices flooding the debug log during CSV export
-* Fix: Keep log IDs increasing after erasing all logs, so incremental after_id fetching keeps working
+* Fix: Keep log IDs increasing after erasing all logs, so incremental `after_id` fetching keeps working
 
 = 2.17.0 - 2026-10-25 =
 * New: Show old and new values for settings, posts, users, user roles, comments, plugin versions, themes, WordPress core version, widget and term changes
