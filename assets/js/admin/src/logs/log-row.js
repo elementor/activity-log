@@ -1,150 +1,302 @@
 import { useState } from '@wordpress/element';
+import { Button, DropdownMenu, MenuItem } from '@wordpress/components';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import ChangesModal from './changes-modal';
+import {
+	getActionTone,
+	getDisplayTime,
+	getFullTimestamp,
+} from './utils';
+import {
+	getObjectLinkInEventText,
+	partitionRowActions,
+} from './event-actions';
 
-const styles = {
-	badgeBase: { display: 'inline-block', padding: '1px 6px', borderRadius: 3, fontSize: 'inherit', lineHeight: '14px', textDecoration: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' },
-	badgeChannel: { background: '#e7f0f7', color: '#1e4d78' },
-	badgeApp: { background: '#f0e7f7', color: '#4d1e78' },
-	activeFilter: { fontWeight: 600, background: '#e5f5fa', borderRadius: 3, padding: '1px 4px', display: 'inline-flex', alignItems: 'center', gap: 2 },
-};
-
-export function FilterLink( { filterKey, value, params, onFilter, children } ) {
+export function FilterLink( { filterKey, value, params, onFilter, children, className = '', title = '' } ) {
 	const isActive = params[ filterKey ] === value;
+	const classNames = [
+		'aal-logs-filter-link',
+		className,
+		isActive ? 'is-active' : '',
+	].filter( Boolean ).join( ' ' );
 
 	return (
 		<a
 			href="#"
-			style={ isActive ? { ...styles.activeFilter, display: 'inline-flex', alignItems: 'center', gap: 3 } : undefined }
+			className={ classNames }
+			title={ title || undefined }
 			onClick={ ( e ) => {
 				e.preventDefault();
 				onFilter( filterKey, value );
 			} }
 		>
-			<span>{ children }</span>{ isActive && <span style={ { fontSize: 11 } }>✕</span> }
+			<span className="aal-logs-filter-link__text">{ children }</span>
+			{ isActive && (
+				<span className="aal-logs-filter-link__clear" aria-hidden="true">✕</span>
+			) }
 		</a>
 	);
 }
 
-export function SourceBadge( { type, onClick, children } ) {
-	const badgeStyle = {
-		...styles.badgeBase,
-		...( type === 'channel' ? styles.badgeChannel : styles.badgeApp ),
-	};
+export function SourceBadge( { type, onClick, children, title = '' } ) {
+	const classNames = [
+		'aal-logs-source-badge',
+		type === 'channel' ? 'aal-logs-source-badge--channel' : 'aal-logs-source-badge--app',
+	].join( ' ' );
 
 	if ( onClick ) {
 		return (
-			<a href="#" style={ badgeStyle } onClick={ onClick }>
+			<a href="#" className={ classNames } title={ title || undefined } onClick={ onClick }>
 				{ children }
 			</a>
 		);
 	}
 
-	return <span style={ badgeStyle }>{ children }</span>;
+	return (
+		<span className={ classNames } title={ title || undefined }>
+			{ children }
+		</span>
+	);
+}
+
+function ActionBadge( { action, params, onFilter } ) {
+	const tone = getActionTone( action.value );
+	const isActive = params.showaction === action.value;
+	const classNames = [
+		'aal-logs-action-badge',
+		`aal-logs-action-badge--${ tone }`,
+		isActive ? 'is-active' : '',
+	].filter( Boolean ).join( ' ' );
+
+	return (
+		<a
+			href="#"
+			className={ classNames }
+			onClick={ ( e ) => {
+				e.preventDefault();
+				onFilter( 'showaction', action.value );
+			} }
+		>
+			{ action.label }
+		</a>
+	);
+}
+
+function UserCell( { author, params, onFilter } ) {
+	const nameTitle = author.role
+		? sprintf(
+			/* translators: 1: user display name, 2: role name */
+			__( '%1$s (%2$s)', 'aryo-activity-log' ),
+			author.name,
+			author.role
+		)
+		: author.name;
+
+	const content = (
+		<span className="aal-logs-user">
+			{ author.avatar ? (
+				<img
+					src={ author.avatar }
+					alt=""
+					width="24"
+					height="24"
+					className="avatar aal-logs-user__avatar"
+				/>
+			) : (
+				<span className="aal-logs-user__avatar aal-logs-user__avatar--placeholder" aria-hidden="true" />
+			) }
+			<span className="aal-logs-user__name" title={ nameTitle }>
+				{ author.name }
+			</span>
+		</span>
+	);
+
+	if ( author.id > 0 ) {
+		return (
+			<FilterLink
+				filterKey="usershow"
+				value={ String( author.id ) }
+				params={ params }
+				onFilter={ onFilter }
+				className="aal-logs-user-link"
+				title={ nameTitle }
+			>
+				{ content }
+			</FilterLink>
+		);
+	}
+
+	return content;
+}
+
+function EventText( { eventText, objectName, viewUrl } ) {
+	const linkParts = getObjectLinkInEventText( eventText, objectName, viewUrl );
+
+	if ( ! linkParts ) {
+		return (
+			<span className="aal-logs-event__text" title={ eventText }>
+				{ eventText }
+			</span>
+		);
+	}
+
+	const viewLabel = sprintf(
+		/* translators: %s: object name in the event description. */
+		__( 'View %s', 'aryo-activity-log' ),
+		linkParts.name
+	);
+
+	return (
+		<span className="aal-logs-event__text" title={ eventText }>
+			{ linkParts.before }
+			<a
+				href={ linkParts.url }
+				className="aal-logs-event__object-link"
+				aria-label={ viewLabel }
+			>
+				{ linkParts.name }
+			</a>
+			{ linkParts.after }
+		</span>
+	);
+}
+
+function ChangesButton( { changeCount, omitted, onOpen } ) {
+	const changesLabel = sprintf(
+		/* translators: %d: number of changed fields. */
+		_n( '%d change', '%d changes', changeCount, 'aryo-activity-log' ),
+		changeCount
+	);
+	const visibleLabel = omitted ? `${ changesLabel } +${ omitted }` : changesLabel;
+	const ariaLabel = sprintf(
+		/* translators: %s: change count phrase, e.g. "3 changes". */
+		__( 'View %s', 'aryo-activity-log' ),
+		changesLabel
+	);
+
+	return (
+		<Button
+			type="button"
+			variant="tertiary"
+			size="small"
+			className="aal-logs-changes-btn"
+			onClick={ onOpen }
+			aria-label={ ariaLabel }
+		>
+			<span className="dashicons dashicons-list-view aal-logs-changes-btn__icon" aria-hidden="true" />
+			<span className="aal-logs-changes-btn__label">{ visibleLabel }</span>
+		</Button>
+	);
+}
+
+function RowActionsMenu( { leftovers } ) {
+	if ( ! leftovers.length ) {
+		return null;
+	}
+
+	return (
+		<DropdownMenu
+			icon="ellipsis"
+			label={ __( 'More row actions', 'aryo-activity-log' ) }
+			className="aal-logs-row-menu"
+			toggleProps={ {
+				size: 'small',
+				className: 'aal-logs-row-menu__toggle',
+			} }
+			popoverProps={ {
+				placement: 'bottom-end',
+			} }
+		>
+			{ ( { onClose } ) => (
+				<>
+					{ leftovers.map( ( { key, url, label } ) => (
+						<MenuItem
+							key={ key }
+							href={ url }
+							onClick={ onClose }
+						>
+							{ label }
+						</MenuItem>
+					) ) }
+				</>
+			) }
+		</DropdownMenu>
+	);
 }
 
 export default function LogRow( { item, params, onFilter } ) {
 	const [ changesOpen, setChangesOpen ] = useState( false );
 	const { date, author, source, type, label, description, action, changes, changes_omitted: omitted } = item;
 	const changeCount = changes ? Object.keys( changes ).length : 0;
+	const displayTime = getDisplayTime( date );
+	const fullTimestamp = getFullTimestamp( date );
+	const eventText = description.text || '';
+	const objectName = label.label || '';
+	const { viewUrl, leftovers } = partitionRowActions( description.actions );
 
 	return (
 		<>
-			<tr>
-				<td>
-					<strong>{ date.relative }</strong>
-					<br />
-					<FilterLink filterKey="dateshow" value={ date.dateshow } params={ params } onFilter={ onFilter }>
-						{ date.date }
+			<tr className="aal-logs-data-row">
+				<td className="aal-logs-col aal-logs-col--time">
+					<FilterLink filterKey="dateshow" value={ date.dateshow } params={ params } onFilter={ onFilter } title={ fullTimestamp }>
+						<time dateTime={ date.iso8601 } className="aal-logs-time">
+							{ displayTime }
+						</time>
 					</FilterLink>
-					<br />
-					{ date.time }
 				</td>
-				<td>
-					{ author.id > 0 ? (
-						<FilterLink filterKey="usershow" value={ String( author.id ) } params={ params } onFilter={ onFilter }>
-							{ author.avatar && (
-								<img
-									src={ author.avatar }
-									alt=""
-									width="40"
-									height="40"
-									className="avatar"
-									style={ { verticalAlign: 'middle', marginInlineEnd: 4, borderRadius: '50%' } }
-								/>
-							) }
-							<span style={ { verticalAlign: 'middle' } }>{ author.name }</span>
-						</FilterLink>
-					) : (
-						<span>{ author.name }</span>
-					) }
-					{ author.role && <br /> }
-					{ author.role && <small>{ author.role }</small> }
-					{ source.app_name && (
-						<>
-							<br />
-							<small><SourceBadge type="app">{ source.app_name }</SourceBadge></small>
-						</>
-					) }
+				<td className="aal-logs-col aal-logs-col--user">
+					<UserCell author={ author } params={ params } onFilter={ onFilter } />
 				</td>
-				<td>
-					{ source.channel_label && (
-						<>
-							<SourceBadge
-								type="channel"
-								onClick={ ( e ) => {
-									e.preventDefault();
-									onFilter( 'sourceshow', source.channel );
-								} }
-							>
-								{ source.channel_label }
-							</SourceBadge>
-							<br />
-						</>
-					) }
-					{ source.ip && (
-						<FilterLink filterKey="filter_ip" value={ source.ip } params={ params } onFilter={ onFilter }>
-							{ source.ip }
-						</FilterLink>
-					) }
+				<td className="aal-logs-col aal-logs-col--action">
+					<ActionBadge action={ action } params={ params } onFilter={ onFilter } />
 				</td>
-				<td>
-					<FilterLink filterKey="typeshow" value={ type.value } params={ params } onFilter={ onFilter }>
+				<td className="aal-logs-col aal-logs-col--event">
+					<div className="aal-logs-event">
+						<EventText eventText={ eventText } objectName={ objectName } viewUrl={ viewUrl } />
+						{ changeCount > 0 && (
+							<ChangesButton
+								changeCount={ changeCount }
+								omitted={ omitted }
+								onOpen={ () => setChangesOpen( true ) }
+							/>
+						) }
+						<RowActionsMenu leftovers={ leftovers } />
+					</div>
+				</td>
+				<td className="aal-logs-col aal-logs-col--topic">
+					<FilterLink filterKey="typeshow" value={ type.value } params={ params } onFilter={ onFilter } title={ type.label }>
 						{ type.label }
 					</FilterLink>
 				</td>
-				<td>{ label.label }</td>
-				<td>
-					{ description.text }
-					{ changeCount > 0 && (
-						<div className="row-actions" style={ { position: 'static', marginBlockStart: 4 } }>
-							<a
-								href="#"
-								onClick={ ( event ) => {
-									event.preventDefault();
-									setChangesOpen( true );
-								} }
-							>
-								{ sprintf( /* translators: %d: number of changed fields. */ _n( '%d change', '%d changes', changeCount, 'aryo-activity-log' ), changeCount ) }
-								{ omitted ? ` +${ omitted }` : '' }
-							</a>
-						</div>
-					) }
-					{ Object.keys( description.actions ).length > 0 && (
-						<div className="row-actions">
-							{ Object.entries( description.actions ).map( ( [ key, url ], i ) => (
-								<span key={ key } className={ key }>
-									{ i > 0 && ' | ' }
-									<a href={ url }>{ key.charAt( 0 ).toUpperCase() + key.slice( 1 ) }</a>
-								</span>
-							) ) }
-						</div>
+				<td className="aal-logs-col aal-logs-col--context">
+					<span className="aal-logs-muted aal-logs-truncate" title={ label.label }>
+						{ label.label }
+					</span>
+				</td>
+				<td className="aal-logs-col aal-logs-col--ip">
+					{ source.ip ? (
+						<FilterLink filterKey="filter_ip" value={ source.ip } params={ params } onFilter={ onFilter } title={ source.ip }>
+							{ source.ip }
+						</FilterLink>
+					) : (
+						<span className="aal-logs-muted">—</span>
 					) }
 				</td>
-				<td>
-					<FilterLink filterKey="showaction" value={ action.value } params={ params } onFilter={ onFilter }>
-						{ action.label }
-					</FilterLink>
+				<td className="aal-logs-col aal-logs-col--source">
+					{ source.channel_label ? (
+						<SourceBadge
+							type="channel"
+							title={ source.app_name ? `${ source.channel_label } · ${ source.app_name }` : source.channel_label }
+							onClick={ ( e ) => {
+								e.preventDefault();
+								onFilter( 'sourceshow', source.channel );
+							} }
+						>
+							{ source.channel_label }
+						</SourceBadge>
+					) : (
+						<span className="aal-logs-muted">—</span>
+					) }
 				</td>
 			</tr>
 			{ changesOpen && changeCount > 0 && (

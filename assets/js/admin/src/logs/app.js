@@ -1,3 +1,5 @@
+import './enqueue-styles';
+import './logs.scss';
 import { useState, useEffect, useCallback } from '@wordpress/element';
 import { Spinner, Notice } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
@@ -6,11 +8,6 @@ import useDebounce from '../hooks/use-debounce';
 import { getInitialState, syncUrl, FILTER_KEYS } from './query';
 import FiltersBar from './filters-bar';
 import LogTable from './log-table';
-
-const styles = {
-	app: { marginTop: 16 },
-	loading: { textAlign: 'center', padding: '40px 0' },
-};
 
 export default function App() {
 	const [ params, setParams ] = useState( getInitialState );
@@ -99,7 +96,7 @@ export default function App() {
 	const jsonlExportUrl = buildExportUrl( params, EXPORT_FORMAT_JSONL );
 
 	return (
-		<div style={ styles.app }>
+		<div className="aal-logs-app">
 			<FiltersBar
 				params={ params }
 				filterOptions={ filterOptions }
@@ -117,7 +114,7 @@ export default function App() {
 			) }
 
 			{ loading ? (
-				<div style={ styles.loading }>
+				<div className="aal-logs-loading">
 					<Spinner />
 				</div>
 			) : (
