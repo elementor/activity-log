@@ -4,12 +4,6 @@ import {
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 
-const styles = {
-	filtersRow: { display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 0 },
-	selectControl: { minWidth: 0 },
-	searchControl: { width: 200 },
-};
-
 const dateOptions = [
 	{ label: __( 'All Time', 'aryo-activity-log' ), value: '' },
 	{ label: __( 'Today', 'aryo-activity-log' ), value: 'today' },
@@ -20,14 +14,13 @@ const dateOptions = [
 
 export default function FiltersBar( { params, filterOptions, searchInput, hasActiveFilters, onFilterChange, onSearchChange, onReset } ) {
 	return (
-		<div style={ styles.filtersRow }>
-			<div style={ { display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'flex-end', flex: 1 } }>
+		<div className="aal-logs-filters">
+			<div className="aal-logs-filters__controls">
 				<SelectControl
 					value={ params.dateshow }
 					options={ dateOptions }
 					onChange={ ( v ) => onFilterChange( 'dateshow', v ) }
 					__nextHasNoMarginBottom
-					style={ styles.selectControl }
 				/>
 
 				{ filterOptions && filterOptions.roles.length > 0 && (
@@ -39,7 +32,6 @@ export default function FiltersBar( { params, filterOptions, searchInput, hasAct
 						] }
 						onChange={ ( v ) => onFilterChange( 'capshow', v ) }
 						__nextHasNoMarginBottom
-						style={ styles.selectControl }
 					/>
 				) }
 
@@ -52,7 +44,6 @@ export default function FiltersBar( { params, filterOptions, searchInput, hasAct
 						] }
 						onChange={ ( v ) => onFilterChange( 'usershow', v ) }
 						__nextHasNoMarginBottom
-						style={ styles.selectControl }
 					/>
 				) }
 
@@ -65,7 +56,6 @@ export default function FiltersBar( { params, filterOptions, searchInput, hasAct
 						] }
 						onChange={ ( v ) => onFilterChange( 'typeshow', v ) }
 						__nextHasNoMarginBottom
-						style={ styles.selectControl }
 					/>
 				) }
 
@@ -78,7 +68,6 @@ export default function FiltersBar( { params, filterOptions, searchInput, hasAct
 						] }
 						onChange={ ( v ) => onFilterChange( 'showaction', v ) }
 						__nextHasNoMarginBottom
-						style={ styles.selectControl }
 					/>
 				) }
 
@@ -91,28 +80,27 @@ export default function FiltersBar( { params, filterOptions, searchInput, hasAct
 						] }
 						onChange={ ( v ) => onFilterChange( 'sourceshow', v ) }
 						__nextHasNoMarginBottom
-						style={ styles.selectControl }
 					/>
 				) }
 
 				{ hasActiveFilters && (
 					<a
 						href="#"
+						className="aal-logs-filters__reset"
 						onClick={ ( e ) => { e.preventDefault(); onReset(); } }
-						style={ { display: 'inline-flex', alignItems: 'center', gap: 2, textDecoration: 'none', marginInlineStart: 5, height: 36 } }
 					>
-						<span className="dashicons dashicons-dismiss" style={ { fontSize: 15, width: 15, height: 15 } }></span>
+						<span className="dashicons dashicons-dismiss" aria-hidden="true"></span>
 						{ __( 'Reset Filters', 'aryo-activity-log' ) }
 					</a>
 				) }
 			</div>
 
 			<SearchControl
+				className="aal-logs-filters__search"
 				value={ searchInput }
 				onChange={ onSearchChange }
 				placeholder={ __( 'Search…', 'aryo-activity-log' ) }
 				__nextHasNoMarginBottom
-				style={ styles.searchControl }
 			/>
 		</div>
 	);

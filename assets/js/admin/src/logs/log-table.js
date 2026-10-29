@@ -1,90 +1,98 @@
+import { useMemo } from '@wordpress/element';
 import { Button } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import LogRow from './log-row';
 import PromotionRow from './promotion-row';
 import Pagination from './pagination';
+import { groupItemsByDay } from './utils';
 
-const styles = {
-	noItems: { textAlign: 'center', padding: 20, color: '#646970' },
-};
-
-function renderRowsWithPromotions( items, promotions, params, onFilter, onDismiss ) {
+function renderGroupedRows( items, promotions, params, onFilter, onDismiss ) {
 	const promoByType = {};
 	promotions.forEach( ( p ) => {
 		promoByType[ p.id ] = p;
 	} );
-
 	const printed = {};
-	const rows = [];
 
-	items.forEach( ( item ) => {
-		rows.push(
-			<LogRow key={ item.id } item={ item } params={ params } onFilter={ onFilter } />
-		);
+	const dayGroups = groupItemsByDay( items );
 
-		const objectType = item.type.value.toLowerCase();
-		if ( promoByType[ objectType ] && ! printed[ objectType ] ) {
-			printed[ objectType ] = true;
-			rows.push(
-				<PromotionRow
-					key={ 'promo-' + objectType }
-					promo={ promoByType[ objectType ] }
-					colSpan={ 7 }
-					onDismiss={ onDismiss }
-				/>
-			);
-		}
-	} );
-
-	return rows;
+	return dayGroups.map( ( group ) => (
+		<li key={ group.dayKey } className="aal-logs-day">
+			<h2 className="aal-logs-day__header">{ group.header }</h2>
+			<ul className="aal-logs-day__list">
+				{ group.items.flatMap( ( item ) => {
+					const rows = [
+						<LogRow key={ item.id } item={ item } params={ params } onFilter={ onFilter } />,
+					];
+					const objectType = item.type.value.toLowerCase();
+					if ( promoByType[ objectType ] && ! printed[ objectType ] ) {
+						printed[ objectType ] = true;
+						rows.push(
+							<PromotionRow
+								key={ 'promo-' + objectType }
+								promo={ promoByType[ objectType ] }
+								onDismiss={ onDismiss }
+							/>
+						);
+					}
+					return rows;
+				} ) }
+			</ul>
+		</li>
+	) );
 }
 
 export default function LogTable( { data, params, csvExportUrl, jsonlExportUrl, hasActiveFilters, onFilterChange, onSortToggle, onPageChange, onDismissPromotion } ) {
+	const isEmpty = data.items.length === 0;
+	const sortLabel = params.order === 'DESC'
+		? __( 'Newest first', 'aryo-activity-log' )
+		: __( 'Oldest first', 'aryo-activity-log' );
+
+	const groupedContent = useMemo(
+		() => renderGroupedRows( data.items, data.promotions, params, onFilterChange, onDismissPromotion ),
+		[ data.items, data.promotions, params, onFilterChange, onDismissPromotion ]
+	);
+
 	return (
 		<>
-			<table className="wp-list-table widefat fixed striped" style={ { marginTop: 8 } }>
-				<thead>
-					<tr>
-						<th
-							style={ { cursor: 'pointer', userSelect: 'none' } }
-							onClick={ onSortToggle }
-						>
-							{ __( 'Date', 'aryo-activity-log' ) }
-							{ params.orderby === 'hist_time' && (
-								<span style={ { fontSize: 10 } }>
-									{ params.order === 'DESC' ? ' ▼' : ' ▲' }
-								</span>
-							) }
-						</th>
-						<th>{ __( 'User', 'aryo-activity-log' ) }</th>
-						<th>{ __( 'Source', 'aryo-activity-log' ) }</th>
-						<th>{ __( 'Topic', 'aryo-activity-log' ) }</th>
-						<th>{ __( 'Context', 'aryo-activity-log' ) }</th>
-						<th>{ __( 'Meta', 'aryo-activity-log' ) }</th>
-						<th>{ __( 'Action', 'aryo-activity-log' ) }</th>
-					</tr>
-				</thead>
-				<tbody>
-					{ data.items.length === 0 ? (
-						<tr>
-							<td colSpan="7" style={ styles.noItems }>
-								{ __( 'No activity log entries found.', 'aryo-activity-log' ) }
-							</td>
-						</tr>
-					) : (
-						renderRowsWithPromotions( data.items, data.promotions, params, onFilterChange, onDismissPromotion )
-					) }
-				</tbody>
-			</table>
+			<div className="aal-logs-panel">
+				<div className="aal-logs-toolbar">
+					<button
+						type="button"
+						className="aal-logs-toolbar__sort"
+						onClick={ onSortToggle }
+					>
+						{ __( 'Sort by date', 'aryo-activity-log' ) }
+						{ params.orderby === 'hist_time' && (
+							<span className="aal-logs-toolbar__sort-indicator" aria-hidden="true">
+								{ params.order === 'DESC' ? '▼' : '▲' }
+							</span>
+						) }
+						<span className="screen-reader-text">{ sortLabel }</span>
+					</button>
+				</div>
 
-			<div style={ { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 } }>
-				<div>
+				{ isEmpty ? (
+					<div className="aal-logs-empty">
+						<span className="dashicons dashicons-backup aal-logs-empty__icon" aria-hidden="true"></span>
+						<p className="aal-logs-empty__title">
+							{ __( 'No activity log entries found.', 'aryo-activity-log' ) }
+						</p>
+						<p className="aal-logs-empty__hint">
+							{ hasActiveFilters
+								? __( 'Try adjusting your filters or search terms.', 'aryo-activity-log' )
+								: __( 'Activity from your site will appear here.', 'aryo-activity-log' )
+							}
+						</p>
+					</div>
+				) : (
+					<ul className="aal-logs-days">{ groupedContent }</ul>
+				) }
+			</div>
+
+			<div className="aal-logs-footer">
+				<div className="aal-logs-footer__exports">
 					{ csvExportUrl && (
-						<Button
-							variant="primary"
-							href={ csvExportUrl }
-							style={ { whiteSpace: 'nowrap' } }
-						>
+						<Button variant="primary" href={ csvExportUrl }>
 							{ hasActiveFilters
 								? __( 'Export filtered records as CSV', 'aryo-activity-log' )
 								: __( 'Export as CSV', 'aryo-activity-log' )
@@ -92,11 +100,7 @@ export default function LogTable( { data, params, csvExportUrl, jsonlExportUrl, 
 						</Button>
 					) }
 					{ jsonlExportUrl && (
-						<Button
-							variant="secondary"
-							href={ jsonlExportUrl }
-							style={ { whiteSpace: 'nowrap', marginLeft: 8 } }
-						>
+						<Button variant="secondary" href={ jsonlExportUrl }>
 							{ hasActiveFilters
 								? __( 'Export filtered records as JSON Lines', 'aryo-activity-log' )
 								: __( 'Export as JSON Lines', 'aryo-activity-log' )

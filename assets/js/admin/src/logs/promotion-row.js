@@ -1,27 +1,25 @@
 import { Button } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 
-export default function PromotionRow( { promo, colSpan, onDismiss } ) {
+export default function PromotionRow( { promo, onDismiss } ) {
 	return (
-		<tr style={ { background: '#f0f6fc' } }>
-			<td colSpan={ colSpan } style={ { padding: '12px 16px' } }>
-				<div style={ { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 } }>
-					<div>
-						<strong>{ promo.title }</strong>{ ' ' }
-						{ promo.body }{ ' ' }
-						<a href={ promo.cta_url } style={ { fontWeight: 600 } }>
-							{ promo.cta_text }
-						</a>
-					</div>
-					<Button
-						variant="link"
-						onClick={ () => onDismiss( promo.id ) }
-						style={ { flexShrink: 0, color: '#757575', textDecoration: 'none' } }
-					>
-						{ __( 'Dismiss', 'aryo-activity-log' ) }
-					</Button>
+		<li className="aal-logs-promo">
+			<div className="aal-logs-promo__inner">
+				<div className="aal-logs-promo__text">
+					<strong>{ promo.title }</strong>{ ' ' }
+					{ promo.body }{ ' ' }
+					<a href={ promo.cta_url }>
+						{ promo.cta_text }
+					</a>
 				</div>
-			</td>
-		</tr>
+				<Button
+					className="aal-logs-promo__dismiss"
+					variant="link"
+					onClick={ () => onDismiss( promo.id ) }
+				>
+					{ __( 'Dismiss', 'aryo-activity-log' ) }
+				</Button>
+			</div>
+		</li>
 	);
 }
