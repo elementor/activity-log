@@ -153,46 +153,25 @@ class AAL_Export {
 			$min_id = $this->get_export_min_hist_id( $query_args['dateshow'] );
 		}
 
-		$before_id = 0;
+		$iterate_args = array_merge(
+			$query_args,
+			array(
+				'orderby' => 'histid',
+				'order'   => 'DESC',
+			)
+		);
 
-		while ( true ) {
-			$batch_args = array_merge(
-				$query_args,
-				array(
-					'orderby'    => 'histid',
-					'order'      => 'DESC',
-					'skip_count' => true,
-					'page'       => 1,
-					'per_page'   => $batch_size,
-				)
-			);
+		if ( $min_id > 0 ) {
+			$iterate_args['min_id'] = $min_id;
+		}
 
-			if ( $before_id > 0 ) {
-				$batch_args['before_id'] = $before_id;
-			}
-
-			if ( $min_id > 0 ) {
-				$batch_args['min_id'] = $min_id;
-			}
-
-			$result = $query->query( $batch_args );
-			if ( empty( $result['items'] ) ) {
-				break;
-			}
-
-			foreach ( $result['items'] as $item ) {
+		foreach ( $query->iterate_items( $iterate_args, $batch_size ) as $items ) {
+			foreach ( $items as $item ) {
 				yield AAL_Log_Presenter::to_export_row( $item, $columns );
 			}
 
 			if ( $this->is_live_export() ) {
 				flush();
-			}
-
-			$last_item = end( $result['items'] );
-			$before_id = (int) $last_item->histid;
-
-			if ( empty( $result['has_more'] ) ) {
-				break;
 			}
 		}
 	}

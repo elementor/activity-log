@@ -542,6 +542,49 @@ class AAL_Log_Query {
 	}
 
 	/**
+	 * Yield batches of log items using before_id cursor pagination (histid DESC).
+	 *
+	 * @param array $args       Query filters (merged with per-batch pagination).
+	 * @param int   $batch_size Items per batch.
+	 * @return Generator<int, object[]>
+	 */
+	public function iterate_items( array $args, $batch_size ) {
+		$batch_size = max( 1, (int) $batch_size );
+		$before_id  = 0;
+
+		while ( true ) {
+			$batch_args = array_merge(
+				$args,
+				array(
+					'orderby'    => 'histid',
+					'order'      => 'DESC',
+					'skip_count' => true,
+					'page'       => 1,
+					'per_page'   => $batch_size,
+				)
+			);
+
+			if ( $before_id > 0 ) {
+				$batch_args['before_id'] = $before_id;
+			}
+
+			$result = $this->query( $batch_args );
+			if ( empty( $result['items'] ) ) {
+				break;
+			}
+
+			yield $result['items'];
+
+			$last_item = end( $result['items'] );
+			$before_id = (int) $last_item->histid;
+
+			if ( empty( $result['has_more'] ) ) {
+				break;
+			}
+		}
+	}
+
+	/**
 	 * Get distinct filter options for dropdowns.
 	 *
 	 * @return array { users, roles, topics, actions, sources }

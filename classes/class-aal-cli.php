@@ -8,6 +8,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class AAL_CLI_List {
 
+	const ALL_BATCH_SIZE = 100;
+
 	/**
 	 * Default output fields (matches admin list columns; IP omitted like the React log table).
 	 *
@@ -179,6 +181,24 @@ class AAL_CLI_List {
 	}
 
 	/**
+	 * Yield list row batches for all matching log entries (before_id cursor).
+	 *
+	 * @param array<string, mixed> $assoc_args CLI flags.
+	 * @param int                  $batch_size Items per batch.
+	 * @return Generator<int, array<int, array<string, mixed>>>
+	 */
+	public static function iterate_list_rows( $assoc_args, $batch_size = self::ALL_BATCH_SIZE ) {
+		$unrestricted = self::is_unrestricted();
+		$query        = new AAL_Log_Query( array( 'unrestricted' => $unrestricted ) );
+		$query_args   = self::build_query_args( $assoc_args );
+		unset( $query_args['page'], $query_args['per_page'] );
+
+		foreach ( $query->iterate_items( $query_args, $batch_size ) as $items ) {
+			yield self::build_list_rows( $items, $assoc_args );
+		}
+	}
+
+	/**
 	 * @param array<int, array<string, mixed>> $rows List rows from build_list_rows().
 	 * @return string[] One JSON object per line (no array wrapper).
 	 */
@@ -339,6 +359,9 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 		 * [--fields=<fields>]
 		 * : Comma-separated list of columns to show.
 		 *
+		 * [--all]
+		 * : Stream all matching entries in batches. Ignores --per-page and --page. Supports the jsonl, csv and count formats.
+		 *
 		 * [--format=<format>]
 		 * : Render output in a particular format.
 		 * ---
@@ -358,6 +381,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 		 *     wp activity-log list --type=Posts --action=updated --per-page=50
 		 *     wp activity-log list --format=count --date=today
 		 *     wp activity-log list --format=jsonl --per-page=100
+		 *     wp activity-log list --all --format=jsonl > logs.jsonl
 		 *
 		 * @subcommand list
 		 *
@@ -365,9 +389,39 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 		 * @param array<string, mixed> $assoc_args Associative arguments.
 		 */
 		public function list_entries( $args, $assoc_args ) {
-			$data = AAL_CLI_List::fetch_list( $assoc_args );
-
 			$format = isset( $assoc_args['format'] ) ? $assoc_args['format'] : 'table';
+
+			if ( ! empty( $assoc_args['all'] ) ) {
+				if ( 'count' === $format ) {
+					$data = AAL_CLI_List::fetch_list( $assoc_args );
+					WP_CLI::log( (string) $data['total'] );
+					return;
+				}
+
+				if ( ! in_array( $format, array( 'jsonl', 'csv' ), true ) ) {
+					WP_CLI::error( '--all supports only the jsonl, csv and count formats.' );
+				}
+
+				$fields = AAL_CLI_List::parse_fields( $assoc_args );
+				$first  = true;
+				foreach ( AAL_CLI_List::iterate_list_rows( $assoc_args ) as $rows ) {
+					if ( 'jsonl' === $format ) {
+						foreach ( AAL_CLI_List::rows_to_jsonl_lines( $rows ) as $line ) {
+							WP_CLI::line( $line );
+						}
+					} else {
+						if ( $first ) {
+							\WP_CLI\Utils\write_csv( STDOUT, $rows, $fields );
+							$first = false;
+						} else {
+							\WP_CLI\Utils\write_csv( STDOUT, $rows );
+						}
+					}
+				}
+				return;
+			}
+
+			$data = AAL_CLI_List::fetch_list( $assoc_args );
 
 			if ( 'count' === $format ) {
 				WP_CLI::log( (string) $data['total'] );
