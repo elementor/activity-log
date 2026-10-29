@@ -1,5 +1,8 @@
 == Changelog ==
 
+= 2.19.0 =
+* New: Added --all to wp activity-log list to stream every matching entry in batches
+
 = 2.18.0 - 2026-10-28 =
 * New: Anonymize a user's activity log entries through the WordPress personal data eraser
 * New: Log application password and password reset events

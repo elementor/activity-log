@@ -106,6 +106,8 @@ class AAL_Test_CLI_List extends WP_UnitTestCase {
 	public function test_iterate_list_rows_batches_all_entries_ordered_by_id_desc() {
 		global $wpdb;
 
+		$wpdb->query( "DELETE FROM {$wpdb->activity_log}" );
+
 		$inserted_ids = array();
 		for ( $i = 0; $i < 3; $i++ ) {
 			$wpdb->insert(
