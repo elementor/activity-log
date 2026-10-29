@@ -1,4 +1,5 @@
 import { useState } from '@wordpress/element';
+import { Button, DropdownMenu, MenuItem } from '@wordpress/components';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import ChangesModal from './changes-modal';
 import {
@@ -6,6 +7,10 @@ import {
 	getDisplayTime,
 	getFullTimestamp,
 } from './utils';
+import {
+	getObjectLinkInEventText,
+	partitionRowActions,
+} from './event-actions';
 
 export function FilterLink( { filterKey, value, params, onFilter, children, className = '', title = '' } ) {
 	const isActive = params[ filterKey ] === value;
@@ -124,6 +129,101 @@ function UserCell( { author, params, onFilter } ) {
 	return content;
 }
 
+function EventText( { eventText, objectName, viewUrl } ) {
+	const linkParts = getObjectLinkInEventText( eventText, objectName, viewUrl );
+
+	if ( ! linkParts ) {
+		return (
+			<span className="aal-logs-event__text" title={ eventText }>
+				{ eventText }
+			</span>
+		);
+	}
+
+	const viewLabel = sprintf(
+		/* translators: %s: object name in the event description. */
+		__( 'View %s', 'aryo-activity-log' ),
+		linkParts.name
+	);
+
+	return (
+		<span className="aal-logs-event__text" title={ eventText }>
+			{ linkParts.before }
+			<a
+				href={ linkParts.url }
+				className="aal-logs-event__object-link"
+				aria-label={ viewLabel }
+			>
+				{ linkParts.name }
+			</a>
+			{ linkParts.after }
+		</span>
+	);
+}
+
+function ChangesButton( { changeCount, omitted, onOpen } ) {
+	const changesLabel = sprintf(
+		/* translators: %d: number of changed fields. */
+		_n( '%d change', '%d changes', changeCount, 'aryo-activity-log' ),
+		changeCount
+	);
+	const visibleLabel = omitted ? `${ changesLabel } +${ omitted }` : changesLabel;
+	const ariaLabel = sprintf(
+		/* translators: %s: change count phrase, e.g. "3 changes". */
+		__( 'View %s', 'aryo-activity-log' ),
+		changesLabel
+	);
+
+	return (
+		<Button
+			type="button"
+			variant="tertiary"
+			size="small"
+			className="aal-logs-changes-btn"
+			onClick={ onOpen }
+			aria-label={ ariaLabel }
+		>
+			<span className="dashicons dashicons-list-view aal-logs-changes-btn__icon" aria-hidden="true" />
+			<span className="aal-logs-changes-btn__label">{ visibleLabel }</span>
+		</Button>
+	);
+}
+
+function RowActionsMenu( { leftovers } ) {
+	if ( ! leftovers.length ) {
+		return null;
+	}
+
+	return (
+		<DropdownMenu
+			icon="ellipsis"
+			label={ __( 'More row actions', 'aryo-activity-log' ) }
+			className="aal-logs-row-menu"
+			toggleProps={ {
+				size: 'small',
+				className: 'aal-logs-row-menu__toggle',
+			} }
+			popoverProps={ {
+				placement: 'bottom-end',
+			} }
+		>
+			{ ( { onClose } ) => (
+				<>
+					{ leftovers.map( ( { key, url, label } ) => (
+						<MenuItem
+							key={ key }
+							href={ url }
+							onClick={ onClose }
+						>
+							{ label }
+						</MenuItem>
+					) ) }
+				</>
+			) }
+		</DropdownMenu>
+	);
+}
+
 export default function LogRow( { item, params, onFilter } ) {
 	const [ changesOpen, setChangesOpen ] = useState( false );
 	const { date, author, source, type, label, description, action, changes, changes_omitted: omitted } = item;
@@ -131,7 +231,8 @@ export default function LogRow( { item, params, onFilter } ) {
 	const displayTime = getDisplayTime( date );
 	const fullTimestamp = getFullTimestamp( date );
 	const eventText = description.text || '';
-	const hasRowActions = changeCount > 0 || Object.keys( description.actions ).length > 0;
+	const objectName = label.label || '';
+	const { viewUrl, leftovers } = partitionRowActions( description.actions );
 
 	return (
 		<>
@@ -151,33 +252,15 @@ export default function LogRow( { item, params, onFilter } ) {
 				</td>
 				<td className="aal-logs-col aal-logs-col--event">
 					<div className="aal-logs-event">
-						<span className="aal-logs-event__text" title={ eventText }>
-							{ eventText }
-						</span>
-						{ hasRowActions && (
-							<span className="aal-logs-event__actions row-actions">
-								{ changeCount > 0 && (
-									<span className="view">
-										<a
-											href="#"
-											onClick={ ( event ) => {
-												event.preventDefault();
-												setChangesOpen( true );
-											} }
-										>
-											{ sprintf( /* translators: %d: number of changed fields. */ _n( '%d change', '%d changes', changeCount, 'aryo-activity-log' ), changeCount ) }
-											{ omitted ? ` +${ omitted }` : '' }
-										</a>
-									</span>
-								) }
-								{ Object.entries( description.actions ).map( ( [ key, url ], i ) => (
-									<span key={ key } className={ key }>
-										{ ( changeCount > 0 || i > 0 ) && ' | ' }
-										<a href={ url }>{ key.charAt( 0 ).toUpperCase() + key.slice( 1 ) }</a>
-									</span>
-								) ) }
-							</span>
+						<EventText eventText={ eventText } objectName={ objectName } viewUrl={ viewUrl } />
+						{ changeCount > 0 && (
+							<ChangesButton
+								changeCount={ changeCount }
+								omitted={ omitted }
+								onOpen={ () => setChangesOpen( true ) }
+							/>
 						) }
+						<RowActionsMenu leftovers={ leftovers } />
 					</div>
 				</td>
 				<td className="aal-logs-col aal-logs-col--topic">
