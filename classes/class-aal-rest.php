@@ -428,9 +428,20 @@ class AAL_REST {
 	}
 
 	public function get_filters( WP_REST_Request $request ) {
-		$query = new AAL_Log_Query();
+		$query   = new AAL_Log_Query();
+		$options = $query->get_filter_options();
 
-		return rest_ensure_response( $query->get_filter_options() );
+		$options['topics'] = array_map(
+			function ( $topic ) {
+				return array(
+					'value' => $topic,
+					'label' => __( $topic, 'aryo-activity-log' ),
+				);
+			},
+			$options['topics']
+		);
+
+		return rest_ensure_response( $options );
 	}
 
 	private static $allowed_promotions = array( 'emails', 'attachments' );

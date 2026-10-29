@@ -128,6 +128,20 @@ class Test_AAL_Logs_REST extends WP_UnitTestCase {
 		$this->assertArrayHasKey( 'changes_omitted', $props );
 	}
 
+	public function test_get_filters_topics_have_value_and_label() {
+		global $wpdb;
+		$wpdb->query( "DELETE FROM {$wpdb->activity_log}" );
+		$object_type = 'Posts';
+		$this->insert_sample_log( array( 'object_type' => $object_type ) );
+
+		$response = rest_get_server()->dispatch( new WP_REST_Request( 'GET', '/activity-log/v1/logs/filters' ) );
+		$topics   = $response->get_data()['topics'];
+
+		$this->assertCount( 1, $topics );
+		$this->assertSame( $object_type, $topics[0]['value'] );
+		$this->assertSame( __( $object_type, 'aryo-activity-log' ), $topics[0]['label'] );
+	}
+
 	private function insert_sample_log( $overrides = array() ) {
 		global $wpdb;
 		$row = array_merge(
