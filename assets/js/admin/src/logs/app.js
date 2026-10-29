@@ -1,3 +1,4 @@
+import './enqueue-styles';
 import './logs.scss';
 import { useState, useEffect, useCallback } from '@wordpress/element';
 import { Spinner, Notice } from '@wordpress/components';
