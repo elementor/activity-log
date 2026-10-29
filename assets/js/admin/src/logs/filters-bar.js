@@ -61,7 +61,7 @@ export default function FiltersBar( { params, filterOptions, searchInput, hasAct
 						value={ params.typeshow }
 						options={ [
 							{ label: __( 'All Topics', 'aryo-activity-log' ), value: '' },
-							...filterOptions.topics.map( ( t ) => ( { label: t, value: t } ) ),
+							...filterOptions.topics.map( ( t ) => ( { label: t.label, value: t.value } ) ),
 						] }
 						onChange={ ( v ) => onFilterChange( 'typeshow', v ) }
 						__nextHasNoMarginBottom
