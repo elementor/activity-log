@@ -1,5 +1,23 @@
 <?php
 
+if ( ! function_exists( 'wc_get_order_note' ) ) {
+	function wc_get_order_note( $note_id ) {
+		$comment = get_comment( $note_id );
+		if ( ! $comment ) {
+			return null;
+		}
+
+		$added_by = 'user';
+		if ( __( 'WooCommerce', 'woocommerce' ) === $comment->comment_author ) {
+			$added_by = 'system';
+		}
+
+		return (object) array(
+			'added_by' => $added_by,
+		);
+	}
+}
+
 class AAL_Stub_WC_Order {
 
 	private $id;
