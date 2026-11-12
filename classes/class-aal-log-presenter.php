@@ -325,7 +325,7 @@ class AAL_Log_Presenter {
 	}
 
 	private static function format_description( $item ) {
-		$text    = esc_html( $item->object_name );
+		$text    = html_entity_decode( $item->object_name, ENT_QUOTES, get_bloginfo( 'charset' ) );
 		$actions = array();
 
 		switch ( $item->object_type ) {
