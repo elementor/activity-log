@@ -64,9 +64,14 @@ class AAL_Privacy {
 		);
 		$affected_performed = $wpdb->rows_affected;
 
+		$set_clause = "object_name = 'Anonymized user'";
+		if ( AAL_Maintenance::is_schema_ready( '1.1' ) ) {
+			$set_clause .= ', meta = NULL';
+		}
+
 		$wpdb->query(
 			$wpdb->prepare(
-				"UPDATE $wpdb->activity_log SET object_name = 'Anonymized user', meta = NULL WHERE object_type = 'Users' AND object_id = %d AND object_name <> 'Anonymized user' LIMIT %d",
+				"UPDATE $wpdb->activity_log SET {$set_clause} WHERE object_type = 'Users' AND object_id = %d AND object_name <> 'Anonymized user' LIMIT %d",
 				$user->ID,
 				$number
 			)

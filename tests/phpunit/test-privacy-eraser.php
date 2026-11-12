@@ -163,6 +163,74 @@ class AAL_Test_Privacy_Eraser extends WP_UnitTestCase {
 		$this->assertSame( '203.0.113.52', $performed_by_b->hist_ip );
 	}
 
+	public function test_wp_eraser_anonymizes_user_entries_when_schema_not_ready() {
+		global $wpdb;
+
+		$original_db_version = get_option( 'activity_log_db_version' );
+		$user_id             = $this->factory->user->create(
+			array(
+				'user_email'   => 'privacy-eraser-pre-migration@example.com',
+				'display_name' => 'Pre Migration User',
+				'role'         => 'subscriber',
+			)
+		);
+
+		update_option( 'activity_log_db_version', '1.0' );
+
+		$reflection = new ReflectionClass( 'AAL_Maintenance' );
+		$prop       = $reflection->getProperty( 'schema_ready_cache' );
+		$prop->setAccessible( true );
+		$prop->setValue( null, array() );
+
+		$this->assertFalse( AAL_Maintenance::is_schema_ready( '1.1' ) );
+
+		try {
+			$wpdb->insert(
+				$wpdb->activity_log,
+				array(
+					'action'         => 'updated',
+					'object_type'    => 'Users',
+					'object_subtype' => '',
+					'object_name'    => 'Pre Migration User',
+					'object_id'      => $user_id,
+					'user_id'        => $user_id,
+					'user_caps'      => 'subscriber',
+					'hist_ip'        => '203.0.113.99',
+					'hist_time'      => time(),
+					'request_source' => '',
+				),
+				array( '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%d', '%s' )
+			);
+			$histid = (int) $wpdb->insert_id;
+
+			$user    = get_userdata( $user_id );
+			$privacy = $this->get_privacy_instance();
+			$result  = $privacy->wp_eraser( $user->user_email );
+
+			$this->assertTrue( $result['items_removed'] );
+
+			$users_row = $wpdb->get_row(
+				$wpdb->prepare(
+					'SELECT * FROM `' . $wpdb->activity_log . '` WHERE `histid` = %d',
+					$histid
+				)
+			);
+
+			$this->assertNotEmpty( $users_row );
+			$this->assertSame( 'Anonymized user', $users_row->object_name );
+
+			$wpdb->query(
+				$wpdb->prepare(
+					'DELETE FROM `' . $wpdb->activity_log . '` WHERE `histid` = %d',
+					$histid
+				)
+			);
+		} finally {
+			update_option( 'activity_log_db_version', $original_db_version );
+			$prop->setValue( null, array() );
+		}
+	}
+
 	public function test_wp_eraser_unknown_email_returns_done_without_removing_items() {
 		$privacy = $this->get_privacy_instance();
 
