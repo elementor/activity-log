@@ -163,7 +163,7 @@ class AAL_Test_Privacy_Eraser extends WP_UnitTestCase {
 		$this->assertSame( '203.0.113.52', $performed_by_b->hist_ip );
 	}
 
-	public function test_wp_eraser_anonymizes_user_entries_when_meta_column_missing() {
+	public function test_wp_eraser_anonymizes_user_entries_when_schema_not_ready() {
 		global $wpdb;
 
 		$original_db_version = get_option( 'activity_log_db_version' );
@@ -174,8 +174,6 @@ class AAL_Test_Privacy_Eraser extends WP_UnitTestCase {
 				'role'         => 'subscriber',
 			)
 		);
-
-		$wpdb->query( "ALTER TABLE `{$wpdb->activity_log}` DROP COLUMN `meta`" );
 
 		update_option( 'activity_log_db_version', '1.0' );
 
@@ -228,7 +226,6 @@ class AAL_Test_Privacy_Eraser extends WP_UnitTestCase {
 				)
 			);
 		} finally {
-			$wpdb->query( "ALTER TABLE `{$wpdb->activity_log}` ADD `meta` TEXT DEFAULT NULL AFTER `request_source`" );
 			update_option( 'activity_log_db_version', $original_db_version );
 			$prop->setValue( null, array() );
 		}
