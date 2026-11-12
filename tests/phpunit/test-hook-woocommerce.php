@@ -89,6 +89,24 @@ class AAL_Test_Hook_WooCommerce extends WP_UnitTestCase {
 		return $hook;
 	}
 
+	private function insert_order_note_comment( $author, $note_text = 'Hand-typed order note body', $note_group = null ) {
+		$comment_id = wp_insert_comment(
+			array(
+				'comment_post_ID'  => 100,
+				'comment_author'   => $author,
+				'comment_content'  => $note_text,
+				'comment_type'     => 'order_note',
+				'comment_approved' => 1,
+			)
+		);
+
+		if ( $note_group ) {
+			add_comment_meta( $comment_id, 'note_group', $note_group, true );
+		}
+
+		return $comment_id;
+	}
+
 	private function assert_common_row( $row, $action ) {
 		$this->assertNotEmpty( $row );
 		$this->assertSame( $action, $row->action );
@@ -129,7 +147,6 @@ class AAL_Test_Hook_WooCommerce extends WP_UnitTestCase {
 			'restored'         => array( 'hooks_woocommerce_untrash_order', array( 100, 'pending' ), 'restored' ),
 			'deleted'          => array( 'hooks_woocommerce_before_delete_order', array( 100, new AAL_Stub_WC_Order( 100, '1042' ) ), 'deleted' ),
 			'refunded'         => array( 'hooks_woocommerce_order_refunded', array( 100, 200 ), 'refunded' ),
-			'note_added'       => array( 'hooks_woocommerce_order_note_added', array( 301, new AAL_Stub_WC_Order( 100, '1042' ) ), 'note_added' ),
 		);
 	}
 
@@ -140,6 +157,80 @@ class AAL_Test_Hook_WooCommerce extends WP_UnitTestCase {
 		$row  = $this->get_latest_order_log( 100 );
 		$meta = json_decode( $row->meta, true );
 		$this->assertSame( array( 'pending', 'processing' ), $meta['changes']['status'] );
+	}
+
+	public function test_note_added_logs_staff_hand_typed_note() {
+		$note_text  = 'Staff-only secret note text';
+		$comment_id = $this->insert_order_note_comment( 'Shop Manager', $note_text );
+		$hook       = $this->make_hook();
+		$order      = new AAL_Stub_WC_Order( 100, '1042' );
+
+		$hook->hooks_woocommerce_order_note_added( $comment_id, $order );
+
+		global $wpdb;
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$wpdb->activity_log}`
+					WHERE `object_type` = 'WooCommerce' AND `object_id` = %d AND `action` = 'note_added'",
+				100
+			)
+		);
+		$this->assertSame( 1, $count );
+
+		$row = $this->get_latest_order_log( 100 );
+		$this->assert_common_row( $row, 'note_added' );
+		$this->assertStringNotContainsString( $note_text, $row->meta );
+		$this->assertStringNotContainsString( $note_text, $row->object_name );
+	}
+
+	public function test_note_added_skips_system_author() {
+		$comment_id = $this->insert_order_note_comment( __( 'WooCommerce', 'woocommerce' ) );
+		$hook       = $this->make_hook();
+		$order      = new AAL_Stub_WC_Order( 100, '1042' );
+
+		$hook->hooks_woocommerce_order_note_added( $comment_id, $order );
+
+		global $wpdb;
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$wpdb->activity_log}` WHERE `object_type` = %s",
+				'WooCommerce'
+			)
+		);
+		$this->assertSame( 0, $count );
+	}
+
+	public function test_note_added_skips_note_group_meta() {
+		$comment_id = $this->insert_order_note_comment( 'Shop Manager', 'Automatic user-attributed note', 'order_update' );
+		$hook       = $this->make_hook();
+		$order      = new AAL_Stub_WC_Order( 100, '1042' );
+
+		$hook->hooks_woocommerce_order_note_added( $comment_id, $order );
+
+		global $wpdb;
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$wpdb->activity_log}` WHERE `object_type` = %s",
+				'WooCommerce'
+			)
+		);
+		$this->assertSame( 0, $count );
+	}
+
+	public function test_note_added_skips_missing_comment() {
+		$hook  = $this->make_hook();
+		$order = new AAL_Stub_WC_Order( 100, '1042' );
+
+		$hook->hooks_woocommerce_order_note_added( 999999, $order );
+
+		global $wpdb;
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$wpdb->activity_log}` WHERE `object_type` = %s",
+				'WooCommerce'
+			)
+		);
+		$this->assertSame( 0, $count );
 	}
 
 	public function test_refunded_meta_amount_and_currency_only() {

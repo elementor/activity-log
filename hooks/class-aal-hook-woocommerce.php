@@ -127,6 +127,21 @@ class AAL_Hook_WooCommerce extends AAL_Hook_Base {
 			return;
 		}
 
+		$comment = get_comment( $note_id );
+		if ( ! $comment ) {
+			return;
+		}
+
+		// Skip notes WooCommerce adds itself (status changes, refunds, emails).
+		if ( __( 'WooCommerce', 'woocommerce' ) === $comment->comment_author ) {
+			return;
+		}
+
+		// Skip automatic notes attributed to a user (they carry a note group).
+		if ( get_comment_meta( $comment->comment_ID, 'note_group', true ) ) {
+			return;
+		}
+
 		$this->insert_order_log( $order->get_id(), 'note_added', $order );
 	}
 
