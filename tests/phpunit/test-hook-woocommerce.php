@@ -179,7 +179,7 @@ class AAL_Test_Hook_WooCommerce extends WP_UnitTestCase {
 
 		$row = $this->get_latest_order_log( 100 );
 		$this->assert_common_row( $row, 'note_added' );
-		$this->assertStringNotContainsString( $note_text, $row->meta );
+		$this->assertEmpty( $row->meta );
 		$this->assertStringNotContainsString( $note_text, $row->object_name );
 	}
 
