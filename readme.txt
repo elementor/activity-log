@@ -52,7 +52,6 @@ If you have more than a handful of users, keeping track of who did what by hand 
 * <strong>Export</strong> - Exported activity log file
 * <strong>Request Source</strong> - WP Admin, REST API, WP-CLI, WP-Cron, XML-RPC, WP Abilities, and Application Password name when used
 * <strong>AI Agents</strong> - Lets AI agents read your logs on WordPress 6.9 or later, once you turn it on in the settings. They can query logs, summarize activity, and detect suspicious events like repeated failed logins, new or promoted administrator accounts, and changes to sensitive settings.
-* <strong>WooCommerce</strong> - Track products, orders, customers, and more
 * <strong>bbPress</strong> - Forums, topics, replies, taxonomies, and other actions
 * <strong>Emails sent from WordPress site</strong> - Sending successful, sending failed
 * <strong>Dashboard Widget</strong> - Recent activity timeline on the WordPress dashboard (for users who can view the log), grouped by day, with load more and a link to the full log
@@ -142,7 +141,7 @@ Yes. Activity Log fully supports Multisite, logging activity per site and cleani
 
 = Does this work with WooCommerce? =
 
-Yes. Products, orders, and customers are tracked right out of the box, since Activity Log records changes across any post type and taxonomy — no extra setup needed.
+Partially. Products and coupons are logged like any other post type. Orders stored in WooCommerce High-Performance Order Storage (HPOS) are not logged yet.
 
 = Can I exclude specific events from being logged? =
 
@@ -156,6 +155,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 = 2.19.0 =
 * New: Added `--all` to `wp activity-log list` to stream every matching entry in batches
+* Tweak: Removed the unused legacy WooCommerce integration
 * Fix: Translate topic names in the logs filter
 * Fix: Personal data eraser now anonymizes user entries on sites where the `meta` column migration has not run
 

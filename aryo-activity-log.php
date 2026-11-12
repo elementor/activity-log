@@ -45,9 +45,6 @@ include( 'classes/class-aal-privacy.php' );
 include( 'classes/abstract-class-aal-exporter.php' );
 include( 'classes/class-aal-cli.php' );
 
-// Integrations
-include( 'classes/class-aal-integration-woocommerce.php' );
-
 // Probably we should put this in a separate file
 final class AAL_Main {
 
