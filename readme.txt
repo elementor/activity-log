@@ -157,6 +157,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 = 2.19.0 =
 * New: Added `--all` to `wp activity-log list` to stream every matching entry in batches
 * Fix: Translate topic names in the logs filter
+* Fix: Personal data eraser now anonymizes user entries on sites where the `meta` column migration has not run
 
 = 2.18.0 - 2026-10-28 =
 * New: Anonymize a user's activity log entries through the WordPress personal data eraser
