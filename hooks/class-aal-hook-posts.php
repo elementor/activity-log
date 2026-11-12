@@ -30,6 +30,10 @@ class AAL_Hook_Posts extends AAL_Hook_Base {
 	}
 
 	public function hooks_transition_post_status( $new_status, $old_status, $post ) {
+		if ( AAL_Hook_WooCommerce::is_hpos() && in_array( get_post_type( $post->ID ), array( 'shop_order', 'shop_order_refund', 'shop_order_placehold' ), true ) ) {
+			return;
+		}
+
 		if ( 'auto-draft' === $old_status && ( 'auto-draft' !== $new_status && 'inherit' !== $new_status ) ) {
 			// page created
 			$action = 'created';
@@ -115,6 +119,10 @@ class AAL_Hook_Posts extends AAL_Hook_Base {
 	public function hooks_delete_post( $post_id ) {
 		if ( wp_is_post_revision( $post_id ) )
 			return;
+
+		if ( AAL_Hook_WooCommerce::is_hpos() && in_array( get_post_type( $post_id ), array( 'shop_order', 'shop_order_refund', 'shop_order_placehold' ), true ) ) {
+			return;
+		}
 
 		$post = get_post( $post_id );
 

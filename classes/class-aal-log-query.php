@@ -105,6 +105,7 @@ class AAL_Log_Query {
 				'manage_options' => array(
 					'Core',
 					'Export',
+					'WooCommerce',
 					'Posts',
 					'Taxonomies',
 					'Users',
