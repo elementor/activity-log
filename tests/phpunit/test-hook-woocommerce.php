@@ -38,6 +38,51 @@ class AAL_Stub_WC_Order {
 	}
 }
 
+class AAL_Stub_WC_Product {
+
+	private $id;
+
+	private $name;
+
+	private $type;
+
+	private $data;
+
+	private $changes;
+
+	public function __construct( $id, $name, $type, $data = array(), $changes = array() ) {
+		$this->id      = (int) $id;
+		$this->name    = $name;
+		$this->type    = $type;
+		$this->data    = $data;
+		$this->changes = $changes;
+	}
+
+	public function get_id() {
+		return $this->id;
+	}
+
+	public function get_name() {
+		return $this->name;
+	}
+
+	public function is_type( $type ) {
+		if ( 'variation' === $type ) {
+			return 'variation' === $this->type;
+		}
+
+		return $type === $this->type;
+	}
+
+	public function get_data() {
+		return $this->data;
+	}
+
+	public function get_changes() {
+		return $this->changes;
+	}
+}
+
 class AAL_Stub_WC_Refund {
 
 	private $amount;
@@ -296,6 +341,161 @@ class AAL_Test_Hook_WooCommerce extends WP_UnitTestCase {
 		$this->assertNotEmpty( $row );
 		$this->assertStringNotContainsString( 'john@example.com', $row->meta );
 		$this->assertStringNotContainsString( 'leaked', $row->meta );
+	}
+
+	private function get_latest_product_log( $product_id ) {
+		global $wpdb;
+
+		return $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM `{$wpdb->activity_log}`
+					WHERE `object_type` = 'WooCommerce' AND `object_id` = %d AND `action` = 'updated'
+					ORDER BY histid DESC LIMIT 1",
+				$product_id
+			)
+		);
+	}
+
+	private function count_woocommerce_logs() {
+		global $wpdb;
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$wpdb->activity_log}` WHERE `object_type` = %s",
+				'WooCommerce'
+			)
+		);
+	}
+
+	private function make_product( $id, $name, $type, $data, $changes ) {
+		return new AAL_Stub_WC_Product( $id, $name, $type, $data, $changes );
+	}
+
+	private function run_product_save_flow( $hook, $product, $update_method ) {
+		$hook->hooks_woocommerce_before_product_object_save( $product, null );
+		$hook->$update_method( $product->get_id(), $product );
+	}
+
+	public function test_product_price_change_logs_updated_row() {
+		$hook    = $this->make_hook();
+		$product = $this->make_product(
+			501,
+			'Test Product',
+			'simple',
+			array( 'regular_price' => '10.00' ),
+			array( 'regular_price' => '15.00' )
+		);
+
+		$this->run_product_save_flow( $hook, $product, 'hooks_woocommerce_update_product' );
+
+		$row = $this->get_latest_product_log( 501 );
+		$this->assertNotEmpty( $row );
+		$this->assertSame( 'updated', $row->action );
+		$this->assertSame( 'product', $row->object_subtype );
+		$this->assertSame( 'Test Product', $row->object_name );
+
+		$meta = json_decode( $row->meta, true );
+		$this->assertSame( array( '10.00', '15.00' ), $meta['changes']['regular_price'] );
+	}
+
+	public function test_product_unchanged_whitelisted_values_log_nothing() {
+		$hook    = $this->make_hook();
+		$product = $this->make_product(
+			502,
+			'Stable Product',
+			'simple',
+			array( 'regular_price' => '10.00' ),
+			array( 'regular_price' => '10.00' )
+		);
+
+		$this->run_product_save_flow( $hook, $product, 'hooks_woocommerce_update_product' );
+
+		$this->assertSame( 0, $this->count_woocommerce_logs() );
+	}
+
+	public function test_product_non_whitelisted_change_logs_nothing() {
+		$hook    = $this->make_hook();
+		$product = $this->make_product(
+			503,
+			'Described Product',
+			'simple',
+			array( 'description' => 'Old' ),
+			array( 'description' => 'New' )
+		);
+
+		$this->run_product_save_flow( $hook, $product, 'hooks_woocommerce_update_product' );
+
+		$this->assertSame( 0, $this->count_woocommerce_logs() );
+	}
+
+	public function test_new_product_logs_nothing() {
+		$hook    = $this->make_hook();
+		$product = $this->make_product(
+			0,
+			'New Product',
+			'simple',
+			array(),
+			array( 'regular_price' => '9.99' )
+		);
+
+		$this->run_product_save_flow( $hook, $product, 'hooks_woocommerce_update_product' );
+
+		$this->assertSame( 0, $this->count_woocommerce_logs() );
+	}
+
+	public function test_product_update_without_edit_products_logs_nothing() {
+		$subscriber_id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		wp_set_current_user( $subscriber_id );
+
+		$hook    = $this->make_hook();
+		$product = $this->make_product(
+			504,
+			'Protected Product',
+			'simple',
+			array( 'regular_price' => '10.00' ),
+			array( 'regular_price' => '12.00' )
+		);
+
+		$this->run_product_save_flow( $hook, $product, 'hooks_woocommerce_update_product' );
+
+		$this->assertSame( 0, $this->count_woocommerce_logs() );
+	}
+
+	public function test_product_stock_change_during_order_stock_window_logs_nothing() {
+		$hook    = $this->make_hook();
+		$product = $this->make_product(
+			505,
+			'Stock Product',
+			'simple',
+			array( 'stock_quantity' => 10 ),
+			array( 'stock_quantity' => 8 )
+		);
+
+		$hook->hooks_woocommerce_product_before_set_stock( $product );
+		$this->run_product_save_flow( $hook, $product, 'hooks_woocommerce_update_product' );
+		$hook->hooks_woocommerce_product_set_stock( $product );
+
+		$this->assertSame( 0, $this->count_woocommerce_logs() );
+	}
+
+	public function test_variation_update_logs_product_variation_subtype() {
+		$hook    = $this->make_hook();
+		$product = $this->make_product(
+			506,
+			'Blue / Large',
+			'variation',
+			array( 'sku' => 'OLD-SKU' ),
+			array( 'sku' => 'NEW-SKU' )
+		);
+
+		$this->run_product_save_flow( $hook, $product, 'hooks_woocommerce_update_product_variation' );
+
+		$row = $this->get_latest_product_log( 506 );
+		$this->assertNotEmpty( $row );
+		$this->assertSame( 'product_variation', $row->object_subtype );
+
+		$meta = json_decode( $row->meta, true );
+		$this->assertSame( array( 'OLD-SKU', 'NEW-SKU' ), $meta['changes']['sku'] );
 	}
 
 	public function test_legacy_shop_order_post_logs_via_posts_hook() {

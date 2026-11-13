@@ -155,7 +155,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 == Changelog ==
 
 = 2.19.0 =
-* New: Log WooCommerce order activity for stores using High-Performance Order Storage (HPOS): created, status changes, refunds, notes, trash, restore and delete
+* New: Log WooCommerce order activity for stores using High-Performance Order Storage (HPOS): created, status changes, refunds, notes, trash, restore and delete, and staff changes to product `price`, `SKU` and `stock`
 * New: Added `--all` to `wp activity-log list` to stream every matching entry in batches
 * Tweak: Removed the unused legacy WooCommerce integration
 * Fix: Translate topic names in the logs filter
