@@ -116,6 +116,8 @@ class AAL_Hook_WooCommerce_Testable extends AAL_Hook_WooCommerce {
 
 	public $log_enabled = true;
 
+	public $product_log_enabled = true;
+
 	public $orders = array();
 
 	public static function is_hpos() {
@@ -124,6 +126,10 @@ class AAL_Hook_WooCommerce_Testable extends AAL_Hook_WooCommerce {
 
 	protected function should_log() {
 		return $this->log_enabled && static::is_hpos();
+	}
+
+	protected function should_log_product() {
+		return $this->product_log_enabled;
 	}
 
 	protected function get_order( $id ) {
@@ -444,10 +450,8 @@ class AAL_Test_Hook_WooCommerce extends WP_UnitTestCase {
 	}
 
 	public function test_product_update_without_edit_products_logs_nothing() {
-		$subscriber_id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
-		wp_set_current_user( $subscriber_id );
-
-		$hook    = $this->make_hook();
+		$hook                       = $this->make_hook();
+		$hook->product_log_enabled = false;
 		$product = $this->make_product(
 			504,
 			'Protected Product',
