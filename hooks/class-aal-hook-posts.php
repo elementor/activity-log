@@ -6,7 +6,7 @@ class AAL_Hook_Posts extends AAL_Hook_Base {
 	private $before = array();
 
 	protected function _draft_or_post_title( $post = 0 ) {
-		$title = esc_html( get_the_title( $post ) );
+		$title = get_post_field( 'post_title', $post );
 
 		if ( empty( $title ) )
 			$title = __( '(no title)', 'aryo-activity-log' );
