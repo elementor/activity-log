@@ -129,6 +129,8 @@ class AAL_Test_Hook_Posts extends WP_UnitTestCase {
 	}
 
 	public function test_object_name_stores_raw_ampersand_title() {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
 		$title   = 'Virtualization & Containerization';
 		$post_id = self::factory()->post->create(
 			array(
