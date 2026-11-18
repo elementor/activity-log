@@ -38,7 +38,7 @@ class AAL_Test_Log_Presenter_Object_Name extends WP_UnitTestCase {
 	public function legacy_encoded_object_name_provider() {
 		return array(
 			'ampersand'  => array( 'Virtualization &#038; Containerization', 'Virtualization & Containerization' ),
-			'apostrophe' => array( 'Ministère de l&#8217;Intérieur', "Ministère de l'Intérieur" ),
+			'apostrophe' => array( 'Ministère de l&#8217;Intérieur', "Ministère de l\u{2019}Intérieur" ),
 		);
 	}
 }

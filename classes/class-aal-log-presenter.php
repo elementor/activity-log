@@ -378,15 +378,14 @@ class AAL_Log_Presenter {
 				if ( 'all' === $item->object_name ) {
 					$text = __( 'All', 'aryo-activity-log' );
 				} else {
-					$plain_name = self::plain_object_name( $item );
-					$pt         = get_post_type_object( $item->object_name );
-					$text       = ! empty( $pt->label ) ? $pt->label : $plain_name;
+					$pt   = get_post_type_object( $item->object_name );
+					$text = ! empty( $pt->label ) ? $pt->label : $item->object_name;
 				}
 				break;
 
 			case 'Options':
 			case 'Core':
-				$text = __( self::plain_object_name( $item ), 'aryo-activity-log' );
+				$text = __( $item->object_name, 'aryo-activity-log' );
 				break;
 		}
 
