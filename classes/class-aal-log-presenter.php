@@ -36,7 +36,7 @@ class AAL_Log_Presenter {
 			'action'         => (string) $item->action,
 			'object_type'    => (string) $item->object_type,
 			'object_subtype' => (string) $item->object_subtype,
-			'object_name'    => (string) $item->object_name,
+			'object_name'    => self::plain_object_name( $item ),
 			'object_id'      => (int) $item->object_id,
 			'channel'        => $parsed['channel'],
 			'app_name'       => $parsed['app_name'],
@@ -161,7 +161,7 @@ class AAL_Log_Presenter {
 					break;
 
 				case 'description':
-					$row[ $column ] = $item->object_name;
+					$row[ $column ] = self::plain_object_name( $item );
 					break;
 
 				case 'changes':
@@ -324,8 +324,13 @@ class AAL_Log_Presenter {
 		);
 	}
 
+	// Older log rows stored object_name HTML-encoded.
+	private static function plain_object_name( $item ) {
+		return html_entity_decode( (string) $item->object_name, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+	}
+
 	private static function format_description( $item ) {
-		$text    = esc_html( $item->object_name );
+		$text    = self::plain_object_name( $item );
 		$actions = array();
 
 		switch ( $item->object_type ) {
@@ -355,7 +360,7 @@ class AAL_Log_Presenter {
 				if ( ! empty( $item->object_id ) && get_comment( $item->object_id ) ) {
 					$actions['edit'] = get_edit_comment_link( $item->object_id );
 				}
-				$text = esc_html( "{$item->object_name} #{$item->object_id}" );
+				$text = self::plain_object_name( $item ) . " #{$item->object_id}";
 				break;
 
 			case 'User':
@@ -365,7 +370,7 @@ class AAL_Log_Presenter {
 					$actions['edit'] = $user_edit;
 				}
 				if ( ! empty( $item->object_name ) ) {
-					$text = __( 'Username:', 'aryo-activity-log' ) . ' ' . esc_html( $item->object_name );
+					$text = __( 'Username:', 'aryo-activity-log' ) . ' ' . self::plain_object_name( $item );
 				}
 				break;
 
@@ -373,14 +378,15 @@ class AAL_Log_Presenter {
 				if ( 'all' === $item->object_name ) {
 					$text = __( 'All', 'aryo-activity-log' );
 				} else {
-					$pt   = get_post_type_object( $item->object_name );
-					$text = ! empty( $pt->label ) ? $pt->label : $item->object_name;
+					$plain_name = self::plain_object_name( $item );
+					$pt         = get_post_type_object( $item->object_name );
+					$text       = ! empty( $pt->label ) ? $pt->label : $plain_name;
 				}
 				break;
 
 			case 'Options':
 			case 'Core':
-				$text = __( $item->object_name, 'aryo-activity-log' );
+				$text = __( self::plain_object_name( $item ), 'aryo-activity-log' );
 				break;
 		}
 

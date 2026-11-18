@@ -160,6 +160,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Tweak: Removed the unused legacy WooCommerce integration
 * Fix: Translate topic names in the logs filter
 * Fix: Personal data eraser now anonymizes user entries on sites where the `meta` column migration has not run
+* Fix: Show object names with special characters (such as `&` and apostrophes) correctly in the logs table, export and REST API
 
 = 2.18.0 - 2026-10-28 =
 * New: Anonymize a user's activity log entries through the WordPress personal data eraser

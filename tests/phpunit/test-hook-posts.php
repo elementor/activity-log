@@ -128,6 +128,54 @@ class AAL_Test_Hook_Posts extends WP_UnitTestCase {
 		);
 	}
 
+	public function test_object_name_stores_raw_ampersand_title() {
+		$title   = 'Virtualization & Containerization';
+		$post_id = self::factory()->post->create(
+			array(
+				'post_title'  => $title,
+				'post_status' => 'auto-draft',
+			)
+		);
+
+		global $wpdb;
+		$wpdb->query( "DELETE FROM `{$wpdb->activity_log}` WHERE `object_id` = {$post_id}" );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+				'post_title'  => $title,
+			)
+		);
+
+		$row = $this->get_latest_post_log( $post_id );
+		$this->assertSame( $title, $row->object_name );
+	}
+
+	public function test_object_name_stores_raw_apostrophe_title() {
+		$title   = "Ministère de l'Intérieur";
+		$post_id = self::factory()->post->create(
+			array(
+				'post_title'  => $title,
+				'post_status' => 'auto-draft',
+			)
+		);
+
+		global $wpdb;
+		$wpdb->query( "DELETE FROM `{$wpdb->activity_log}` WHERE `object_id` = {$post_id}" );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+				'post_title'  => $title,
+			)
+		);
+
+		$row = $this->get_latest_post_log( $post_id );
+		$this->assertSame( $title, $row->object_name );
+	}
+
 	public function test_noop_save_has_no_changes() {
 		$post_id = self::factory()->post->create(
 			array(

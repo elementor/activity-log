@@ -17,7 +17,7 @@ class AAL_Hook_Comments extends AAL_Hook_Base {
 			'action'         => $action,
 			'object_type'    => 'Comments',
 			'object_subtype' => get_post_type( $comment->comment_post_ID ),
-			'object_name'    => esc_html( get_the_title( $comment->comment_post_ID ) ),
+			'object_name'    => get_post_field( 'post_title', $comment->comment_post_ID ),
 			'object_id'      => $id,
 		);
 
