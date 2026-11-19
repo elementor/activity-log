@@ -42,10 +42,6 @@ if ( ! class_exists( 'WC_Coupon' ) ) {
 	class WC_Coupon {}
 }
 
-if ( ! class_exists( 'WC_DateTime' ) ) {
-	class WC_DateTime extends DateTime {}
-}
-
 class AAL_Stub_WC_Coupon extends WC_Coupon {
 
 	private $id;
@@ -626,8 +622,8 @@ class AAL_Test_Hook_WooCommerce extends WP_UnitTestCase {
 
 	public function test_coupon_same_date_expires_different_instance_logs_nothing() {
 		$hook = $this->make_hook();
-		$old  = new WC_DateTime( '2026-12-31 23:59:59', new DateTimeZone( 'UTC' ) );
-		$new  = new WC_DateTime( '2026-12-31 23:59:59', new DateTimeZone( 'UTC' ) );
+		$old  = new DateTime( '2026-12-31 23:59:59', new DateTimeZone( 'UTC' ) );
+		$new  = new DateTime( '2026-12-31 23:59:59', new DateTimeZone( 'UTC' ) );
 		$coupon = $this->make_coupon(
 			604,
 			'dated',
