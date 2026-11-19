@@ -9,6 +9,11 @@ class AAL_Hook_WooCommerce extends AAL_Hook_Base {
 	private $pending_product_changes = array();
 
 	/**
+	 * @var array<int, array<string, mixed>>
+	 */
+	private $pending_coupon_changes = array();
+
+	/**
 	 * @var bool
 	 */
 	private $order_driven_stock_change = false;
@@ -28,6 +33,23 @@ class AAL_Hook_WooCommerce extends AAL_Hook_Base {
 		'backorders',
 		'catalog_visibility',
 		'featured',
+	);
+
+	/**
+	 * @var string[]
+	 */
+	private static $coupon_log_fields = array(
+		'amount',
+		'discount_type',
+		'date_expires',
+		'individual_use',
+		'usage_limit',
+		'usage_limit_per_user',
+		'limit_usage_to_x_items',
+		'free_shipping',
+		'exclude_sale_items',
+		'minimum_amount',
+		'maximum_amount',
 	);
 
 	public static function is_hpos() {
@@ -51,6 +73,10 @@ class AAL_Hook_WooCommerce extends AAL_Hook_Base {
 		return current_user_can( 'edit_products' );
 	}
 
+	protected function should_log_coupon() {
+		return current_user_can( 'edit_shop_coupons' );
+	}
+
 	protected function normalize_product_field_value( $value ) {
 		if ( is_object( $value ) && is_a( $value, 'WC_DateTime' ) ) {
 			return $value->date( 'Y-m-d H:i:s' );
@@ -63,7 +89,11 @@ class AAL_Hook_WooCommerce extends AAL_Hook_Base {
 		return $value;
 	}
 
-	protected function product_field_value_to_string( $value ) {
+	protected function product_field_value_to_string( $value, $field = null ) {
+		if ( in_array( $field, array( 'usage_limit', 'usage_limit_per_user', 'limit_usage_to_x_items' ), true ) ) {
+			$value = (int) $value;
+		}
+
 		$value = $this->normalize_product_field_value( $value );
 
 		if ( null === $value || '' === $value ) {
@@ -77,13 +107,17 @@ class AAL_Hook_WooCommerce extends AAL_Hook_Base {
 		return (string) $value;
 	}
 
-	protected function build_product_changes_diff( $product ) {
-		$data    = $product->get_data();
-		$changes = $product->get_changes();
-		$old     = array();
-		$new     = array();
+	protected function build_changes_diff( $object, array $fields ) {
+		$changes = $object->get_changes();
+		if ( empty( array_intersect( $fields, array_keys( $changes ) ) ) ) {
+			return array();
+		}
 
-		foreach ( self::$product_log_fields as $field ) {
+		$data = $object->get_data();
+		$old  = array();
+		$new  = array();
+
+		foreach ( $fields as $field ) {
 			if ( ! array_key_exists( $field, $changes ) ) {
 				continue;
 			}
@@ -91,8 +125,8 @@ class AAL_Hook_WooCommerce extends AAL_Hook_Base {
 			$old_value = array_key_exists( $field, $data ) ? $data[ $field ] : null;
 			$new_value = $changes[ $field ];
 
-			$old_string = $this->product_field_value_to_string( $old_value );
-			$new_string = $this->product_field_value_to_string( $new_value );
+			$old_string = $this->product_field_value_to_string( $old_value, $field );
+			$new_string = $this->product_field_value_to_string( $new_value, $field );
 
 			if ( $old_string === $new_string ) {
 				continue;
@@ -103,6 +137,10 @@ class AAL_Hook_WooCommerce extends AAL_Hook_Base {
 		}
 
 		return AAL_Changes::diff( $old, $new );
+	}
+
+	protected function build_product_changes_diff( $product ) {
+		return $this->build_changes_diff( $product, self::$product_log_fields );
 	}
 
 	protected function get_product_object_subtype( $product, $default_subtype = 'product' ) {
@@ -303,6 +341,52 @@ class AAL_Hook_WooCommerce extends AAL_Hook_Base {
 		$this->insert_product_log( $product_id, 'updated', $product, $meta, 'product_variation' );
 	}
 
+	public function hooks_woocommerce_before_data_object_save( $object, $data_store = null ) {
+		if ( ! $object instanceof WC_Coupon ) {
+			return;
+		}
+
+		if ( ! $object->get_id() ) {
+			return;
+		}
+
+		if ( ! $this->should_log_coupon() ) {
+			return;
+		}
+
+		$meta = $this->build_changes_diff( $object, self::$coupon_log_fields );
+		if ( empty( $meta ) ) {
+			return;
+		}
+
+		$this->pending_coupon_changes[ (int) $object->get_id() ] = $meta;
+	}
+
+	public function hooks_woocommerce_update_coupon( $coupon_id, $coupon ) {
+		$coupon_id = (int) $coupon_id;
+		if ( empty( $this->pending_coupon_changes[ $coupon_id ] ) ) {
+			return;
+		}
+
+		$meta = $this->pending_coupon_changes[ $coupon_id ];
+		unset( $this->pending_coupon_changes[ $coupon_id ] );
+
+		if ( ! $this->should_log_coupon() ) {
+			return;
+		}
+
+		aal_insert_log(
+			array(
+				'action'         => 'updated',
+				'object_type'    => 'WooCommerce',
+				'object_subtype' => 'shop_coupon',
+				'object_id'      => $coupon_id,
+				'object_name'    => $coupon->get_code( 'edit' ),
+				'meta'           => $meta,
+			)
+		);
+	}
+
 	public function hooks_woocommerce_product_before_set_stock( $product ) {
 		$this->order_driven_stock_change = true;
 	}
@@ -330,6 +414,8 @@ class AAL_Hook_WooCommerce extends AAL_Hook_Base {
 		add_action( 'woocommerce_before_product_object_save', array( &$this, 'hooks_woocommerce_before_product_object_save' ), 10, 2 );
 		add_action( 'woocommerce_update_product', array( &$this, 'hooks_woocommerce_update_product' ), 10, 2 );
 		add_action( 'woocommerce_update_product_variation', array( &$this, 'hooks_woocommerce_update_product_variation' ), 10, 2 );
+		add_action( 'woocommerce_before_data_object_save', array( $this, 'hooks_woocommerce_before_data_object_save' ), 10, 2 );
+		add_action( 'woocommerce_update_coupon', array( $this, 'hooks_woocommerce_update_coupon' ), 10, 2 );
 		add_action( 'woocommerce_product_before_set_stock', array( &$this, 'hooks_woocommerce_product_before_set_stock' ), 10, 1 );
 		add_action( 'woocommerce_variation_before_set_stock', array( &$this, 'hooks_woocommerce_variation_before_set_stock' ), 10, 1 );
 		add_action( 'woocommerce_product_set_stock', array( &$this, 'hooks_woocommerce_product_set_stock' ), 10, 1 );

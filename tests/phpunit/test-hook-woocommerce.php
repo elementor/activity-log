@@ -38,6 +38,47 @@ class AAL_Stub_WC_Order {
 	}
 }
 
+if ( ! class_exists( 'WC_Coupon' ) ) {
+	class WC_Coupon {}
+}
+
+class AAL_Stub_WC_Coupon extends WC_Coupon {
+
+	private $id;
+
+	private $code;
+
+	private $data;
+
+	private $changes;
+
+	public $get_data_calls = 0;
+
+	public function __construct( $id, $code, $data = array(), $changes = array() ) {
+		$this->id      = (int) $id;
+		$this->code    = $code;
+		$this->data    = $data;
+		$this->changes = $changes;
+	}
+
+	public function get_id() {
+		return $this->id;
+	}
+
+	public function get_code( $context = 'view' ) {
+		return $this->code;
+	}
+
+	public function get_data() {
+		$this->get_data_calls++;
+		return $this->data;
+	}
+
+	public function get_changes() {
+		return $this->changes;
+	}
+}
+
 class AAL_Stub_WC_Product {
 
 	private $id;
@@ -118,6 +159,8 @@ class AAL_Hook_WooCommerce_Testable extends AAL_Hook_WooCommerce {
 
 	public $product_log_enabled = true;
 
+	public $coupon_log_enabled = true;
+
 	public $orders = array();
 
 	public static function is_hpos() {
@@ -130,6 +173,10 @@ class AAL_Hook_WooCommerce_Testable extends AAL_Hook_WooCommerce {
 
 	protected function should_log_product() {
 		return $this->product_log_enabled;
+	}
+
+	protected function should_log_coupon() {
+		return $this->coupon_log_enabled;
 	}
 
 	protected function get_order( $id ) {
@@ -500,6 +547,157 @@ class AAL_Test_Hook_WooCommerce extends WP_UnitTestCase {
 
 		$meta = json_decode( $row->meta, true );
 		$this->assertSame( array( 'OLD-SKU', 'NEW-SKU' ), $meta['changes']['sku'] );
+	}
+
+	private function get_latest_coupon_log( $coupon_id ) {
+		global $wpdb;
+
+		return $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM `{$wpdb->activity_log}`
+					WHERE `object_type` = 'WooCommerce' AND `object_id` = %d AND `action` = 'updated'
+					ORDER BY histid DESC LIMIT 1",
+				$coupon_id
+			)
+		);
+	}
+
+	private function make_coupon( $id, $code, $data, $changes ) {
+		return new AAL_Stub_WC_Coupon( $id, $code, $data, $changes );
+	}
+
+	private function run_coupon_save_flow( $hook, $coupon ) {
+		$hook->hooks_woocommerce_before_data_object_save( $coupon, null );
+		$hook->hooks_woocommerce_update_coupon( $coupon->get_id(), $coupon );
+	}
+
+	public function test_coupon_amount_change_logs_updated_row() {
+		$hook   = $this->make_hook();
+		$coupon = $this->make_coupon(
+			601,
+			'save10',
+			array( 'amount' => '10' ),
+			array( 'amount' => '20' )
+		);
+
+		$this->run_coupon_save_flow( $hook, $coupon );
+
+		$row = $this->get_latest_coupon_log( 601 );
+		$this->assertNotEmpty( $row );
+		$this->assertSame( 'updated', $row->action );
+		$this->assertSame( 'shop_coupon', $row->object_subtype );
+		$this->assertSame( 'save10', $row->object_name );
+
+		$meta = json_decode( $row->meta, true );
+		$this->assertSame( array( '10', '20' ), $meta['changes']['amount'] );
+	}
+
+	public function test_coupon_unchanged_whitelisted_values_log_nothing() {
+		$hook   = $this->make_hook();
+		$coupon = $this->make_coupon(
+			602,
+			'stable',
+			array( 'amount' => '15' ),
+			array( 'amount' => '15' )
+		);
+
+		$this->run_coupon_save_flow( $hook, $coupon );
+
+		$this->assertSame( 0, $this->count_woocommerce_logs() );
+	}
+
+	public function test_coupon_limit_usage_to_x_items_null_to_zero_logs_nothing() {
+		$hook   = $this->make_hook();
+		$coupon = $this->make_coupon(
+			603,
+			'nolimit',
+			array( 'limit_usage_to_x_items' => null ),
+			array( 'limit_usage_to_x_items' => 0 )
+		);
+
+		$this->run_coupon_save_flow( $hook, $coupon );
+
+		$this->assertSame( 0, $this->count_woocommerce_logs() );
+	}
+
+	public function test_coupon_same_date_expires_different_instance_logs_nothing() {
+		$hook = $this->make_hook();
+		$old  = new DateTime( '2026-12-31 23:59:59', new DateTimeZone( 'UTC' ) );
+		$new  = new DateTime( '2026-12-31 23:59:59', new DateTimeZone( 'UTC' ) );
+		$coupon = $this->make_coupon(
+			604,
+			'dated',
+			array( 'date_expires' => $old ),
+			array( 'date_expires' => $new )
+		);
+
+		$this->run_coupon_save_flow( $hook, $coupon );
+
+		$this->assertSame( 0, $this->count_woocommerce_logs() );
+	}
+
+	public function test_coupon_non_whitelisted_change_logs_nothing_without_get_data() {
+		$hook   = $this->make_hook();
+		$coupon = $this->make_coupon(
+			605,
+			'pii',
+			array(),
+			array(
+				'usage_count'         => 5,
+				'email_restrictions'  => array( 'a@example.com' ),
+				'used_by'             => array( 'user@example.com' ),
+			)
+		);
+
+		$hook->hooks_woocommerce_before_data_object_save( $coupon, null );
+		$hook->hooks_woocommerce_update_coupon( $coupon->get_id(), $coupon );
+
+		$this->assertSame( 0, $this->count_woocommerce_logs() );
+		$this->assertSame( 0, $coupon->get_data_calls );
+	}
+
+	public function test_new_coupon_logs_nothing() {
+		$hook   = $this->make_hook();
+		$coupon = $this->make_coupon(
+			0,
+			'newcode',
+			array(),
+			array( 'amount' => '5' )
+		);
+
+		$this->run_coupon_save_flow( $hook, $coupon );
+
+		$this->assertSame( 0, $this->count_woocommerce_logs() );
+	}
+
+	public function test_coupon_update_without_edit_shop_coupons_logs_nothing() {
+		$hook                      = $this->make_hook();
+		$hook->coupon_log_enabled = false;
+		$coupon = $this->make_coupon(
+			606,
+			'locked',
+			array( 'amount' => '10' ),
+			array( 'amount' => '12' )
+		);
+
+		$this->run_coupon_save_flow( $hook, $coupon );
+
+		$this->assertSame( 0, $this->count_woocommerce_logs() );
+	}
+
+	public function test_before_data_object_save_ignores_non_coupon_object() {
+		$hook    = $this->make_hook();
+		$product = $this->make_product(
+			607,
+			'Not A Coupon',
+			'simple',
+			array( 'regular_price' => '10.00' ),
+			array( 'regular_price' => '12.00' )
+		);
+
+		$hook->hooks_woocommerce_before_data_object_save( $product, null );
+
+		$this->assertSame( 0, $this->count_woocommerce_logs() );
 	}
 
 	public function test_legacy_shop_order_post_logs_via_posts_hook() {
