@@ -359,7 +359,7 @@ class AAL_Log_Presenter {
 	private static function actions_for_user( $object_id ) {
 		$actions = array();
 		$user_id = (int) $object_id;
-		if ( $user_id <= 0 || ! get_userdata( $user_id ) ) {
+		if ( $user_id <= 0 ) {
 			return $actions;
 		}
 
