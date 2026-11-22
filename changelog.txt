@@ -1,6 +1,6 @@
 == Changelog ==
 
-= 2.19.0 =
+= 2.19.0 - 2026-11-22 =
 * New: Log WooCommerce order activity (HPOS) and staff changes to product price, SKU and stock
 * New: Added `--all` to `wp activity-log list` to stream every matching entry in batches
 * Tweak: Removed the unused legacy WooCommerce integration
