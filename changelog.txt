@@ -1,5 +1,9 @@
 == Changelog ==
 
+= 2.20.0 =
+* Tweak: Always show View and Edit links in the logs table and make them translatable
+* Fix: Show only working View and Edit links in the logs table for deleted, trashed or restricted items
+
 = 2.19.0 - 2026-11-22 =
 * New: Log WooCommerce order activity (HPOS) and staff changes to product price, SKU and stock, and to coupon settings
 * New: Added `--all` to `wp activity-log list` to stream every matching entry in batches

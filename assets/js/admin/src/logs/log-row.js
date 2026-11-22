@@ -131,13 +131,20 @@ export default function LogRow( { item, params, onFilter } ) {
 						</div>
 					) }
 					{ Object.keys( description.actions ).length > 0 && (
-						<div className="row-actions">
-							{ Object.entries( description.actions ).map( ( [ key, url ], i ) => (
-								<span key={ key } className={ key }>
-									{ i > 0 && ' | ' }
-									<a href={ url }>{ key.charAt( 0 ).toUpperCase() + key.slice( 1 ) }</a>
-								</span>
-							) ) }
+						<div className="row-actions" style={ { position: 'static', marginBlockStart: 4 } }>
+							{ Object.entries( description.actions ).map( ( [ key, url ], i ) => {
+								const labels = {
+									view: __( 'View', 'aryo-activity-log' ),
+									edit: __( 'Edit', 'aryo-activity-log' ),
+								};
+								const label = labels[ key ] || key.charAt( 0 ).toUpperCase() + key.slice( 1 );
+								return (
+									<span key={ key } className={ key }>
+										{ i > 0 && ' | ' }
+										<a href={ url }>{ label }</a>
+									</span>
+								);
+							} ) }
 						</div>
 					) }
 				</td>

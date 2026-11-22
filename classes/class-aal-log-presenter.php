@@ -329,6 +329,75 @@ class AAL_Log_Presenter {
 		return html_entity_decode( (string) $item->object_name, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 	}
 
+	private static function actions_for_post( $object_id ) {
+		$actions = array();
+		$post_id = (int) $object_id;
+		if ( $post_id <= 0 ) {
+			return $actions;
+		}
+
+		$post = get_post( $post_id );
+		if ( ! $post || 'trash' === $post->post_status ) {
+			return $actions;
+		}
+
+		if ( is_post_type_viewable( $post->post_type ) ) {
+			$permalink = get_permalink( $post );
+			if ( ! empty( $permalink ) ) {
+				$actions['view'] = $permalink;
+			}
+		}
+
+		$edit_link = get_edit_post_link( $post, 'raw' );
+		if ( ! empty( $edit_link ) ) {
+			$actions['edit'] = $edit_link;
+		}
+
+		return $actions;
+	}
+
+	private static function actions_for_user( $object_id ) {
+		$actions = array();
+		$user_id = (int) $object_id;
+		if ( $user_id <= 0 || ! get_userdata( $user_id ) ) {
+			return $actions;
+		}
+
+		$edit_link = get_edit_user_link( $user_id );
+		if ( ! empty( $edit_link ) ) {
+			$actions['edit'] = $edit_link;
+		}
+
+		return $actions;
+	}
+
+	private static function actions_for_comment( $object_id ) {
+		$actions = array();
+		$comment_id = (int) $object_id;
+		if ( $comment_id <= 0 ) {
+			return $actions;
+		}
+
+		$comment = get_comment( $comment_id );
+		if ( ! $comment || 'trash' === $comment->comment_approved ) {
+			return $actions;
+		}
+
+		$post = get_post( (int) $comment->comment_post_ID );
+		if ( ! $post || 'trash' === $post->post_status ) {
+			return $actions;
+		}
+
+		$edit_url = get_edit_comment_link( $comment->comment_ID );
+		if ( empty( $edit_url ) ) {
+			return $actions;
+		}
+
+		$actions['edit'] = str_replace( '&amp;', '&', $edit_url );
+
+		return $actions;
+	}
+
 	private static function format_description( $item ) {
 		$text    = self::plain_object_name( $item );
 		$actions = array();
@@ -336,8 +405,7 @@ class AAL_Log_Presenter {
 		switch ( $item->object_type ) {
 			case 'Post':
 			case 'Posts':
-				$actions['view'] = get_permalink( $item->object_id );
-				$actions['edit'] = get_edit_post_link( $item->object_id, 'raw' );
+				$actions = self::actions_for_post( $item->object_id );
 				break;
 
 			case 'Taxonomy':
@@ -357,18 +425,13 @@ class AAL_Log_Presenter {
 				break;
 
 			case 'Comments':
-				if ( ! empty( $item->object_id ) && get_comment( $item->object_id ) ) {
-					$actions['edit'] = get_edit_comment_link( $item->object_id );
-				}
+				$actions = self::actions_for_comment( $item->object_id );
 				$text = self::plain_object_name( $item ) . " #{$item->object_id}";
 				break;
 
 			case 'User':
 			case 'Users':
-				$user_edit = get_edit_user_link( $item->object_id );
-				if ( ! empty( $user_edit ) ) {
-					$actions['edit'] = $user_edit;
-				}
+				$actions = self::actions_for_user( $item->object_id );
 				if ( ! empty( $item->object_name ) ) {
 					$text = __( 'Username:', 'aryo-activity-log' ) . ' ' . self::plain_object_name( $item );
 				}
@@ -388,6 +451,8 @@ class AAL_Log_Presenter {
 				$text = __( $item->object_name, 'aryo-activity-log' );
 				break;
 		}
+
+		$actions = array_filter( $actions );
 
 		$rendered = apply_filters( 'aal_table_list_column_description', $text, $item );
 
