@@ -142,7 +142,7 @@ Yes. Activity Log fully supports Multisite, logging activity per site and cleani
 
 = Does this work with WooCommerce? =
 
-Yes. With High-Performance Order Storage (HPOS), order creation, status changes, refunds, notes, trash, restore and delete are logged when made by staff. Orders stored as posts, products and coupons are logged like any other post type.
+Yes. With High-Performance Order Storage (HPOS), order creation, status changes, refunds, notes, trash, restore and delete are logged when made by staff. Orders stored as posts are logged like any other post type. Products and coupons are logged as posts too, with extra rows for staff changes to product price, SKU and stock, and to coupon settings.
 
 = Can I exclude specific events from being logged? =
 
@@ -155,7 +155,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 == Changelog ==
 
 = 2.19.0 =
-* New: Log WooCommerce order activity (HPOS) and staff changes to product price, SKU and stock
+* New: Log WooCommerce order activity (HPOS) and staff changes to product price, SKU and stock, and to coupon settings
 * New: Added `--all` to `wp activity-log list` to stream every matching entry in batches
 * Tweak: Removed the unused legacy WooCommerce integration
 * Fix: Translate topic names in the logs filter
